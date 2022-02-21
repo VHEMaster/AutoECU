@@ -1,0 +1,6 @@
+MC33385 - NEW 4x open drain regulator
+TLE5216G - OLD 4x open drain regulator
+TLE4729G - Stepper motor driver
+HIP9011 - knock sensor
+ADS8688 - 8 channel ADC
+TPS2814 - ignitors driver
