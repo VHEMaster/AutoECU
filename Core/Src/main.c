@@ -5,6 +5,9 @@
 #include "packets.h"
 #include "xCommand.h"
 #include "csps.h"
+#include "misc.h"
+#include "adc.h"
+#include "sst25vf032b.h"
 
 CAN_HandleTypeDef hcan1;
 
@@ -68,8 +71,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim == &htim4) {
     ecu_irq_fast_loop();
+    ADC_Fast_Loop();
   } else if (htim == &htim3) {
     ecu_irq_slow_loop();
+    ADC_Slow_Loop();
+    Misc_Loop();
   }
 }
 
@@ -88,6 +94,74 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     //csps_exti(Delay_Tick, DelayMask);
   } else if (GPIO_Pin == KNOCK_INT_Pin) {
 
+  }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if(huart == &huart4 || huart == &huart5) {
+    xDmaErIrqHandler(huart);
+  } else if(huart == &huart8) {
+
+  }
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if(huart == &huart4 || huart == &huart5) {
+    xDmaTxIrqHandler(huart);
+  } else if(huart == &huart8) {
+
+  }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if(huart == &huart8) {
+
+  }
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+  if(hspi == &hspi2) {
+    SST25_TxCpltCallback(hspi);
+  } else if(hspi == &hspi1) {
+    ADC_TxCpltCallback(hspi);
+  } else if(hspi == &hspi4) {
+    Misc_TxCpltCallback(hspi);
+  }
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+  if(hspi == &hspi2) {
+    SST25_RxCpltCallback(hspi);
+  } else if(hspi == &hspi1) {
+    ADC_RxCpltCallback(hspi);
+  } else if(hspi == &hspi4) {
+    Misc_RxCpltCallback(hspi);
+  }
+}
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+  if(hspi == &hspi2) {
+    SST25_TxRxCpltCallback(hspi);
+  } else if(hspi == &hspi1) {
+    ADC_TxRxCpltCallback(hspi);
+  } else if(hspi == &hspi4) {
+    Misc_TxRxCpltCallback(hspi);
+  }
+}
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
+{
+  if(hspi == &hspi2) {
+    SST25_ErrorCallback(hspi);
+  } else if(hspi == &hspi1) {
+    ADC_ErrorCallback(hspi);
+  } else if(hspi == &hspi4) {
+    Misc_ErrorCallback(hspi);
   }
 }
 
@@ -133,11 +207,17 @@ int main(void)
   xFifosInit();
   xGetterInit();
 
+  ADC_Init(&hspi1);
+  SST25_Init(&hspi2);
+  Misc_Init(&hspi4);
+
   csps_init();
   ecu_init();
 
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
+
+  Misc_O2_Init(htim9.Instance->ARR, &htim9.Instance->CCR1);
 
   while (1) {
     csps_loop();
@@ -416,7 +496,7 @@ static void MX_SPI4_Init(void)
   hspi4.Init.Direction = SPI_DIRECTION_2LINES;
   hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi4.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi4.Init.NSS = SPI_NSS_SOFT;
   hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
