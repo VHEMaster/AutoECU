@@ -1,0 +1,13 @@
+#include "main.h"
+
+void csps_loop(void);
+void csps_init(void);
+void csps_exti(uint32_t timestamp);
+float csps_getangle14(void);
+float csps_getangle23from14(float angle);
+float csps_getangle23(void);
+float csps_getrpm(void);
+float csps_getperiod(void);
+float csps_getuspa(void);
+uint8_t csps_isrotates(void);
+uint8_t csps_isfound(void);
