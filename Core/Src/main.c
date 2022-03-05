@@ -106,10 +106,13 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
       csps_exti(timestamp);
     }
   }
-  else if (htim == &htim9) {
+  else if (htim == &htim8) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
-      timestamp = htim->Instance->CCR1;
+      timestamp = Delay_Tick;
       speed_exti(timestamp);
+    } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
+      timestamp = Delay_Tick;
+      csps_tsps_exti(timestamp);
     }
   }
 }
@@ -272,6 +275,7 @@ int main(void)
 
   HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
+  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_3);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
@@ -867,7 +871,7 @@ static void MX_TIM8_Init(void)
   htim8.Instance = TIM8;
   htim8.Init.Prescaler = (HAL_RCC_GetPCLK2Freq() * 2 / 1000000) - 1;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = DelayMask;
+  htim8.Init.Period = 0xFFFF;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim8) != HAL_OK) {
@@ -885,11 +889,14 @@ static void MX_TIM8_Init(void)
   if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK) {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
   sConfigIC.ICFilter = 7;
   if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_2) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_3) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM8_Init 2 */
@@ -1352,10 +1359,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BT_LED_Pin SENS_OIL_Pin TIM8_CH2_SENS_SPEED_Pin SENS_TSPS_Pin
+  /*Configure GPIO pins : BT_LED_Pin SENS_OIL_Pin TIM8_CH2_SENS_SPEED_Pin
    SENS_STARTER_Pin */
-  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin
-      | SENS_TSPS_Pin | SENS_STARTER_Pin;
+  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin | SENS_STARTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);

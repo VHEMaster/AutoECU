@@ -102,10 +102,12 @@ typedef struct {
     float cutoffAngle;
     float cutoffMixture;
     float engineVolume;
-
     float speedCorrection;
 
-    int32_t Reserved32[51];
+    int32_t useLambdaSensor;
+    int32_t useTSPS;
+
+    int32_t Reserved32[48];
 }sEcuParams;
 
 typedef struct {
@@ -152,6 +154,7 @@ typedef struct {
     float IgnitionAngle;
     float InjectionPhase;
     float IgnitionTime;
+    float IgnitionDutyCycle;
 
     int32_t OilSensor;
     int32_t StarterSensor;

@@ -19,7 +19,7 @@ typedef enum {
 }eInjector;
 
 void injector_irq(eInjector injector);
-void injector_register(eInjector injector, TIM_HandleTypeDef *htim, uint32_t channel);
+HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim, uint32_t channel);
 HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec);
 
 #endif /* INC_INJECTOR_H_ */

@@ -17,6 +17,9 @@ typedef struct
   float AnglePrev23;
   float RPM;
   float uSPA;
+  uint32_t PhasedActive;
+  float PhasedAngleCur;
+  float PhasedAnglePrev;
 }sCspsData;
 
 static const float csps_cors[116] = {
@@ -44,6 +47,7 @@ static volatile uint32_t csps_pulse_last = 0;
 static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
 static volatile uint8_t csps_found = 0;
 static volatile uint8_t csps_rotates = 0;
+static volatile uint8_t csps_phased = 0;
 static volatile uint32_t csps_last = 0;
 static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
@@ -54,7 +58,7 @@ static volatile uint32_t *csps_timebase = NULL;
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
 
-static sCspsData CspsData[DATA_SIZE];
+static sCspsData CspsData[DATA_SIZE] = {{0}};
 static sCspsData * volatile CspsDataPtr = &CspsData[0];
 
 static float csps_cors_avg = 1.0f;
@@ -78,11 +82,15 @@ void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t c
   }
 }
 
+inline void csps_tsps_exti(uint32_t timestamp)
+{
+
+}
 
 inline void csps_exti(uint32_t timestamp)
 {
-  static float csps_angle14 = 0, csps_angle23 = 0;
-  static float cs14_p = 0, cs23_p = 0;
+  static float csps_angle14 = 0, csps_angle23 = 0, csps_angle_phased = 0;
+  static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
   static float average_prev = 0;
   static uint8_t dataindex = 0;
   static uint32_t t1 = 0;
@@ -231,6 +239,9 @@ inline void csps_exti(uint32_t timestamp)
     data.DelayCur = cur;
     data.RPM = csps_rpm;
     data.uSPA = csps_uspa;
+    data.PhasedActive = csps_phased;
+    data.PhasedAngleCur = csps_angle_phased;
+    data.PhasedAnglePrev = cs_phased_p;
 
     diff = DelayDiff(cur, prev);
     //cpsp_dynamic_corr[t1] = cpsp_dynamic_corr[t1] * 0.95f + (120.0f / (csps_period / diff)) * 0.05f;
@@ -244,6 +255,9 @@ inline void csps_exti(uint32_t timestamp)
     data.AnglePrev23 = 0;
     data.DelayPrev = 0;
     data.DelayCur = 0;
+    data.PhasedActive = 0;
+    data.PhasedAngleCur = 0;
+    data.PhasedAnglePrev = 0;
     data.RPM = 0;
     data.uSPA = 3000.0f;
     csps_period = 1000000.0f;
@@ -327,6 +341,46 @@ inline float csps_getangle23from14(float angle)
   return angle;
 }
 
+inline float csps_getphasedangle(void)
+{
+  static float angle_prev = 0;
+  float angle, acur, aprev, mult, cur;
+  sCspsData data = *CspsDataPtr;
+  float now = *csps_timebase;
+
+  if(!csps_rotates || !csps_found)
+    return 0.0f;
+
+  cur = DelayDiff(data.DelayCur, data.DelayPrev);
+  now = DelayDiff(now, data.DelayPrev);
+
+  acur = data.PhasedAngleCur;
+  aprev = data.PhasedAnglePrev;
+
+  if(acur < aprev)
+    acur += 360.0f;
+
+  angle = acur - aprev;
+  mult = angle / cur;
+  angle = mult * now + aprev;
+
+  while(angle > 180.0f)
+    angle -= 360.0f;
+
+  if((angle - angle_prev < 0.0f && angle - angle_prev > -90.0f) || angle - angle_prev > 90.0f)
+  {
+    angle = angle_prev;
+  }
+
+  //Check for NaNs
+  if(angle != angle)
+    angle = 0.0f;
+
+  angle_prev = angle;
+
+  return angle;
+}
+
 inline float csps_getrpm(void)
 {
   return csps_rpm;
@@ -345,6 +399,11 @@ inline float csps_getperiod(void)
 inline uint8_t csps_isrotates(void)
 {
   return csps_rotates;
+}
+
+inline uint8_t csps_isphased(void)
+{
+  return csps_phased;
 }
 
 inline uint8_t csps_isfound(void)
