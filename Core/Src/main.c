@@ -7,6 +7,7 @@
 #include "csps.h"
 #include "misc.h"
 #include "adc.h"
+#include "speed.h"
 #include "sst25vf032b.h"
 
 CAN_HandleTypeDef hcan1;
@@ -31,6 +32,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim9;
 TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
@@ -47,7 +49,11 @@ DMA_HandleTypeDef hdma_uart5_tx;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM8_Init(void);
+static void MX_TIM9_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM13_Init(void);
@@ -56,7 +62,6 @@ static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_SPI4_Init(void);
-static void MX_TIM9_Init(void);
 static void MX_UART4_Init(void);
 static void MX_UART5_Init(void);
 static void MX_DMA_Init(void);
@@ -64,8 +69,8 @@ static void MX_IWDG_Init(void);
 static void MX_UART8_Init(void);
 static void MX_CRC_Init(void);
 static void MX_RNG_Init(void);
-static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
+
+static volatile uint32_t o2_pwm_period = 0;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -82,9 +87,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
   uint32_t timestamp;
-  if (htim == &htim5 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-    timestamp = htim->Instance->CCR1;
-    csps_exti(timestamp);
+  if (htim == &htim5) {
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+      timestamp = htim->Instance->CCR1;
+      csps_exti(timestamp);
+    }
+  }
+  else if (htim == &htim9) {
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
+      timestamp = htim->Instance->CCR1;
+      speed_exti(timestamp);
+    }
+  }
+}
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+  if(htim == &htim9 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+    htim9.Instance->CCR1 = o2_pwm_period;
   }
 }
 
@@ -177,7 +197,11 @@ int main(void)
 
   MX_GPIO_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   MX_TIM5_Init();
+  MX_TIM8_Init();
+  MX_TIM9_Init();
   MX_TIM10_Init();
   MX_TIM11_Init();
   MX_TIM13_Init();
@@ -186,15 +210,12 @@ int main(void)
   MX_SPI2_Init();
   MX_CAN1_Init();
   MX_SPI4_Init();
-  MX_TIM9_Init();
   MX_UART4_Init();
   MX_UART5_Init();
   MX_DMA_Init();
   MX_UART8_Init();
   MX_CRC_Init();
   MX_RNG_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
 
   if (0) {
     MX_IWDG_Init();
@@ -211,15 +232,22 @@ int main(void)
   SST25_Init(&hspi2);
   Misc_Init(&hspi4);
 
-  csps_init();
+  csps_init(&htim5.Instance->CNT);
+  speed_init(&htim8.Instance->CNT);
   ecu_init();
+
+  Misc_O2_Init(htim9.Init.Period,
+               &o2_pwm_period);
+
 
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
-
-  Misc_O2_Init(htim9.Instance->ARR, &htim9.Instance->CCR1);
+  HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
+  HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
+  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
 
   while (1) {
+    speed_loop();
     csps_loop();
     ecu_loop();
     xGetterLoop();
@@ -695,6 +723,59 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+ * @brief TIM8 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+  TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+  TIM_IC_InitTypeDef sConfigIC = { 0 };
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = (HAL_RCC_GetPCLK2Freq() * 2 / 1000000) - 1;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = DelayMask;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK) {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim8) != HAL_OK) {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 7;
+  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_2) != HAL_OK) {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
  * @brief TIM9 Initialization Function
  * @param None
  * @retval None
@@ -729,7 +810,7 @@ static void MX_TIM9_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = o2_pwm_period;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim9, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
@@ -1148,9 +1229,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BT_LED_Pin SENS_OIL_Pin SENS_SPEED_Pin SENS_TSPS_Pin
+  /*Configure GPIO pins : BT_LED_Pin SENS_OIL_Pin TIM8_CH2_SENS_SPEED_Pin SENS_TSPS_Pin
    SENS_STARTER_Pin */
-  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin | SENS_SPEED_Pin
+  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin
       | SENS_TSPS_Pin | SENS_STARTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

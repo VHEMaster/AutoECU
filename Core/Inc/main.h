@@ -130,8 +130,8 @@ void Error_Handler(void);
 #define SENS_HANDBRAKE_GPIO_Port GPIOD
 #define SENS_OIL_Pin GPIO_PIN_6
 #define SENS_OIL_GPIO_Port GPIOC
-#define SENS_SPEED_Pin GPIO_PIN_7
-#define SENS_SPEED_GPIO_Port GPIOC
+#define TIM8_CH2_SENS_SPEED_Pin GPIO_PIN_7
+#define TIM8_CH2_SENS_SPEED_GPIO_Port GPIOC
 #define SENS_TSPS_Pin GPIO_PIN_8
 #define SENS_TSPS_GPIO_Port GPIOC
 #define SENS_STARTER_Pin GPIO_PIN_9
@@ -187,6 +187,8 @@ void Error_Handler(void);
 #define NVIC_PRIO_TIM3_1K 6
 #define NVIC_PRIO_TIM4_15US 5
 #define NVIC_PRIO_TIM5_CSPS 3
+#define NVIC_PRIO_TIM8_SPEED 6
+#define NVIC_PRIO_TIM9_O2PWM 1
 #define NVIC_PRIO_EXTI0_CSPS 2
 #define NVIC_PRIO_EXTI4_KNOCK_INT 9
 

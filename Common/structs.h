@@ -103,7 +103,7 @@ typedef struct {
     float cutoffMixture;
     float engineVolume;
 
-    float speedTicksPerMeter;
+    float speedCorrection;
 
     int32_t Reserved32[51];
 }sEcuParams;

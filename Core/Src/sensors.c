@@ -6,6 +6,7 @@
  */
 
 #include "sensors.h"
+#include "misc.h"
 #include "adc.h"
 
 #define VOLTAGE_5V0 5.0f
@@ -63,6 +64,19 @@ static float getTemperatureByResistance(float resistance)
   return result;
 }
 
+HAL_StatusTypeDef sens_get_fuelratio(float *output, uint8_t *valid) {
+  HAL_StatusTypeDef status = HAL_OK;
+  sO2Status o2status = Misc_O2_GetStatus();
+  *output = o2status.FuelRatio;
+  if(o2status.Working) {
+    *valid = o2status.Valid;
+  } else {
+    *valid = 0;
+    status = HAL_ERROR;
+  }
+  return status;
+}
+
 HAL_StatusTypeDef sens_get_knock(float *output) {
   HAL_StatusTypeDef status = HAL_OK;
   //TODO: to define the way to output it
@@ -90,10 +104,14 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
   reference_resistance = 1000.0f;
   meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
   temperature = getTemperatureByResistance(meter_resistance);
-  if(temperature < -40.0f)
+  if(temperature < -40.0f) {
     *output = -40.0f;
-  else if(temperature > 150.0f)
+    status = HAL_ERROR;
+  }
+  else if(temperature > 150.0f) {
     *output = 150.0f;
+    status = HAL_ERROR;
+  }
   else
     *output = temperature;
 
@@ -113,10 +131,14 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
   reference_resistance = 200.0f;
   meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
   temperature = getTemperatureByResistance(meter_resistance);
-  if(temperature < -40.0f)
+  if(temperature < -40.0f) {
     *output = -40.0f;
-  else if(temperature > 150.0f)
+    status = HAL_ERROR;
+  }
+  else if(temperature > 150.0f) {
     *output = 150.0f;
+    status = HAL_ERROR;
+  }
   else
     *output = temperature;
 
@@ -156,6 +178,16 @@ HAL_StatusTypeDef sens_get_power_voltage(float *output)
   float power_voltage = ADC_GetVoltage(AdcChPowerVoltage);
 
   *output = power_voltage;
+
+  return status;
+}
+
+HAL_StatusTypeDef sens_get_reference_voltage(float *output)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  float reference_voltage = VOLTAGE_5V0;
+
+  *output = reference_voltage;
 
   return status;
 }

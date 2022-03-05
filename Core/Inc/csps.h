@@ -1,7 +1,7 @@
 #include "main.h"
 
 void csps_loop(void);
-void csps_init(void);
+void csps_init(volatile uint32_t *timebase);
 void csps_exti(uint32_t timestamp);
 float csps_getangle14(void);
 float csps_getangle23from14(float angle);

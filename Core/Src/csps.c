@@ -49,6 +49,7 @@ static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
 static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
+static volatile uint32_t *csps_timebase = NULL;
 
 static sCspsData CspsData[DATA_SIZE];
 static sCspsData * volatile CspsDataPtr = &CspsData[0];
@@ -57,9 +58,10 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
-void csps_init(void)
+void csps_init(volatile uint32_t *timebase)
 {
   float tval = 0;
+  csps_timebase = timebase;
   for(int i = 0; i < 116; i++)
     tval += csps_cors[i];
   csps_cors_sum = (120.0f / tval) * 3.0f;
@@ -103,7 +105,7 @@ inline void csps_exti(uint32_t timestamp)
   pin_prev = pin_state;
   */
 
-  csps_pulse_last = cur;
+  csps_pulse_last = timestamp;
   for(i = 1; i < IRQ_SIZE; i++)
     cspc_irq_data[i - 1] = cspc_irq_data[i];
   cspc_irq_data[IRQ_SIZE - 1] = cur;
@@ -269,7 +271,7 @@ inline float csps_getangle14(void)
   static float angle_prev = 0;
   float angle, acur, aprev, mult, cur;
   sCspsData data = *CspsDataPtr;
-  float now = Delay_Tick;
+  float now = *csps_timebase;
 
   if(!csps_rotates || !csps_found)
     return 0.0f;
@@ -349,7 +351,7 @@ inline void csps_loop(void)
   static uint32_t last_error_null = 0;
 
   uint32_t pulse_value = csps_pulse_last;
-  uint32_t now = Delay_Tick;
+  uint32_t now = *csps_timebase;
 
   if(DelayDiff(now, pulse_value) > 50000)
   {
