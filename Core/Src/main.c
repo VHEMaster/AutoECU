@@ -8,7 +8,10 @@
 #include "misc.h"
 #include "adc.h"
 #include "speed.h"
+#include "injector.h"
 #include "sst25vf032b.h"
+
+ADC_HandleTypeDef hadc1;
 
 CAN_HandleTypeDef hcan1;
 
@@ -28,6 +31,7 @@ DMA_HandleTypeDef hdma_spi2_tx;
 DMA_HandleTypeDef hdma_spi4_rx;
 DMA_HandleTypeDef hdma_spi4_tx;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -48,6 +52,8 @@ DMA_HandleTypeDef hdma_uart5_tx;
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
@@ -72,12 +78,19 @@ static void MX_RNG_Init(void);
 
 static volatile uint32_t o2_pwm_period = 0;
 
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
+{
+  if(hadc == &hadc1) {
+    ADC_MCU_ConvCpltCallback(hadc);
+  }
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim == &htim4) {
+  if (htim == &htim3) {
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
-  } else if (htim == &htim3) {
+  } else if (htim == &htim4) {
     ecu_irq_slow_loop();
     ADC_Slow_Loop();
     Misc_Loop();
@@ -106,6 +119,18 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
   if(htim == &htim9 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
     htim9.Instance->CCR1 = o2_pwm_period;
   }
+  else if(htim == &htim10 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+    injector_irq(InjectorCy1);
+  }
+  else if(htim == &htim11 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+    injector_irq(InjectorCy2);
+  }
+  else if(htim == &htim13 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+    injector_irq(InjectorCy4);
+  }
+  else if(htim == &htim14 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+    injector_irq(InjectorCy3);
+  }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -113,7 +138,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   if (GPIO_Pin == TIM5_CH1_SENS_CSPS_Pin) {
     //csps_exti(Delay_Tick, DelayMask);
   } else if (GPIO_Pin == KNOCK_INT_Pin) {
-
+    //TODO: knock IRQ
   }
 }
 
@@ -196,6 +221,8 @@ int main(void)
   SystemClock_Config();
 
   MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
@@ -221,30 +248,36 @@ int main(void)
     MX_IWDG_Init();
   }
 
-  DelayInit(&htim2);
+  DelayInit();
   CRC16_Init(&hcrc);
 
   PK_SenderInit();
   xFifosInit();
   xGetterInit();
 
-  ADC_Init(&hspi1);
+  ADC_Init(&hspi1, &hadc1);
   SST25_Init(&hspi2);
   Misc_Init(&hspi4);
 
-  csps_init(&htim5.Instance->CNT);
-  speed_init(&htim8.Instance->CNT);
-  ecu_init();
+  csps_init(&htim5.Instance->CNT, &htim2, TIM_CHANNEL_1);
+  speed_init(&htim8.Instance->CNT, &htim1, TIM_CHANNEL_1);
+
+  injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
+  injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);
+  injector_register(InjectorCy3, &htim14, TIM_CHANNEL_1);
+  injector_register(InjectorCy4, &htim13, TIM_CHANNEL_1);
 
   Misc_O2_Init(htim9.Init.Period,
                &o2_pwm_period);
 
-
+  HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
+  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
-  HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
-  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
+  HAL_ADC_Start_IT(&hadc1);
+
+  ecu_init();
 
   while (1) {
     speed_loop();
@@ -301,6 +334,43 @@ void SystemClock_Config(void)
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK) {
     Error_Handler();
   }
+}
+
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T4_TRGO;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_LEFT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
 }
 
 /**
@@ -543,27 +613,74 @@ static void MX_SPI4_Init(void)
 }
 
 /**
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM1_Init(void)
+{
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+  TIM_OC_InitTypeDef sConfigOC = { 0 };
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0xFFFF;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = (HAL_RCC_GetPCLK2Freq() * 2 / 1000000 * 2) - 1;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK) {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK) {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = (HAL_RCC_GetPCLK2Freq() * 2 / 1000000 * 10 / 2) - 1;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+
+/**
  * @brief TIM2 Initialization Function
  * @param None
  * @retval None
  */
 static void MX_TIM2_Init(void)
 {
-
   /* USER CODE BEGIN TIM2_Init 0 */
 
   /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
-  TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+  TIM_OC_InitTypeDef sConfigOC = { 0 };
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) - 1;
+  htim2.Init.Prescaler = 0xFFFF;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = DelayMask;
+  htim2.Init.Period = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10) - 1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
@@ -573,14 +690,20 @@ static void MX_TIM2_Init(void)
   if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK) {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10 / 2) - 1;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 
@@ -606,7 +729,7 @@ static void MX_TIM3_Init(void)
   htim3.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) - 1;
   ;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000000 / 1000 - 1;
+  htim3.Init.Period = 1000000 / 66666 - 1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
@@ -648,7 +771,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) - 1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1000000 / 66666 - 1;
+  htim4.Init.Period = 1000000 / 1000 - 1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK) {
@@ -658,7 +781,7 @@ static void MX_TIM4_Init(void)
   if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK) {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK) {
     Error_Handler();
@@ -1202,8 +1325,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD,
-      SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin | TACHOMETER_Pin
-          | CHECKENGINE_Pin | SPEEDMETER_Pin | FUEL_PUMP_Pin | SPI1_NRST_Pin,
+      SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin
+          | CHECKENGINE_Pin | FUEL_PUMP_Pin | SPI1_NRST_Pin,
       GPIO_PIN_RESET);
 
   /*Configure GPIO pins : SPI4_NSS_OUTS1_Pin SPI4_NSS_OUTS2_Pin STEP_I0_Pin STEP_I1_Pin
@@ -1269,10 +1392,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(STEP_ERR_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SPI2_WP_Pin IGN_3_Pin IGN_2_Pin IGN_1_Pin
-   TACHOMETER_Pin CHECKENGINE_Pin SPEEDMETER_Pin FUEL_PUMP_Pin
+   CHECKENGINE_Pin FUEL_PUMP_Pin
    SPI1_NRST_Pin */
   GPIO_InitStruct.Pin = SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin
-      | TACHOMETER_Pin | CHECKENGINE_Pin | SPEEDMETER_Pin | FUEL_PUMP_Pin
+      | CHECKENGINE_Pin | FUEL_PUMP_Pin
       | SPI1_NRST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

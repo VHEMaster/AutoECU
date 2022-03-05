@@ -94,8 +94,10 @@ void Error_Handler(void);
 #define INJ_CH1_GPIO_Port GPIOC
 #define SPI4_NSS_INJ_Pin GPIO_PIN_0
 #define SPI4_NSS_INJ_GPIO_Port GPIOB
-#define STEP_ERR_Pin GPIO_PIN_1
+#define STEP_ERR_Pin GPIO_PIN_2
 #define STEP_ERR_GPIO_Port GPIOB
+#define ADC1_IN9_SENS_5V0_Pin GPIO_PIN_1
+#define ADC1_IN9_SENS_5V0_GPIO_Port GPIOB
 #define STEP_I0_Pin GPIO_PIN_11
 #define STEP_I0_GPIO_Port GPIOE
 #define STEP_I1_Pin GPIO_PIN_12
@@ -146,12 +148,12 @@ void Error_Handler(void);
 #define OUT_RSVD2_GPIO_Port GPIOA
 #define OUT_STARTER_Pin GPIO_PIN_12
 #define OUT_STARTER_GPIO_Port GPIOA
-#define TACHOMETER_Pin GPIO_PIN_3
-#define TACHOMETER_GPIO_Port GPIOD
+#define TIM2_CH1_TACHOMETER_Pin GPIO_PIN_15
+#define TIM2_CH1_TACHOMETER_GPIO_Port GPIOA
 #define CHECKENGINE_Pin GPIO_PIN_4
 #define CHECKENGINE_GPIO_Port GPIOD
-#define SPEEDMETER_Pin GPIO_PIN_5
-#define SPEEDMETER_GPIO_Port GPIOD
+#define TIM1_CH1_SPEEDMETER_Pin GPIO_PIN_9
+#define TIM1_CH1_SPEEDMETER_GPIO_Port GPIOE
 #define FUEL_PUMP_Pin GPIO_PIN_6
 #define FUEL_PUMP_GPIO_Port GPIOD
 #define SPI1_NRST_Pin GPIO_PIN_7
@@ -167,6 +169,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+#define NVIC_PRIO_ADC1 7
 #define NVIC_PRIO_SPI1_ADC 7
 #define NVIC_PRIO_SPI1_ADC_DMA_TX 7
 #define NVIC_PRIO_SPI1_ADC_DMA_RX 7
@@ -184,13 +187,17 @@ void Error_Handler(void);
 #define NVIC_PRIO_UART8_BT 8
 #define NVIC_PRIO_CAN1 13
 #define NVIC_PRIO_RNG 14
-#define NVIC_PRIO_TIM3_1K 6
-#define NVIC_PRIO_TIM4_15US 5
+#define NVIC_PRIO_TIM3_15US 5
+#define NVIC_PRIO_TIM4_1K 6
 #define NVIC_PRIO_TIM5_CSPS 3
 #define NVIC_PRIO_TIM8_SPEED 6
 #define NVIC_PRIO_TIM9_O2PWM 1
 #define NVIC_PRIO_EXTI0_CSPS 2
 #define NVIC_PRIO_EXTI4_KNOCK_INT 9
+#define NVIC_PRIO_TIM10_INJ1 7
+#define NVIC_PRIO_TIM11_INJ2 7
+#define NVIC_PRIO_TIM14_INJ3 7
+#define NVIC_PRIO_TIM13_INJ4 7
 
 /* USER CODE END Private defines */
 

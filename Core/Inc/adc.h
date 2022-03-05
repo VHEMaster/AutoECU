@@ -18,14 +18,16 @@ typedef enum {
   AdcChThrottlePosition,
   AdcChPowerVoltage,
   AdcChO2UR,
-  AdcChO2UA
+  AdcChO2UA,
+  AdcMcuChReferenceVoltage
 }eAdcChannel;
 
 void ADC_ErrorCallback(SPI_HandleTypeDef * _hspi);
 void ADC_TxCpltCallback(SPI_HandleTypeDef * _hspi);
 void ADC_RxCpltCallback(SPI_HandleTypeDef * _hspi);
 void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi);
-HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi);
+void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc);
+HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc);
 HAL_StatusTypeDef ADC_Fast_Loop(void);
 HAL_StatusTypeDef ADC_Slow_Loop(void);
 float ADC_GetVoltage(eAdcChannel channel);

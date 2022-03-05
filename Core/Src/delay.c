@@ -2,9 +2,9 @@
 #include "stm32f7xx_hal.h"
 #include "delay.h"
 
-void DelayInit(TIM_HandleTypeDef *htim)
+void DelayInit(void)
 {
-    HAL_TIM_Base_Start(htim);
+
 }
 
 inline void DelayUs(uint32_t val)

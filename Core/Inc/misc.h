@@ -16,17 +16,19 @@
 #define O2_E_SHORTCIRCUITBAT 3
 
 typedef struct {
+    uint8_t VM : 2;
+    uint8_t UN : 2;
+    uint8_t IAIP : 2;
+    uint8_t DIAHGD : 2;
+}sO2Diagnostic;
+
+typedef struct {
     uint8_t Working;
     uint8_t Valid;
     float FuelRatio;
     union {
         uint8_t Byte;
-        struct {
-            uint8_t VM : 2;
-            uint8_t UN : 2;
-            uint8_t IAIP : 2;
-            uint8_t DIAHGD : 2;
-        } Fields;
+        sO2Diagnostic Fields;
     }Diag;
 }sO2Status;
 

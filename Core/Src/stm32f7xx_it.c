@@ -55,6 +55,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern ADC_HandleTypeDef hadc1;
 extern CAN_HandleTypeDef hcan1;
 extern RNG_HandleTypeDef hrng;
 extern DMA_HandleTypeDef hdma_spi1_rx;
@@ -71,6 +72,10 @@ extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim8;
 extern TIM_HandleTypeDef htim9;
+extern TIM_HandleTypeDef htim10;
+extern TIM_HandleTypeDef htim11;
+extern TIM_HandleTypeDef htim13;
+extern TIM_HandleTypeDef htim14;
 extern DMA_HandleTypeDef hdma_uart4_rx;
 extern DMA_HandleTypeDef hdma_uart5_rx;
 extern DMA_HandleTypeDef hdma_uart5_tx;
@@ -219,6 +224,19 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32f7xx.s).                    */
 /******************************************************************************/
 
+/**
+* @brief This function handles ADC1, ADC2 and ADC3 global interrupts.
+*/
+void ADC_IRQHandler(void)
+{
+  /* USER CODE BEGIN ADC_IRQn 0 */
+
+  /* USER CODE END ADC_IRQn 0 */
+  HAL_ADC_IRQHandler(&hadc1);
+  /* USER CODE BEGIN ADC_IRQn 1 */
+
+  /* USER CODE END ADC_IRQn 1 */
+}
 /**
   * @brief This function handles EXTI line0 interrupt.
   */
@@ -427,6 +445,26 @@ void TIM8_CC_IRQHandler(void)
   /* USER CODE BEGIN TIM5_IRQn 1 */
 
   /* USER CODE END TIM8_IRQn 1 */
+}
+
+void TIM1_UP_TIM10_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&htim10);
+}
+
+void TIM1_TRG_COM_TIM11_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&htim11);
+}
+
+void TIM8_UP_TIM13_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&htim13);
+}
+
+void TIM8_TRG_COM_TIM14_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&htim14);
 }
 
 /**

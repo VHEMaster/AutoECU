@@ -14,9 +14,15 @@ static volatile uint32_t speed_pulse_last = 0;
 static volatile uint32_t speed_rotates = 0;
 static volatile uint32_t speed_speed = 0;
 static volatile uint32_t *speed_timebase;
+static volatile float speed_corrective = 1.0f;
 
-void speed_init(volatile uint32_t *timebase)
+static TIM_HandleTypeDef *htim;
+static uint32_t tim_channel;
+
+void speed_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {
+  htim = _htim;
+  tim_channel = channel;
   speed_timebase = timebase;
   for(int i = 0; i < IRQ_SIZE; i++) {
     speed_irq_data[i] = 0;
@@ -27,6 +33,7 @@ void speed_exti(uint32_t timestamp)
 {
   int i;
   float average = 0;
+  float pwm_speed;
 
   speed_pulse_last = timestamp;
   for(i = 1; i < IRQ_SIZE; i++)
@@ -39,12 +46,17 @@ void speed_exti(uint32_t timestamp)
 
 
   for(i = 1; i < IRQ_SIZE; i++)
-  {
     average += DelayDiff(speed_irq_data[i], speed_irq_data[i - 1]);
-  }
   average /= (float)(IRQ_SIZE - 1);
 
   speed_speed = 1000000.0f / (average / 3.6f * 6.0f);
+
+  pwm_speed = speed_speed * speed_corrective;
+
+  //htim->Instance->PSC = (100000.0f / pwm_speed) / 6.0f * 3.6f;
+  htim->Instance->PSC = average / 10.0f / speed_corrective;
+  if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
+    HAL_TIM_PWM_Start(htim, tim_channel);
 }
 
 void speed_loop(void)
@@ -57,10 +69,23 @@ void speed_loop(void)
     }
     speed_rotates = 0;
     speed_speed = 0;
+    htim->Instance->PSC = 0xFFFF;
+    if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_READY)
+      HAL_TIM_PWM_Stop(htim, tim_channel);
   }
+}
+
+uint8_t speed_isrotates(void)
+{
+  return speed_rotates;
 }
 
 float speed_getspeed(void)
 {
   return speed_speed;
+}
+
+void speed_setcorrective(float corrective)
+{
+  speed_corrective = corrective;
 }

@@ -51,6 +51,9 @@ static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
 static volatile uint32_t *csps_timebase = NULL;
 
+static TIM_HandleTypeDef *htim;
+static uint32_t tim_channel;
+
 static sCspsData CspsData[DATA_SIZE];
 static sCspsData * volatile CspsDataPtr = &CspsData[0];
 
@@ -58,10 +61,12 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
-void csps_init(volatile uint32_t *timebase)
+void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {
   float tval = 0;
   csps_timebase = timebase;
+  tim_channel = channel;
+  htim = _htim;
   for(int i = 0; i < 116; i++)
     tval += csps_cors[i];
   csps_cors_sum = (120.0f / tval) * 3.0f;
@@ -253,6 +258,7 @@ inline void csps_exti(uint32_t timestamp)
   csps_found = found;
   if(t2 >= 2) t2 = 0;
 
+  /*
   const float tach_duty_cycle = 0.25f;
   float angle_tach = csps_angle14;
 
@@ -264,6 +270,11 @@ inline void csps_exti(uint32_t timestamp)
     HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_SET);
   else if(angle_tach >= -180.0f + 180.0f * tach_duty_cycle && angle_tach < 0.0f)
     HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_RESET);
+  */
+
+  htim->Instance->PSC = (uint32_t)((float)(60 * 100000) / csps_rpm * 2.0f);
+  if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
+    HAL_TIM_PWM_Start(htim, tim_channel);
 }
 
 inline float csps_getangle14(void)
@@ -361,7 +372,9 @@ inline void csps_loop(void)
     csps_rpm = 0;
     csps_rotates = 0;
     csps_period = 1.0f / csps_rpm;
-    HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_RESET);
+    htim->Instance->PSC = 0xFFFF;
+    if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_READY)
+      HAL_TIM_PWM_Stop(htim, tim_channel);
   }
 
   if(DelayDiff(now, last_error_null) > 50000)

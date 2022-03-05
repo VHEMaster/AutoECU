@@ -123,6 +123,7 @@ typedef struct {
     float AdcManifoldAirPressure;
     float AdcThrottlePosition;
     float AdcPowerVoltage;
+    float AdcReferenceVoltage;
     float AdcLambdaUR;
     float AdcLambdaUA;
 
@@ -131,6 +132,7 @@ typedef struct {
     float EngineTemp;
     float ManifoldAirPressure;
     float ThrottlePosition;
+    float ReferenceVoltage;
     float PowerVoltage;
     float FuelRatio;
 

@@ -11,21 +11,24 @@
 #define SPI_NSS_OFF() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_SET)
 
 #define ADC_VREF 4.096f
+#define MCU_VREF 3.30f
 
 #define ADC_RANGE_PM2500 0x00
 #define ADC_RANGE_PM1250 0x01
 #define ADC_RANGE_PM0625 0x02
 #define ADC_RANGE_0P2500 0x03
 #define ADC_RANGE_0P1250 0x04
+#define MCU_RANGE_DIRECT 0x10
 
 #define ADC_CHANNELS 8
+#define MCU_CHANNELS 1
 #define ADC_BUFFER_SIZE 32
 
-static uint16_t AdcBuffer[ADC_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
-static float AdcVoltages[ADC_CHANNELS];
+static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
+static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];
 
-static uint16_t ChData[ADC_CHANNELS] = {0};
-static const uint8_t ChRange[ADC_CHANNELS] = {
+static uint16_t ChData[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static const uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {
     ADC_RANGE_0P1250,
     ADC_RANGE_0P1250,
     ADC_RANGE_0P2500,
@@ -34,8 +37,9 @@ static const uint8_t ChRange[ADC_CHANNELS] = {
     ADC_RANGE_0P2500,
     ADC_RANGE_0P1250,
     ADC_RANGE_0P1250,
+    MCU_RANGE_DIRECT,
 };
-static const float ChDivider[ADC_CHANNELS] = {
+static const float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {
     1.0f,
     1.0f,
     2.0f,
@@ -44,18 +48,23 @@ static const float ChDivider[ADC_CHANNELS] = {
     2.0f,
     1.0f,
     1.0f,
+    2.0f,
 };
 
 static SPI_HandleTypeDef * hspi;
+static ADC_HandleTypeDef * hadc;
 
 static uint8_t tx[32] __attribute__((aligned(32)));
 static uint8_t rx[32] __attribute__((aligned(32)));
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
+static volatile uint8_t semAdcCplt = 0;
 static uint32_t AdcWritePos = 0;
 static uint8_t AdcChannel = 0;
 static uint8_t AdcFirstTime = 1;
+static uint8_t McuFirstTime = 1;
+static uint32_t McuWritePos = 0;
 
 
 void ADC_ErrorCallback(SPI_HandleTypeDef * _hspi)
@@ -87,6 +96,27 @@ void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
   }
 }
 
+void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
+{
+  uint16_t data;
+  if(_hadc == hadc) {
+    data = HAL_ADC_GetValue(hadc);
+
+    if(McuFirstTime) {
+      McuFirstTime = 0;
+      for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
+        AdcBuffer[ADC_CHANNELS + 0][i] = data;
+      }
+    }
+    else {
+      AdcBuffer[ADC_CHANNELS + 0][McuWritePos] = data;
+      if(++McuWritePos >= ADC_BUFFER_SIZE)
+        McuWritePos = 0;
+    }
+
+  }
+}
+
 static uint8_t waitTxCplt(void)
 {
   if(semTx) {
@@ -110,6 +140,15 @@ static uint8_t waitTxRxCplt(void)
   if(semRx && semTx) {
     semRx = 0;
     semTx = 0;
+    return 1;
+  }
+  return 0;
+}
+
+static uint8_t waitAdcCplt(void)
+{
+  if(semAdcCplt) {
+    semAdcCplt = 0;
     return 1;
   }
   return 0;
@@ -183,6 +222,8 @@ static inline float ADC_Convert(uint8_t channel)
       return data / 65536.0f * ADC_VREF * 2.500f;
     case ADC_RANGE_0P1250 :
       return data / 65536.0f * ADC_VREF * 1.250f;
+    case MCU_RANGE_DIRECT :
+      return data / 65536.0f * MCU_VREF;
     case ADC_RANGE_PM2500 :
       return (data - 32768.0f) / 32768.0f * ADC_VREF * 2.500f;
     case ADC_RANGE_PM1250 :
@@ -194,13 +235,14 @@ static inline float ADC_Convert(uint8_t channel)
   }
 }
 
-HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi)
+HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 {
   HAL_StatusTypeDef result = HAL_OK;
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
   hspi = _hspi;
+  hadc = _hadc;
 
   result = SPI_SendCommand(0x8500); //RST command
   if(result != HAL_OK)
@@ -287,7 +329,7 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
   static HAL_StatusTypeDef result = HAL_OK;
   uint32_t data;
 
-  for(int i = 0; i < ADC_CHANNELS; i++) {
+  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
     data = 0;
     for(int j = 0; j < ADC_BUFFER_SIZE; j++)
       data += AdcBuffer[i][j];
@@ -300,7 +342,7 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
 
 inline float ADC_GetVoltage(eAdcChannel channel)
 {
-  if(channel < ADC_CHANNELS)
+  if(channel < ADC_CHANNELS + MCU_CHANNELS)
     return AdcVoltages[channel];
   return 0.f;
 }
