@@ -224,7 +224,7 @@ static uint8_t SPI_WaitForWrite(void)
   return 0;
 }
 
-static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffer)
+static uint8_t SPI_Write(uint32_t addr, uint32_t size, const uint8_t * buffer)
 {
   static uint8_t state = 0;
   static uint32_t left = 0;
@@ -242,7 +242,7 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
         left = size;
         pointer = buffer;
         ftime = 1;
-        state = 3;
+        state = 1;
         break;
       case 1 :
         tx[0] = 0x06;
@@ -331,85 +331,6 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
     }
   } while(0);
 
-  return 0;
-}
-
-static uint8_t SPI_Write_ByteByByte(uint32_t addr, uint32_t size, const uint8_t * buffer)
-{
-  static uint8_t state = 0;
-  static uint32_t left = 0;
-  static uint32_t address = 0;
-  static const uint8_t * pointer = NULL;
-  static uint32_t program_time = 0;
-
-  do
-  {
-    switch(state)
-    {
-      case 0 :
-
-        HAL_GPIO_WritePin(SPI2_WP_GPIO_Port, SPI2_WP_Pin, GPIO_PIN_SET);
-        left = size;
-        address = addr;
-        pointer = buffer;
-        state++;
-        continue;
-      case 1 :
-        tx[0] = 0x06;
-        SPI_NSS_ON();
-        HAL_SPI_Transmit_IT(hspi, tx, 1);
-        state++;
-        break;
-      case 2 :
-        if(waitTxCplt())
-        {
-          //SPI_NSS_OFF();
-          tx[0] = 0x02;
-          tx[1] = (address >> 16) & 0xFF;
-          tx[2] = (address >> 8) & 0xFF;
-          tx[3] = address & 0xFF;
-          tx[4] = *pointer;
-          SPI_NSS_ON();
-          SCB_CleanDCache_by_Addr((uint32_t*)tx, 5);
-          HAL_SPI_Transmit_DMA(hspi, tx, 5);
-          state++;
-        }
-        break;
-      case 3 :
-        if(waitTxCplt())
-        {
-          //SPI_NSS_OFF();
-          program_time = Delay_Tick;
-          state++;
-        }
-        break;
-      case 4 :
-        if(DelayDiff(Delay_Tick, program_time) >= 8)
-        {
-          state++;
-          continue;
-        }
-        break;
-      case 5 :
-        if(SPI_WaitForWrite())
-        {
-          left--;
-          address++;
-          pointer++;
-          state = 1;
-          if(left == 0)
-          {
-            state = 0;
-            HAL_GPIO_WritePin(SPI2_WP_GPIO_Port, SPI2_WP_Pin, GPIO_PIN_RESET);
-            return 1;
-          }
-        }
-        break;
-      default :
-        state = 0;
-        continue;
-    }
-  } while(0);
   return 0;
 }
 
@@ -571,7 +492,7 @@ uint8_t SST25_Read(uint32_t address, uint32_t size, uint8_t * buffer)
 
 uint8_t SST25_Write(uint32_t address, uint32_t size, const uint8_t * buffer)
 {
-  return SPI_Write_AAI(address & 0x3FFFFF, size, buffer);
+  return SPI_Write(address & 0x3FFFFF, size, buffer);
 }
 
 void SST25_ChipEraseLock(void)
@@ -601,6 +522,6 @@ void SST25_ReadLock(uint32_t address, uint32_t size, uint8_t * buffer)
 
 void SST25_WriteLock(uint32_t address, uint32_t size, const uint8_t * buffer)
 {
-  while(!SPI_Write_AAI(address & 0x3FFFFF, size, buffer)) {}
+  while(!SPI_Write(address & 0x3FFFFF, size, buffer)) {}
 }
 
