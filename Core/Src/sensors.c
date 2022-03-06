@@ -9,6 +9,69 @@
 #include "misc.h"
 #include "adc.h"
 
+typedef struct {
+  GPIO_TypeDef *port;
+  uint16_t pin;
+  uint8_t inverted;
+  volatile GPIO_PinState state;
+}sSensor;
+
+static sSensor Sensors[SensorCount] = {{0}};
+
+HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted)
+{
+  if(sensor < SensorCount && port && pin) {
+    Sensors[sensor].port = port;
+    Sensors[sensor].pin = pin;
+    Sensors[sensor].inverted = inverted;
+
+    Sensors[sensor].state = ((port->IDR & pin) != GPIO_PIN_RESET) ? !inverted : inverted;
+    return HAL_OK;
+  }
+  return HAL_ERROR;
+
+}
+
+void sensors_loop(void)
+{
+  for(int i = 0; i < SensorCount; i++) {
+    if(Sensors[i].port && Sensors[i].pin) {
+      Sensors[i].state = ((Sensors[i].port->IDR & Sensors[i].pin) != GPIO_PIN_RESET) ?
+          !Sensors[i].inverted : Sensors[i].inverted;
+    }
+  }
+}
+
+GPIO_PinState sens_get_oil_pressure(void)
+{
+  return Sensors[SensorOilPressure].state;
+}
+
+GPIO_PinState sens_get_starter(void)
+{
+  return Sensors[SensorStarter].state;
+}
+
+GPIO_PinState sens_get_handbrake(void)
+{
+  return Sensors[SensorHandbrake].state;
+}
+
+GPIO_PinState sens_get_charge(void)
+{
+  return Sensors[SensorCharge].state;
+}
+
+GPIO_PinState sens_get_rsvd1(void)
+{
+  return Sensors[SensorRsvd1].state;
+}
+
+GPIO_PinState sens_get_rsvd2(void)
+{
+  return Sensors[SensorRsvd2].state;
+}
+
 static float getTemperatureByResistance(float resistance)
 {
   const float resistances[22] = {100700,52700,28680,21450,16180,12300,9420,7280,5670,4450,3520,2796,2238,1802,1459,1188,973,667,467,332,241,177};

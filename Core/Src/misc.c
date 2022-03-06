@@ -271,7 +271,7 @@ static int8_t O2_Enable(void)
   return O2_Write(O2_INIT_REG1_WR, O2_REG1_NORMAL);
 }
 
-static int8_t O2_CriticalLoop(void)
+static void O2_CriticalLoop(void)
 {
   O2Status.FuelRatio = O2_GetFuelRatio();
 }

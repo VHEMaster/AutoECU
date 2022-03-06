@@ -8,6 +8,7 @@
 #include "misc.h"
 #include "adc.h"
 #include "speed.h"
+#include "sensors.h"
 #include "injector.h"
 #include "sst25vf032b.h"
 
@@ -94,6 +95,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     ecu_irq_slow_loop();
     ADC_Slow_Loop();
     Misc_Loop();
+    sensors_loop();
   }
 }
 
@@ -264,6 +266,13 @@ int main(void)
 
   csps_init(&htim5.Instance->CNT, &htim2, TIM_CHANNEL_1);
   speed_init(&htim8.Instance->CNT, &htim1, TIM_CHANNEL_1);
+
+  sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
+  sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
+  sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
+  sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
+  sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
+  sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
 
   injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
   injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);
