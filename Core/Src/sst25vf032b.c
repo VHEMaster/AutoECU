@@ -14,17 +14,20 @@ static uint8_t rx[32] __attribute__((aligned(32)));
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
+static volatile uint8_t avoid_nss_reset = 0;
 
 void SST25_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
-
   }
 }
 
 void SST25_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    if(avoid_nss_reset) {
+      avoid_nss_reset = 0;
+    } else SPI_NSS_OFF();
     semTx = 1;
   }
 }
@@ -32,6 +35,9 @@ void SST25_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 void SST25_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    if(avoid_nss_reset) {
+      avoid_nss_reset = 0;
+    } else SPI_NSS_OFF();
     semRx = 1;
   }
 }
@@ -39,6 +45,9 @@ void SST25_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 void SST25_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    if(avoid_nss_reset) {
+      avoid_nss_reset = 0;
+    } else SPI_NSS_OFF();
     semTx = 1;
     semRx = 1;
   }
@@ -86,7 +95,7 @@ static HAL_StatusTypeDef SPI_CheckChip(void)
   SPI_NSS_ON();
   HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 6);
   while(!waitTxRxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
 
   SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 6);
 
@@ -100,14 +109,14 @@ static HAL_StatusTypeDef SPI_CheckChip(void)
   SPI_NSS_ON();
   HAL_SPI_Transmit_IT(hspi, tx, 1);
   while(!waitTxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
 
   tx[0] = 0x01;
   tx[1] = 0x00;
   SPI_NSS_ON();
   HAL_SPI_Transmit_IT(hspi, tx, 2);
   while(!waitTxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
   HAL_GPIO_WritePin(SPI2_WP_GPIO_Port, SPI2_WP_Pin, GPIO_PIN_RESET);
 
   return HAL_OK;
@@ -133,6 +142,7 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
       else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer%32)), size + ((uint32_t)buffer%32));
 
       SPI_NSS_ON();
+      avoid_nss_reset = 1;
       HAL_SPI_Transmit_DMA(hspi, tx, 5);
       state++;
       break;
@@ -146,7 +156,7 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
     case 2 :
       if(waitRxCplt())
       {
-        SPI_NSS_OFF();
+        //SPI_NSS_OFF();
 
         if((uint32_t)buffer % 32 == 0)
           SCB_InvalidateDCache_by_Addr((uint32_t*)buffer, size);
@@ -161,7 +171,6 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
   }
   return 0;
 }
-
 static uint8_t SPI_WaitForWrite(void)
 {
   static uint8_t state = 0;
@@ -177,12 +186,14 @@ static uint8_t SPI_WaitForWrite(void)
         state++;
         continue;
       case 1 :
+        avoid_nss_reset = 1;
         HAL_SPI_Transmit_IT(hspi, tx, 1);
         state++;
         break;
       case 2 :
         if(waitTxCplt())
         {
+          avoid_nss_reset = 1;
           HAL_SPI_Receive_IT(hspi, rx, 1);
           state++;
         }
@@ -219,9 +230,11 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
   static uint32_t left = 0;
   static const uint8_t * pointer = NULL;
   static uint8_t ftime = 0;
+  static uint32_t tx_time = 0;
+  static uint8_t tx_cplt = 0;
+  uint8_t writesize;
 
-  do
-  {
+  do {
     switch(state)
     {
       case 0 :
@@ -229,10 +242,10 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
         left = size;
         pointer = buffer;
         ftime = 1;
-        state++;
-        continue;
+        state = 3;
+        break;
       case 1 :
-        tx[0] = 0x70;
+        tx[0] = 0x06;
         SPI_NSS_ON();
         HAL_SPI_Transmit_IT(hspi, tx, 1);
         state++;
@@ -240,104 +253,73 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
       case 2 :
         if(waitTxCplt())
         {
-          SPI_NSS_OFF();
+          //SPI_NSS_OFF();
           state++;
         }
-        break;
+        continue;
       case 3 :
-        tx[0] = 0x06;
+        if(ftime) {
+          ftime = 0;
+          tx[0] = 0xAD;
+          tx[1] = (addr >> 16) & 0xFF;
+          tx[2] = (addr >> 8) & 0xFF;
+          tx[3] = addr & 0xFF;
+          if(left >= 2) {
+            tx[4] = *pointer++;
+            tx[5] = *pointer++;
+            left -= 2;
+          } else {
+            tx[4] = *pointer++;
+            tx[5] = 0xFF;
+            left -= 1;
+          }
+          writesize = 6;
+        } else  {
+          tx[0] = 0xAD;
+          if(left >= 2) {
+            tx[1] = *pointer++;
+            tx[2] = *pointer++;
+            left -= 2;
+          } else {
+            tx[1] = *pointer++;
+            tx[2] = 0xFF;
+            left -= 1;
+          }
+          writesize = 3;
+        }
+
         SPI_NSS_ON();
-        HAL_SPI_Transmit_IT(hspi, tx, 1);
+        SCB_CleanDCache_by_Addr((uint32_t*)tx, writesize);
+        HAL_SPI_Transmit_DMA(hspi, tx, writesize);
+
+        tx_cplt = 0;
+        tx_time = Delay_Tick;
         state++;
         break;
       case 4 :
-        if(waitTxCplt())
-        {
-          SPI_NSS_OFF();
-          state++;
+        if(tx_cplt || waitTxCplt()) {
+          //SPI_NSS_OFF();
+          tx_cplt = 1;
+          if(DelayDiff(Delay_Tick, tx_time) > 10 + 1) {
+            if(left) {
+              state = 3;
+              continue;
+            } else {
+              state++;
+            }
+          }
         }
         break;
       case 5 :
-        if(waitTxCplt())
-        {
-          if(ftime) {
-            tx[0] = 0xAD;
-            tx[1] = (addr >> 16) & 0xFF;
-            tx[2] = (addr >> 8) & 0xFF;
-            tx[3] = addr & 0xFF;
-            if(left >= 2) {
-              tx[4] = *pointer++;
-              tx[5] = *pointer++;
-              left -= 2;
-            } else {
-              tx[4] = *pointer++;
-              tx[5] = 0xFF;
-              left -= 1;
-            }
-            SPI_NSS_ON();
-            SCB_CleanDCache_by_Addr((uint32_t*)tx, 6);
-            HAL_SPI_Transmit_DMA(hspi, tx, 6);
-          } else  {
-            tx[0] = 0xAD;
-            if(left >= 2) {
-              tx[1] = *pointer++;
-              tx[2] = *pointer++;
-              left -= 2;
-            } else {
-              tx[1] = *pointer++;
-              tx[2] = 0xFF;
-              left -= 1;
-            }
-            SPI_NSS_ON();
-            SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
-            HAL_SPI_Transmit_DMA(hspi, tx, 3);
-          }
-          state++;
-        }
-        break;
-      case 6 :
-        if(waitTxCplt())
-        {
-          SPI_NSS_OFF();
-          state++;
-        }
-        break;
-      case 7 :
-        SPI_NSS_ON();
-        state++;
-        break;
-      case 8 :
-        if(HAL_GPIO_ReadPin(SPI_MISO_GPIO_Port, SPI_MISO_Pin) == GPIO_PIN_SET) {
-          SPI_NSS_OFF();
-          ftime = 0;
-          if(!left)
-            state++;
-          else state = 2;
-        }
-        break;
-      case 89 :
         tx[0] = 0x04;
         SPI_NSS_ON();
         HAL_SPI_Transmit_IT(hspi, tx, 1);
         state++;
         break;
-      case 10 :
+      case 6 :
         if(waitTxCplt())
         {
-          SPI_NSS_OFF();
-          state++;
-        }
-        break;
-      case 11 :
-        tx[0] = 0x80;
-        SPI_NSS_ON();
-        HAL_SPI_Transmit_IT(hspi, tx, 1);
-        state++;
-        break;
-      case 12 :
-        if(waitTxCplt())
-        {
-          SPI_NSS_OFF();
+          //SPI_NSS_OFF();
           HAL_GPIO_WritePin(SPI2_WP_GPIO_Port, SPI2_WP_Pin, GPIO_PIN_RESET);
           state = 0;
           return 1;
@@ -345,9 +327,10 @@ static uint8_t SPI_Write_AAI(uint32_t addr, uint32_t size, const uint8_t * buffe
         break;
       default :
         state = 0;
-        continue;
+        break;
     }
   } while(0);
+
   return 0;
 }
 
@@ -380,7 +363,7 @@ static uint8_t SPI_Write_ByteByByte(uint32_t addr, uint32_t size, const uint8_t 
       case 2 :
         if(waitTxCplt())
         {
-          SPI_NSS_OFF();
+          //SPI_NSS_OFF();
           tx[0] = 0x02;
           tx[1] = (address >> 16) & 0xFF;
           tx[2] = (address >> 8) & 0xFF;
@@ -395,8 +378,8 @@ static uint8_t SPI_Write_ByteByByte(uint32_t addr, uint32_t size, const uint8_t 
       case 3 :
         if(waitTxCplt())
         {
+          //SPI_NSS_OFF();
           program_time = Delay_Tick;
-          SPI_NSS_OFF();
           state++;
         }
         break;
@@ -449,7 +432,7 @@ static uint8_t SPI_EraseBlock(uint32_t address, uint8_t cmd)
       case 1 :
         if(waitTxCplt())
         {
-          SPI_NSS_OFF();
+          //SPI_NSS_OFF();
           tx[0] = cmd;
           tx[1] = (address >> 16) & 0xFF;
           tx[2] = (address >> 8) & 0xFF;
@@ -463,8 +446,8 @@ static uint8_t SPI_EraseBlock(uint32_t address, uint8_t cmd)
       case 2 :
         if(waitTxCplt())
         {
+          //SPI_NSS_OFF();
           program_time = Delay_Tick;
-          SPI_NSS_OFF();
           state++;
         }
         break;
@@ -510,7 +493,7 @@ static uint8_t SPI_ChipErase(void)
       case 1 :
         if(waitTxCplt())
         {
-          SPI_NSS_OFF();
+          //SPI_NSS_OFF();
           tx[0] = 0x60;
           SPI_NSS_ON();
           HAL_SPI_Transmit_IT(hspi, tx, 1);
@@ -520,8 +503,8 @@ static uint8_t SPI_ChipErase(void)
       case 2 :
         if(waitTxCplt())
         {
+          //SPI_NSS_OFF();
           program_time = Delay_Tick;
-          SPI_NSS_OFF();
           state++;
         }
         break;
