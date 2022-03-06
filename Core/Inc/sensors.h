@@ -39,6 +39,7 @@ GPIO_PinState sens_get_starter(void);
 GPIO_PinState sens_get_rsvd1(void);
 GPIO_PinState sens_get_rsvd2(void);
 
+void sensors_init(void);
 HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted);
 void sensors_loop(void);
 

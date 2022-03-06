@@ -18,6 +18,11 @@ typedef struct {
 
 static sSensor Sensors[SensorCount] = {{0}};
 
+void sensors_init(void)
+{
+
+}
+
 HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted)
 {
   if(sensor < SensorCount && port && pin) {

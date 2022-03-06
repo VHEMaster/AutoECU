@@ -499,4 +499,10 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
   return result;
 }
 
+HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte)
+{
+  HAL_StatusTypeDef result = HAL_OK;
+
+  return result;
+}
 

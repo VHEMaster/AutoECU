@@ -20,6 +20,43 @@ typedef enum {
   OutputCount
 }eOutput;
 
+typedef enum {
+  OutputDiagShortToGnd = 0,
+  OutputDiagShortToBatOrOvertemp = 1,
+  OutputDiagOpenCircuit = 2,
+  OutputDiagNoFailure = 3
+}eOutputDiagnosticStatus;
+
+typedef struct {
+  union {
+    struct {
+      eOutputDiagnosticStatus InjCy4 : 2;
+      eOutputDiagnosticStatus InjCy3 : 2;
+      eOutputDiagnosticStatus InjCy2 : 2;
+      eOutputDiagnosticStatus InjCy1 : 2;
+    }Data;
+    uint8_t Byte;
+  }Injectors;
+  union {
+    struct {
+      eOutputDiagnosticStatus CheckEngine : 2;
+      eOutputDiagnosticStatus Speedmeeter : 2;
+      eOutputDiagnosticStatus Tachometer : 2;
+      eOutputDiagnosticStatus FuelPumpRelay : 2;
+    }Data;
+    uint8_t Byte;
+  }Outs1;
+  union {
+    struct {
+      eOutputDiagnosticStatus OutRsvd2 : 2;
+      eOutputDiagnosticStatus OutRsvd1 : 2;
+      eOutputDiagnosticStatus StarterRelay : 2;
+      eOutputDiagnosticStatus FanRelay : 2;
+    }Data;
+    uint8_t Byte;
+  }Outs2;
+}sOutputDiagnostic;
+
 void out_set_fuelpump(GPIO_PinState state);
 void out_set_checkengine(GPIO_PinState state);
 void out_set_fan(GPIO_PinState state);
@@ -27,6 +64,9 @@ void out_set_starter(GPIO_PinState state);
 void out_set_rsvd1(GPIO_PinState state);
 void out_set_rsvd2(GPIO_PinState state);
 
+HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic);
+
+void outputs_init(void);
 HAL_StatusTypeDef outputs_register(eOutput output, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted, GPIO_PinState initial);
 void outputs_loop(void);
 

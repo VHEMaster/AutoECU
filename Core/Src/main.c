@@ -269,6 +269,9 @@ int main(void)
   csps_init(&htim5.Instance->CNT, &htim2, TIM_CHANNEL_1);
   speed_init(&htim8.Instance->CNT, &htim1, TIM_CHANNEL_1);
 
+  sensors_init();
+  outputs_init();
+
   sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
   sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
   sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
