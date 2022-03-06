@@ -72,6 +72,9 @@ static uint8_t O2Version = 0;
 static uint32_t O2PwmPeriod = 255;
 static volatile uint32_t *O2PwmDuty = NULL;
 
+static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0xFF, 0xFF, 0xFF};
+static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK, HAL_OK};
+
 static arm_pid_instance_f32 o2_pid;
 
 
@@ -501,8 +504,8 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
 
 HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte)
 {
-  HAL_StatusTypeDef result = HAL_OK;
-
+  HAL_StatusTypeDef result = OutputsAvailability[channel];
+  *byte = OutputsDiagBytes[channel];
   return result;
 }
 

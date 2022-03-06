@@ -28,32 +28,41 @@ typedef enum {
 }eOutputDiagnosticStatus;
 
 typedef struct {
-  union {
-    struct {
-      eOutputDiagnosticStatus InjCy4 : 2;
-      eOutputDiagnosticStatus InjCy3 : 2;
-      eOutputDiagnosticStatus InjCy2 : 2;
-      eOutputDiagnosticStatus InjCy1 : 2;
-    }Data;
-    uint8_t Byte;
+  struct {
+    union {
+      struct {
+        eOutputDiagnosticStatus InjCy4 : 2;
+        eOutputDiagnosticStatus InjCy3 : 2;
+        eOutputDiagnosticStatus InjCy2 : 2;
+        eOutputDiagnosticStatus InjCy1 : 2;
+      }Data;
+      uint8_t Byte;
+    }Diagnostic;
+    HAL_StatusTypeDef Availability;
   }Injectors;
-  union {
-    struct {
-      eOutputDiagnosticStatus CheckEngine : 2;
-      eOutputDiagnosticStatus Speedmeeter : 2;
-      eOutputDiagnosticStatus Tachometer : 2;
-      eOutputDiagnosticStatus FuelPumpRelay : 2;
-    }Data;
-    uint8_t Byte;
+  struct {
+    union {
+      struct {
+        eOutputDiagnosticStatus CheckEngine : 2;
+        eOutputDiagnosticStatus Speedmeeter : 2;
+        eOutputDiagnosticStatus Tachometer : 2;
+        eOutputDiagnosticStatus FuelPumpRelay : 2;
+      }Data;
+      uint8_t Byte;
+    }Diagnostic;
+    HAL_StatusTypeDef Availability;
   }Outs1;
-  union {
-    struct {
-      eOutputDiagnosticStatus OutRsvd2 : 2;
-      eOutputDiagnosticStatus OutRsvd1 : 2;
-      eOutputDiagnosticStatus StarterRelay : 2;
-      eOutputDiagnosticStatus FanRelay : 2;
-    }Data;
-    uint8_t Byte;
+  struct {
+    union {
+      struct {
+        eOutputDiagnosticStatus OutRsvd2 : 2;
+        eOutputDiagnosticStatus OutRsvd1 : 2;
+        eOutputDiagnosticStatus StarterRelay : 2;
+        eOutputDiagnosticStatus FanRelay : 2;
+      }Data;
+      uint8_t Byte;
+    }Diagnostic;
+    HAL_StatusTypeDef Availability;
   }Outs2;
 }sOutputDiagnostic;
 

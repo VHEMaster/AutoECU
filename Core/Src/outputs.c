@@ -18,7 +18,6 @@ typedef struct {
 
 static sOutput Outputs[OutputCount] = {{0}};
 static sOutputDiagnostic OutputDiagnostic;
-static volatile HAL_StatusTypeDef OutputsDiagStatus = HAL_OK;
 
 inline void out_set_fuelpump(GPIO_PinState state)
 {
@@ -73,9 +72,6 @@ HAL_StatusTypeDef outputs_register(eOutput output, GPIO_TypeDef *port, uint16_t 
 
 inline void outputs_loop(void)
 {
-  HAL_StatusTypeDef diag_status = HAL_OK;
-  uint8_t diags[MiscDiagChCount];
-
   for(int i = 0; i < OutputCount; i++) {
     if(Outputs[i].port && Outputs[i].pin) {
       if(Outputs[i].state == Outputs[i].inverted) {
@@ -88,13 +84,17 @@ inline void outputs_loop(void)
     }
   }
 
-  for(int i = 0; i < MiscDiagChCount; i++)
-    diag_status |= Misc_Outs_GetDiagnostic(i, &diags[i]);
-  OutputDiagnostic.Injectors.Byte = diags[MiscDiagChInjectors];
-  OutputDiagnostic.Outs1.Byte = diags[MiscDiagChOutputs1];
-  OutputDiagnostic.Outs2.Byte = diags[MiscDiagChOutputs2];
-  OutputsDiagStatus = diag_status;
+  OutputDiagnostic.Injectors.Availability =
+      Misc_Outs_GetDiagnostic(MiscDiagChInjectors,
+          &OutputDiagnostic.Injectors.Diagnostic.Byte);
 
+  OutputDiagnostic.Outs1.Availability =
+      Misc_Outs_GetDiagnostic(MiscDiagChOutputs1,
+          &OutputDiagnostic.Outs1.Diagnostic.Byte);
+
+  OutputDiagnostic.Outs2.Availability =
+      Misc_Outs_GetDiagnostic(MiscDiagChOutputs2,
+          &OutputDiagnostic.Outs2.Diagnostic.Byte);
 }
 
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic)
