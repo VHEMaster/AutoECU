@@ -271,6 +271,10 @@ static int8_t O2_Enable(void)
   return O2_Write(O2_INIT_REG1_WR, O2_REG1_NORMAL);
 }
 
+static int8_t O2_CriticalLoop(void)
+{
+  O2Status.FuelRatio = O2_GetFuelRatio();
+}
 
 static int8_t O2_Loop(void)
 {
@@ -295,15 +299,13 @@ static int8_t O2_Loop(void)
 
   float engine_temperature = 50.0f;
 
-  O2Status.FuelRatio = O2_GetFuelRatio();
-
   switch(state) {
     case 0 :
       if(DelayDiff(now, last_spi_check) > 500000) {
         last_spi_check = now;
         state = 1;
       } else if(O2Status.Valid) {
-        state = 7;
+        state = 8;
       }
       else if(is_engine_runned) {
         state = 3;
@@ -315,12 +317,14 @@ static int8_t O2_Loop(void)
     case 1 :
       status = O2_GetDevice(&device);
       if(status == -1) {
+        O2Status.Available = 0;
         O2Status.Working = 0;
         O2Status.Valid = 0;
         O2_SetHeaterVoltage(0);
         state = 0;
         return -1;
       } else if(status == 1) {
+        O2Status.Available = 1;
         state++;
       }
       break;
@@ -437,6 +441,8 @@ void Misc_Loop(void)
     }
   }
 
+  O2_CriticalLoop();
+
   if(work_o2) {
     if(O2_Loop())
       work_o2 = 0;
@@ -459,6 +465,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2PwmDuty = pwm_duty;
 
   O2_SetHeaterVoltage(0);
+  O2Status.Available = 1;
   O2Status.FuelRatio = 0;
   O2Status.Valid = 0;
   O2Status.Working = 0;
@@ -472,8 +479,10 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
 
   O2Device = device & O2_IDENT_MASK_DEVICE;
   O2Version = device & O2_IDENT_MASK_VERSION;
-  if(O2Device != O2_IDENT_DEVICE_CJ125)
+  if(O2Device != O2_IDENT_DEVICE_CJ125) {
+    O2Status.Available = 0;
     return HAL_ERROR;
+  }
 
   O2Status.Working = 1;
 

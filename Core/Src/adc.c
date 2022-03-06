@@ -26,6 +26,8 @@
 
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
 static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];
+static volatile HAL_StatusTypeDef adcInitStatus = HAL_OK;
+static volatile HAL_StatusTypeDef adcStatus = HAL_OK;
 
 static uint16_t ChData[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static const uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {
@@ -246,32 +248,36 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 
   result = SPI_SendCommand(0x8500); //RST command
   if(result != HAL_OK)
-    return result;
+    goto ret;
 
   //Enable all channels
   result = SPI_WriteRegister(0x02, 0x00);
   if(result != HAL_OK)
-    return result;
+    goto ret;
 
   //All channels in sequence mode
   result = SPI_WriteRegister(0x01, 0xFF);
   if(result != HAL_OK)
-    return result;
+    goto ret;
 
   //SDO format: 011, dev address: 0
   result = SPI_WriteRegister(0x03, 0x03);
   if(result != HAL_OK)
-    return result;
+    goto ret;
 
   for(int i = 0; i < ADC_CHANNELS; i++) {
     result = SPI_WriteRegister(0x05 + i, ChRange[i]);
     if(result != HAL_OK)
-      return result;
+      goto ret;
   }
 
   result = SPI_SendCommand(0xA000); //AUTO_RST command
   if(result != HAL_OK)
-    return result;
+    goto ret;
+
+ret:
+  adcInitStatus = result;
+  adcStatus = result;
 
   return result;
 }
@@ -281,6 +287,9 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
   uint16_t data;
+
+  if(adcInitStatus != HAL_OK)
+    return adcInitStatus;
 
   switch(state) {
     case 0:
@@ -328,6 +337,16 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   uint32_t data;
+  uint32_t failed_channels = 0;
+
+  for(int i = 0; i < ADC_CHANNELS; i++) {
+    if(ChData[i] == 0x0000 || ChData[i] == 0xFFFF)
+      failed_channels++;
+    else break;
+  }
+
+  if(failed_channels == ADC_CHANNELS)
+    adcStatus = HAL_ERROR;
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
     data = 0;
@@ -345,5 +364,10 @@ inline float ADC_GetVoltage(eAdcChannel channel)
   if(channel < ADC_CHANNELS + MCU_CHANNELS)
     return AdcVoltages[channel];
   return 0.f;
+}
+
+HAL_StatusTypeDef ADC_GetStatus(void)
+{
+  return adcStatus;
 }
 

@@ -12,3 +12,5 @@ float csps_getperiod(void);
 float csps_getuspa(void);
 uint8_t csps_isrotates(void);
 uint8_t csps_isfound(void);
+uint8_t csps_isphased(void);
+float csps_getphasedangle(void);

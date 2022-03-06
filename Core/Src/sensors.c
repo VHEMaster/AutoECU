@@ -67,8 +67,8 @@ HAL_StatusTypeDef sens_get_o2_fuelratio(float *output, uint8_t *valid)
   HAL_StatusTypeDef status = HAL_OK;
   sO2Status o2status = Misc_O2_GetStatus();
   *output = o2status.FuelRatio;
-  if(o2status.Working) {
-    *valid = o2status.Valid;
+  if(o2status.Available) {
+    *valid = o2status.Valid && o2status.Working;
   } else {
     *valid = 0;
     status = HAL_ERROR;
@@ -81,8 +81,14 @@ HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output)
   HAL_StatusTypeDef status = HAL_OK;
   sO2Status o2status = Misc_O2_GetStatus();
   *output = o2status.Diag.Fields;
+  status = o2status.Available == 0 ? HAL_ERROR : HAL_OK;
 
   return status;
+}
+
+HAL_StatusTypeDef sens_get_adc_status(void)
+{
+  return ADC_GetStatus();
 }
 
 HAL_StatusTypeDef sens_get_knock(float *output)

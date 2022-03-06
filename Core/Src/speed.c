@@ -33,7 +33,7 @@ void speed_exti(uint32_t timestamp)
 {
   int i;
   float average = 0;
-  float pwm_speed;
+  //float pwm_speed;
 
   speed_pulse_last = timestamp;
   for(i = 1; i < IRQ_SIZE; i++)
@@ -50,8 +50,7 @@ void speed_exti(uint32_t timestamp)
   average /= (float)(IRQ_SIZE - 1);
 
   speed_speed = 1000000.0f / (average / 3.6f * 6.0f);
-
-  pwm_speed = speed_speed * speed_corrective;
+  //pwm_speed = speed_speed * speed_corrective;
 
   //htim->Instance->PSC = (100000.0f / pwm_speed) / 6.0f * 3.6f;
   htim->Instance->PSC = average / 10.0f / speed_corrective;

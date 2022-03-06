@@ -31,5 +31,6 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 HAL_StatusTypeDef ADC_Fast_Loop(void);
 HAL_StatusTypeDef ADC_Slow_Loop(void);
 float ADC_GetVoltage(eAdcChannel channel);
+HAL_StatusTypeDef ADC_GetStatus(void);
 
 #endif /* INC_ADC_H_ */

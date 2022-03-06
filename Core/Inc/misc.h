@@ -23,9 +23,10 @@ typedef struct {
 }sO2Diagnostic;
 
 typedef struct {
+    float FuelRatio;
+    uint8_t Available;
     uint8_t Working;
     uint8_t Valid;
-    float FuelRatio;
     union {
         uint8_t Byte;
         sO2Diagnostic Fields;
