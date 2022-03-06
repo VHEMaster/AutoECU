@@ -159,11 +159,14 @@ HAL_StatusTypeDef sens_get_adc_status(void)
   return ADC_GetStatus();
 }
 
+HAL_StatusTypeDef sens_get_knock_raw(float *output)
+{
+  return Misc_GetKnockValueRaw(output);
+}
+
 HAL_StatusTypeDef sens_get_knock(float *output)
 {
-  HAL_StatusTypeDef status = HAL_OK;
-  //TODO: to define the way to output it
-  return status;
+  return Misc_GetKnockValueByRPM(output);
 }
 
 HAL_StatusTypeDef sens_get_map(float *output)

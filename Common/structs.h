@@ -119,7 +119,7 @@ typedef struct {
 }sEcuConfig;
 
 typedef struct {
-    float AdcKnockSensor;
+    float AdcKnockVoltage;
     float AdcAirTemp;
     float AdcEngineTemp;
     float AdcManifoldAirPressure;
@@ -130,6 +130,7 @@ typedef struct {
     float AdcLambdaUA;
 
     float KnockSensor;
+    float KnockSensorFiltered;
     float AirTemp;
     float EngineTemp;
     float ManifoldAirPressure;

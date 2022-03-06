@@ -48,6 +48,9 @@ static const float o2_afr_table[548] = {
   20.72f, 20.75f, 20.78f, 20.82f, 20.85f, 20.88f, 20.92f, 20.95f
 };
 
+#define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
+#define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
+
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_INJ_OFF() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_SET)
 #define SPI_NSS_OUTS1_ON() HAL_GPIO_WritePin(SPI4_NSS_OUTS1_GPIO_Port, SPI4_NSS_OUTS1_Pin, GPIO_PIN_RESET)
@@ -71,6 +74,10 @@ static uint8_t O2Device = 0;
 static uint8_t O2Version = 0;
 static uint32_t O2PwmPeriod = 255;
 static volatile uint32_t *O2PwmDuty = NULL;
+static volatile float KnockRawValue = 0.0f;
+static volatile float KnockValue = 0.0f;
+static HAL_StatusTypeDef KnockInitialStatus = HAL_OK;
+static volatile HAL_StatusTypeDef KnockStatus = HAL_OK;
 
 static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
@@ -136,6 +143,41 @@ static uint8_t waitTxRxCplt(void)
     semTx = 0;
     return 1;
   }
+  return 0;
+}
+
+#define KNOCK_CMD_GAIN      0x80
+#define KNOCK_CMD_BP_FREQ   0x00
+#define KNOCK_CMD_INT_TIME  0xC0
+#define KNOCK_CMD_CH_SEL    0xE0
+#define KNOCK_CMD_SO_MODE   0x40
+
+static int8_t Knock_Cmd(uint8_t cmd, uint8_t *read)
+{
+  static uint8_t state = 0;
+  switch(state) {
+    case 0:
+      tx[0] = cmd;
+      SPI_NSS_KNOCK_ON();
+      HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 1);
+      state++;
+
+      break;
+    case 1:
+      if(waitTxRxCplt())
+      {
+        SPI_NSS_KNOCK_OFF();
+        if(read)
+          *read = rx[0];
+        state = 0;
+        return 1;
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
+
   return 0;
 }
 
@@ -451,11 +493,9 @@ static int8_t Outs_Loop(void)
           if(OutputsDiagnosticStored[channel] == 0 || failure_stored == 1 || rx[0] != 0xFF) {
             OutputsDiagnosticStored[channel] = 1;
             OutputsDiagBytes[channel] = rx[0];
-            OutputsAvailability[channel] = (failure_stored == 1 && rx[0] == 0xFF) ? HAL_ERROR : HAL_OK;
-
-            //TODO: for debug, maybe remove it later
-            if(OutputsAvailability[channel] == HAL_OK && failure_stored == 0 && rx[0] != 0xFF)
+            if((failure_stored == 1 && rx[0] == 0xFF) || (failure_stored == 0 && rx[0] != 0xFF))
               OutputsAvailability[channel] = HAL_ERROR;
+            else OutputsAvailability[channel] = HAL_OK;
           }
 
           state = 0;
@@ -473,6 +513,78 @@ static int8_t Outs_Loop(void)
   } while(0);
 
   return 0;
+}
+
+static int8_t Knock_Loop(void)
+{
+  static uint8_t state = 0;
+
+  if(KnockInitialStatus != HAL_OK)
+    return 1;
+
+  switch(state) {
+    case 0:
+      //TODO: in case of changed parameters, perform the setup on the fly
+      KnockStatus = HAL_OK;
+      return 1;
+      break;
+    default:
+      state = 0;
+      break;
+  }
+
+  return 0;
+}
+
+static void Knock_CriticalLoop(void)
+{
+  static uint8_t state = 0;
+  static uint32_t knock_prev = 0;
+  uint32_t now = Delay_Tick;
+  uint32_t diff;
+  float voltage,corrected,rpm;
+  float koff;
+  uint8_t rotates;
+
+  if(KnockInitialStatus != HAL_OK)
+    return;
+
+  switch(state) {
+    case 0: //First ms
+      voltage = ADC_GetVoltage(AdcChKnock);
+      KNOCK_INTEGRATE();
+      state++;
+
+      rpm = csps_getrpm();
+      rotates = csps_isfound();
+      diff = DelayDiff(now, knock_prev);
+      knock_prev = now;
+
+      if(rotates && rpm > 60.0f && diff > 0) {
+        corrected = voltage / rpm * 60.0f;
+        koff = 1.0f / (60000000.0f / rpm / diff);
+      }
+      else koff = 0.025f;
+
+      KnockRawValue = KnockRawValue * (1.0f - koff) + voltage * koff;
+      KnockValue = KnockValue * (1.0f - koff) + corrected * koff;
+      KnockStatus = HAL_OK;
+
+      break;
+    case 1: //2-5th
+    case 2:
+    case 3:
+    case 4:
+      state++;
+      break;
+    case 5:
+      //Give to ADC the time to measure
+      KNOCK_HOLD();
+      state = 0;
+      break;
+    default:
+      break;
+  }
 }
 
 void Misc_Loop(void)
@@ -503,19 +615,64 @@ void Misc_Loop(void)
   }
 
   O2_CriticalLoop();
+  Knock_CriticalLoop();
 
   if(work_o2) {
     if(O2_Loop())
       work_o2 = 0;
   }
   else if(work_knock) {
-    //if(Knock_Loop())
+    if(Knock_Loop())
       work_knock = 0;
   }
   else if(work_outs) {
     if(Outs_Loop())
       work_outs = 0;
   }
+}
+
+#define KNOCK_CMD_GAIN      0x80
+#define KNOCK_CMD_BP_FREQ   0x00
+#define KNOCK_CMD_INT_TIME  0xC0
+#define KNOCK_CMD_CH_SEL    0xE0
+#define KNOCK_CMD_SO_MODE   0x40
+
+HAL_StatusTypeDef Mics_Knock_Init(void)
+{
+  const uint8_t bandpass_filter_frequency = 42; //7.27kHz for D=79mm
+  const uint8_t gain_value = 14;                //1.0
+  const uint8_t integrator_time_constant = 22;  //280uS
+  const uint8_t oscillator_freq_select = 0;
+  const uint8_t channel_select = 0;
+  const uint8_t diagnostic_mode = 0;
+  const uint8_t so_output_mode = 0;
+  uint8_t data,read;
+
+  KNOCK_INTEGRATE();
+  DelayUs(100);
+  KNOCK_HOLD();
+
+  //TODO: perform such setup on the fly
+
+  data = KNOCK_CMD_GAIN | (gain_value & 0x3F);
+  while(!Knock_Cmd(data, &read)) {}
+
+  data = KNOCK_CMD_BP_FREQ | (bandpass_filter_frequency & 0x3F);
+  while(!Knock_Cmd(data, &read)) {}
+
+  data = KNOCK_CMD_INT_TIME | (integrator_time_constant & 0x1F);
+  while(!Knock_Cmd(data, &read)) {}
+
+  data = KNOCK_CMD_CH_SEL | (channel_select & 0x1) | ((diagnostic_mode & 0xF) << 1);
+  while(!Knock_Cmd(data, &read)) {}
+
+  data = KNOCK_CMD_SO_MODE | ((oscillator_freq_select & 0xF) << 1) | (so_output_mode & 0x1);
+  while(!Knock_Cmd(data, &read)) {}
+
+  KnockInitialStatus = HAL_OK;
+  KnockStatus = HAL_OK;
+
+  return HAL_OK;
 }
 
 HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
@@ -569,5 +726,17 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
   *byte = OutputsDiagBytes[channel];
   OutputsDiagnosticStored[channel] = 0;
   return result;
+}
+
+HAL_StatusTypeDef Misc_GetKnockValueByRPM(float *value)
+{
+  *value = KnockValue;
+  return KnockStatus;
+}
+
+HAL_StatusTypeDef Misc_GetKnockValueRaw(float *value)
+{
+  *value = KnockRawValue;
+  return KnockStatus;
 }
 

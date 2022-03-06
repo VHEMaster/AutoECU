@@ -22,7 +22,7 @@
 
 #define ADC_CHANNELS 8
 #define MCU_CHANNELS 1
-#define ADC_BUFFER_SIZE 32
+#define ADC_BUFFER_SIZE 8
 
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
 static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];

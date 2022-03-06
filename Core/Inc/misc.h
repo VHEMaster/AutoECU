@@ -45,8 +45,10 @@ void Misc_TxCpltCallback(SPI_HandleTypeDef * _hspi);
 void Misc_RxCpltCallback(SPI_HandleTypeDef * _hspi);
 void Misc_TxRxCpltCallback(SPI_HandleTypeDef * _hspi);
 HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi);
-
 HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty);
+HAL_StatusTypeDef Mics_Knock_Init(void);
+HAL_StatusTypeDef Misc_GetKnockValueByRPM(float *value);
+HAL_StatusTypeDef Misc_GetKnockValueRaw(float *value);
 HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte);
 sO2Status Misc_O2_GetStatus(void);
 void Misc_Loop(void);

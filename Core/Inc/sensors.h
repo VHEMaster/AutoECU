@@ -23,6 +23,7 @@ typedef enum {
 
 HAL_StatusTypeDef sens_get_adc_status(void);
 HAL_StatusTypeDef sens_get_knock(float *output);
+HAL_StatusTypeDef sens_get_knock_raw(float *output);
 HAL_StatusTypeDef sens_get_map(float *output);
 HAL_StatusTypeDef sens_get_air_temperature(float *output);
 HAL_StatusTypeDef sens_get_engine_temperature(float *output);

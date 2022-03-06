@@ -144,8 +144,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == TIM5_CH1_SENS_CSPS_Pin) {
     //csps_exti(Delay_Tick, DelayMask);
-  } else if (GPIO_Pin == KNOCK_INT_Pin) {
-    //TODO: knock IRQ
   }
 }
 
@@ -293,6 +291,7 @@ int main(void)
 
   Misc_O2_Init(htim9.Init.Period,
                &o2_pwm_period);
+  Mics_Knock_Init();
 
   HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
@@ -1354,6 +1353,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, GPIO_PIN_SET);
 
+  HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET);
+
   HAL_GPIO_WritePin(GPIOD,
       SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin
           | FUEL_PUMP_Pin | SPI1_NRST_Pin,
@@ -1440,12 +1441,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : KNOCK_INT_Pin */
   GPIO_InitStruct.Pin = KNOCK_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(KNOCK_INT_GPIO_Port, &GPIO_InitStruct);
-
-  HAL_NVIC_SetPriority(EXTI4_IRQn, NVIC_PRIO_EXTI4_KNOCK_INT, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /*Configure GPIO pin : TIM5_CH1_SENS_CSPS_Pin */
   //GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
