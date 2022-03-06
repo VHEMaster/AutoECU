@@ -32,7 +32,7 @@ HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t 
 
 }
 
-void sensors_loop(void)
+inline void sensors_loop(void)
 {
   for(int i = 0; i < SensorCount; i++) {
     if(Sensors[i].port && Sensors[i].pin) {
@@ -42,32 +42,32 @@ void sensors_loop(void)
   }
 }
 
-GPIO_PinState sens_get_oil_pressure(void)
+inline GPIO_PinState sens_get_oil_pressure(void)
 {
   return Sensors[SensorOilPressure].state;
 }
 
-GPIO_PinState sens_get_starter(void)
+inline GPIO_PinState sens_get_starter(void)
 {
   return Sensors[SensorStarter].state;
 }
 
-GPIO_PinState sens_get_handbrake(void)
+inline GPIO_PinState sens_get_handbrake(void)
 {
   return Sensors[SensorHandbrake].state;
 }
 
-GPIO_PinState sens_get_charge(void)
+inline GPIO_PinState sens_get_charge(void)
 {
   return Sensors[SensorCharge].state;
 }
 
-GPIO_PinState sens_get_rsvd1(void)
+inline GPIO_PinState sens_get_rsvd1(void)
 {
   return Sensors[SensorRsvd1].state;
 }
 
-GPIO_PinState sens_get_rsvd2(void)
+inline GPIO_PinState sens_get_rsvd2(void)
 {
   return Sensors[SensorRsvd2].state;
 }

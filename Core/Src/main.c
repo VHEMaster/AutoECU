@@ -9,6 +9,7 @@
 #include "adc.h"
 #include "speed.h"
 #include "sensors.h"
+#include "outputs.h"
 #include "injector.h"
 #include "sst25vf032b.h"
 
@@ -96,6 +97,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     ADC_Slow_Loop();
     Misc_Loop();
     sensors_loop();
+    outputs_loop();
   }
 }
 
@@ -273,6 +275,13 @@ int main(void)
   sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
   sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
   sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
+
+  outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 0, GPIO_PIN_RESET);
+  outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 0, GPIO_PIN_SET);
+  outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 0, GPIO_PIN_RESET);
+  outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 0, GPIO_PIN_RESET);
+  outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 0, GPIO_PIN_RESET);
+  outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 0, GPIO_PIN_RESET);
 
   injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
   injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);
@@ -1340,9 +1349,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, IGN_4_Pin | SW_NRST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, GPIO_PIN_SET);
+
   HAL_GPIO_WritePin(GPIOD,
       SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin
-          | CHECKENGINE_Pin | FUEL_PUMP_Pin | SPI1_NRST_Pin,
+          | FUEL_PUMP_Pin | SPI1_NRST_Pin,
       GPIO_PIN_RESET);
 
   /*Configure GPIO pins : SPI4_NSS_OUTS1_Pin SPI4_NSS_OUTS2_Pin STEP_I0_Pin STEP_I1_Pin
