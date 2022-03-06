@@ -51,7 +51,7 @@ static const float o2_afr_table[548] = {
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_INJ_OFF() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_SET)
 #define SPI_NSS_OUTS1_ON() HAL_GPIO_WritePin(SPI4_NSS_OUTS1_GPIO_Port, SPI4_NSS_OUTS1_Pin, GPIO_PIN_RESET)
-#define SPI_NSS_OUTS1_OFF() HAL_GPIO_WritePin(SPI4_NSS_OUTS1_GPIO_Port, SPI4_NSS_OUTS21_Pin, GPIO_PIN_SET)
+#define SPI_NSS_OUTS1_OFF() HAL_GPIO_WritePin(SPI4_NSS_OUTS1_GPIO_Port, SPI4_NSS_OUTS1_Pin, GPIO_PIN_SET)
 #define SPI_NSS_OUTS2_ON() HAL_GPIO_WritePin(SPI4_NSS_OUTS2_GPIO_Port, SPI4_NSS_OUTS2_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_OUTS2_OFF() HAL_GPIO_WritePin(SPI4_NSS_OUTS2_GPIO_Port, SPI4_NSS_OUTS2_Pin, GPIO_PIN_SET)
 #define SPI_NSS_O2_ON() HAL_GPIO_WritePin(SPI4_NSS_O2_GPIO_Port, SPI4_NSS_O2_Pin, GPIO_PIN_RESET)
@@ -72,7 +72,8 @@ static uint8_t O2Version = 0;
 static uint32_t O2PwmPeriod = 255;
 static volatile uint32_t *O2PwmDuty = NULL;
 
-static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0xFF, 0xFF, 0xFF};
+static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
+static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
 static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK, HAL_OK};
 
 static arm_pid_instance_f32 o2_pid;
@@ -417,6 +418,63 @@ sO2Status Misc_O2_GetStatus(void)
   return O2Status;
 }
 
+static int8_t Outs_Loop(void)
+{
+  static uint8_t state = 0;
+  static uint8_t failure_stored = 0;
+  GPIO_PinState pin;
+  eMiscDiagChannels channel = 0;
+
+  do {
+    switch(state) {
+      case 0:
+        SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
+
+        switch(channel) {
+          case MiscDiagChInjectors: SPI_NSS_INJ_ON(); break;
+          case MiscDiagChOutputs1: SPI_NSS_OUTS1_ON(); break;
+          case MiscDiagChOutputs2: SPI_NSS_OUTS2_ON(); break;
+          default: channel = 0; continue;
+        }
+        state++;
+        break;
+      case 1:
+        pin = HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_5); //SPI4_MISO
+        failure_stored = pin != GPIO_PIN_RESET;
+        HAL_SPI_Receive_IT(hspi, rx, 1);
+        state++;
+        break;
+      case 2:
+        if(waitRxCplt()) {
+          SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
+
+          if(OutputsDiagnosticStored[channel] == 0 || failure_stored == 1 || rx[0] != 0xFF) {
+            OutputsDiagnosticStored[channel] = 1;
+            OutputsDiagBytes[channel] = rx[0];
+            OutputsAvailability[channel] = (failure_stored == 1 && rx[0] == 0xFF) ? HAL_ERROR : HAL_OK;
+
+            //TODO: for debug, maybe remove it later
+            if(OutputsAvailability[channel] == HAL_OK && failure_stored == 0 && rx[0] != 0xFF)
+              OutputsAvailability[channel] = HAL_ERROR;
+          }
+
+          state = 0;
+          if(++channel >= MiscDiagChCount) {
+            channel = 0;
+            return 1;
+          }
+          else continue;
+        }
+        break;
+      default:
+        state = 0;
+        break;
+    }
+  } while(0);
+
+  return 0;
+}
+
 void Misc_Loop(void)
 {
   static uint8_t work_o2 = 0;
@@ -455,7 +513,7 @@ void Misc_Loop(void)
       work_knock = 0;
   }
   else if(work_outs) {
-    //if(Outs_Loop())
+    if(Outs_Loop())
       work_outs = 0;
   }
 }
@@ -499,6 +557,9 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
   hspi = _hspi;
 
+  for(int i = 0; i < MiscDiagChCount; i++)
+    OutputsDiagBytes[i] = 0xFF;
+
   return result;
 }
 
@@ -506,6 +567,7 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
 {
   HAL_StatusTypeDef result = OutputsAvailability[channel];
   *byte = OutputsDiagBytes[channel];
+  OutputsDiagnosticStored[channel] = 0;
   return result;
 }
 
