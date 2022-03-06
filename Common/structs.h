@@ -88,6 +88,8 @@ typedef struct {
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
+    int32_t tables_count;
+
     int32_t isCutoffEnabled;
     int32_t isSwitchByExternal;
     int32_t isForceTable;
@@ -109,14 +111,6 @@ typedef struct {
 
     int32_t Reserved32[48];
 }sEcuParams;
-
-typedef struct {
-    int32_t tables_count;
-    sEcuParams params;
-    sEcuTable tables[TABLE_SETUPS_MAX];
-    uint32_t version;
-    uint16_t crc;
-}sEcuConfig;
 
 typedef struct {
     float AdcKnockVoltage;

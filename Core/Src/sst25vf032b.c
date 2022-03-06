@@ -430,7 +430,7 @@ static uint8_t SPI_Write_ByteByByte(uint32_t addr, uint32_t size, const uint8_t 
   return 0;
 }
 
-static uint8_t SPI_EraseSector(uint32_t address)
+static uint8_t SPI_EraseBlock(uint32_t address, uint8_t cmd)
 {
   static uint8_t state = 0;
   static uint32_t program_time = 0;
@@ -450,7 +450,7 @@ static uint8_t SPI_EraseSector(uint32_t address)
         if(waitTxCplt())
         {
           SPI_NSS_OFF();
-          tx[0] = 0x20;
+          tx[0] = cmd;
           tx[1] = (address >> 16) & 0xFF;
           tx[2] = (address >> 8) & 0xFF;
           tx[3] = address & 0xFF;
@@ -563,7 +563,17 @@ HAL_StatusTypeDef SST25_Init(SPI_HandleTypeDef * _hspi)
 
 uint8_t SST25_Erase4KSector(uint32_t address)
 {
-  return SPI_EraseSector(address & 0x3FFFFF);
+  return SPI_EraseBlock(address & 0x3FFFFF, 0x20);
+}
+
+uint8_t SST25_Erase32KBlock(uint32_t address)
+{
+  return SPI_EraseBlock(address & 0x3FFFFF, 0x52);
+}
+
+uint8_t SST25_Erase64KBlock(uint32_t address)
+{
+  return SPI_EraseBlock(address & 0x3FFFFF, 0xD8);
 }
 
 uint8_t SST25_ChipErase(void)
@@ -588,7 +598,17 @@ void SST25_ChipEraseLock(void)
 
 void SST25_Erase4KSectorLock(uint32_t address)
 {
-  while(!SPI_EraseSector(address & 0x3FFFFF)) {}
+  while(!SPI_EraseBlock(address & 0x3FFFFF, 0x20)) {}
+}
+
+void SST25_Erase32KBlockLock(uint32_t address)
+{
+  while(!SPI_EraseBlock(address & 0x3FFFFF, 0x52)) {}
+}
+
+void SST25_Erase64KBlockLock(uint32_t address)
+{
+  while(!SPI_EraseBlock(address & 0x3FFFFF, 0xD8)) {}
 }
 
 void SST25_ReadLock(uint32_t address, uint32_t size, uint8_t * buffer)

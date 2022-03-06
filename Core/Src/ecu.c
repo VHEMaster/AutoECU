@@ -8,6 +8,17 @@
 #include "main.h"
 #include "delay.h"
 #include "ecu.h"
+#include "packets.h"
+#include "flash.h"
+#include "xCommand.h"
+#include "csps.h"
+#include "misc.h"
+#include "adc.h"
+#include "speed.h"
+#include "sensors.h"
+#include "outputs.h"
+#include "injector.h"
+#include "sst25vf032b.h"
 
 void ecu_init(void)
 {

@@ -1,0 +1,151 @@
+/*
+ * config.c
+ *
+ *  Created on: 2 февр. 2021 г.
+ *      Author: VHEMaster
+ */
+
+#include <string.h>
+#include "flash.h"
+#include "structs.h"
+#include "sst25vf032b.h"
+#include "crc.h"
+
+#define FLASH_VERSION 0x00000010
+
+#define REGION_SIZE 0x400000
+#define PAGE_SIZE 32768
+#define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
+uint8_t page_buffer[32768];
+
+const uint32_t flash_addresses[2] = {0, REGION_SIZE};
+
+int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page)
+{
+  if(size >= PAGE_SIZE - 6 || page >= PAGES_COUNT)
+    return -1;
+
+  for(int region = 0; region < 2; region++)
+  {
+    SST25_ReadLock(flash_addresses[region] + page * PAGE_SIZE, size + 6, &page_buffer[2]);
+
+    uint16_t crc16 = CRC16_Generate(page_buffer, size + 4);
+    uint32_t version = ((uint32_t *)&page_buffer[0])[0];
+    uint16_t crc_read = page_buffer[size + 4] | (page_buffer[size + 5] << 8);
+    if(crc16 == crc_read && version == FLASH_VERSION) {
+      memcpy((uint8_t *)buffer, &page_buffer[4], size);
+      return 1;
+    }
+  }
+
+  return -1;
+}
+
+static volatile uint16_t save_sectors = 0;
+static volatile uint8_t save_page = 0;
+static volatile uint32_t save_size_write = 0;
+static volatile uint8_t save_active = 0;
+static volatile uint8_t save_region = 0;
+
+int8_t flash_page_save(const void *buffer, uint32_t size, uint8_t page)
+{
+  static uint16_t save_crc16 = 0;
+  static uint8_t state = 0;
+  uint32_t size_write;
+  uint16_t crc16 = 0;
+  uint16_t crc16_check;
+
+  if(size >= PAGE_SIZE - 6 || page >= PAGES_COUNT)
+    return -1;
+
+  switch(state) {
+    case 0 :
+      size_write = size;
+      ((uint32_t *)&page_buffer[0])[0] = FLASH_VERSION;
+      memcpy(&page_buffer[4], (uint8_t *)buffer, size_write);
+      size_write += 4;
+      crc16 = CRC16_Generate(page_buffer, size_write);
+      page_buffer[size_write++] = crc16 & 0xFF;
+      page_buffer[size_write++] = crc16 >> 8;
+
+      save_region = 0;
+      save_sectors = (size_write / SST25_32KSIZE) + ((size_write % SST25_32KSIZE) > 0);
+      save_size_write = size_write;
+      save_page = page;
+      save_crc16 = crc16;
+
+      save_active = 1;
+
+      state++;
+      break;
+    case 1:
+      if(save_active == 0) {
+        crc16 = page_buffer[save_size_write - 2] | (page_buffer[save_size_write - 1] << 8);
+        crc16_check = CRC16_Generate(page_buffer, save_size_write - 2);
+        if(crc16_check == save_crc16 && crc16 == save_crc16) {
+          if(++save_region < 2) {
+            save_active = 1;
+          } else {
+            state = 0;
+            return 1;
+          }
+        } else {
+          state = 0;
+          return -1;
+        }
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
+
+  return 0;
+}
+
+void flash_fast_loop(void)
+{
+  static uint16_t erased = 0;
+  static uint8_t state = 0;
+  uint8_t spistatus = 0;
+
+  if(save_active) {
+
+    switch (state)
+    {
+      case 0:
+        erased = 0;
+        state++;
+        break;
+      case 1:
+        if(erased < save_sectors)
+        {
+          spistatus = SST25_Erase32KBlock(erased * SST25_32KSIZE + flash_addresses[save_region] + save_page * PAGE_SIZE);
+          if(spistatus) {
+            erased++;
+          }
+        }
+        else {
+          state++;
+        }
+        break;
+      case 2:
+        spistatus = SST25_Write(flash_addresses[save_region] + save_page * PAGE_SIZE, save_size_write, page_buffer);
+        if(spistatus) {
+          state++;
+        }
+        break;
+      case 3:
+        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, save_size_write, page_buffer);
+        if(spistatus) {
+          save_active = 0;
+          state = 0;
+        }
+        break;
+      default:
+        state = 0;
+        break;
+    }
+  }
+}
+
