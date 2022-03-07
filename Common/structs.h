@@ -21,13 +21,21 @@ typedef struct {
     uint32_t Time;
 }sDragPoint;
 
+typedef enum {
+  InjectorChannel1 = 0,
+  InjectorChannel2,
+  InjectorChannelCount
+}eInjChannel;
+
 typedef struct {
     char name[TABLE_STRING_MAX];
 
-    uint32_t inj_channel;
+    eInjChannel inj_channel;
 
     float ignition_initial;
-    float fuel_volume;
+    float injector_performance;
+    float fuel_pressure;
+    float fuel_mass_per_cc;
 
     int32_t pressures_count;
     float pressures[TABLE_PRESSURES_MAX];
@@ -38,6 +46,8 @@ typedef struct {
     int32_t throttles_count;
     float throttles[TABLE_THROTTLES_MAX];
 
+    float fill_proportion_map_vs_thr;
+    float enrichment_proportion_map_vs_thr;
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float enrichment_by_map_sens[TABLE_PRESSURES_MAX];
@@ -84,8 +94,14 @@ typedef struct {
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
     float idle_rpm_shift[TABLE_SPEEDS_MAX];
 
-    int32_t Reserved[1024];
+    int32_t Reserved[6211];
 }sEcuTable __attribute__((aligned(32)));
+
+typedef struct {
+    float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+}sEcuCorrections;
 
 typedef struct {
     int32_t tables_count;
@@ -103,13 +119,12 @@ typedef struct {
     int32_t cutoffMode;
     float cutoffAngle;
     float cutoffMixture;
-    float engineVolume;
     float speedCorrection;
 
     int32_t useLambdaSensor;
     int32_t useTSPS;
 
-    int32_t Reserved32[48];
+    int32_t Reserved32[1008];
 }sEcuParams;
 
 typedef struct {

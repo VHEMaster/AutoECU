@@ -4,9 +4,6 @@
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI2_NSS_FLASH_GPIO_Port, SPI2_NSS_FLASH_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_OFF() HAL_GPIO_WritePin(SPI2_NSS_FLASH_GPIO_Port, SPI2_NSS_FLASH_Pin, GPIO_PIN_SET)
 
-#define SPI_MISO_GPIO_Port GPIOB
-#define SPI_MISO_Pin GPIO_PIN_14
-
 static SPI_HandleTypeDef * hspi;
 
 static uint8_t tx[32] __attribute__((aligned(32)));

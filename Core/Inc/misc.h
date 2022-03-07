@@ -5,21 +5,23 @@
  *      Author: VHEMaster
  */
 
-#ifndef INC_MIS_H_
-#define INC_MIS_H_
+#ifndef INC_MISC_H_
+#define INC_MISC_H_
 
 #include "main.h"
 
-#define O2_OK                0
-#define O2_E_NOPOWER         1
-#define O2_E_SHORTCIRCUITGND 2
-#define O2_E_SHORTCIRCUITBAT 3
+typedef enum {
+  O2DiagShortToGnd = 0,
+  O2DiagNoPower,
+  O2DiagShortToBat,
+  O2DiagOK
+}eO2DiagCode;
 
 typedef struct {
-    uint8_t VM : 2;
-    uint8_t UN : 2;
-    uint8_t IAIP : 2;
-    uint8_t DIAHGD : 2;
+    eO2DiagCode VM : 2;
+    eO2DiagCode UN : 2;
+    eO2DiagCode IAIP : 2;
+    eO2DiagCode DIAHGD : 2;
 }sO2Diagnostic;
 
 typedef struct {
@@ -53,4 +55,4 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
 sO2Status Misc_O2_GetStatus(void);
 void Misc_Loop(void);
 
-#endif /* INC_MIS_H_ */
+#endif /* INC_MISC_H_ */
