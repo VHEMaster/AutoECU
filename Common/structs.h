@@ -37,6 +37,9 @@ typedef struct {
     float fuel_pressure;
     float fuel_mass_per_cc;
 
+    int32_t voltages_count;
+    float voltages[TABLE_VOLTAGES_MAX];
+
     int32_t pressures_count;
     float pressures[TABLE_PRESSURES_MAX];
 
@@ -61,28 +64,27 @@ typedef struct {
     float fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
 
-    float ignition_time[TABLE_ROTATES_MAX];
+    float ignition_time_rpm_mult[TABLE_ROTATES_MAX];
+    float ignition_time[TABLE_VOLTAGES_MAX];
+    float injector_lag[TABLE_VOLTAGES_MAX];
 
     int32_t engine_temp_count;
     float engine_temps[TABLE_TEMPERATURES_MAX];
 
-    int32_t air_temp_count;
-    float air_temps[TABLE_TEMPERATURES_MAX];
-    float air_temp_mix_corr[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    //TODO: maybe not needed?..
+    //int32_t air_temp_count;
+    //float air_temps[TABLE_TEMPERATURES_MAX];
+    //float air_temp_mix_corr[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
 
-    int32_t idle_rotates_count;
-    float idle_rotates[TABLE_ROTATES_MAX];
     float idle_wish_rotates[TABLE_TEMPERATURES_MAX];
     float idle_wish_massair[TABLE_TEMPERATURES_MAX];
     float idle_wish_ignition[TABLE_ROTATES_MAX];
-    float idle_fuel_mixture[TABLE_ROTATES_MAX];
 
     float idle_valve_to_massair_proporion;
     float idle_valve_to_massair_pid_p;
     float idle_valve_to_massair_pid_i;
     float idle_valve_to_massair_pid_d;
 
-    float idle_ign_fan_corr;
     float idle_ign_to_rpm_pid_p;
     float idle_ign_to_rpm_pid_i;
     float idle_ign_to_rpm_pid_d;
@@ -90,11 +92,13 @@ typedef struct {
     float idle_ign_deviation_max;
     float idle_ign_deviation_min;
 
+    float idle_ign_fan_corr;
+
     int32_t idle_speeds_shift_count;
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
     float idle_rpm_shift[TABLE_SPEEDS_MAX];
 
-    int32_t Reserved[6211];
+    int32_t Reserved[128];
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
@@ -108,8 +112,7 @@ typedef struct {
 
     int32_t isCutoffEnabled;
     int32_t isSwitchByExternal;
-    int32_t isForceTable;
-    int32_t forceTableNumber;
+    int32_t startupTableNumber;
     int32_t switchPos1Table;
     int32_t switchPos0Table;
     int32_t switchPos2Table;
@@ -124,7 +127,7 @@ typedef struct {
     int32_t useLambdaSensor;
     int32_t useTSPS;
 
-    int32_t Reserved32[1008];
+    int32_t Reserved32[1009];
 }sEcuParams;
 
 typedef struct {

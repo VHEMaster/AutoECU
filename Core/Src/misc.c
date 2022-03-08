@@ -587,6 +587,92 @@ static void Knock_CriticalLoop(void)
   }
 }
 
+static volatile uint8_t IdleValvePositionCurrent = 0;
+static volatile uint8_t IdleValvePositionTarget = 0;
+static volatile HAL_StatusTypeDef IdleValvePositionStatus = HAL_OK;
+
+inline uint8_t Misc_GetIdleValvePosition(void)
+{
+  return IdleValvePositionCurrent;
+}
+
+inline void Misc_SetIdleValvePosition(uint8_t position)
+{
+  IdleValvePositionTarget = position;
+}
+
+inline HAL_StatusTypeDef Misc_GetIdleValveStatus(void)
+{
+  return IdleValvePositionStatus;
+}
+
+static void IdleValve_CriticalLoop(void)
+{
+  GPIO_PinState idle_valve_state_pin = HAL_GPIO_ReadPin(STEP_ERR_GPIO_Port, STEP_ERR_Pin);
+
+  IdleValvePositionStatus = idle_valve_state_pin == GPIO_PIN_RESET ? HAL_ERROR : HAL_OK;
+}
+
+static uint32_t StepPhase = 0;
+
+//Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port, STEP_PH1_Pin < STEP_PH2_Pin and close together
+#define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPhase | (StepPhase ^ (STEP_PH1_Pin | STEP_PH2_Pin)) << 16; }
+#define STEP_INCREMENT() { StepPhase = (StepPhase + STEP_PH1_Pin) & (STEP_PH1_Pin | STEP_PH2_Pin); }
+#define STEP_DECREMENT() { StepPhase = (StepPhase - STEP_PH1_Pin) & (STEP_PH1_Pin | STEP_PH2_Pin); }
+
+//Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
+#define STEP_IDLE() { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
+#define STEP_HOLD() { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
+#define STEP_NORMAL() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
+#define STEP_ACCELERATE() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
+
+#define STEP_MAX_SPEED_FROM_START_TO_END 0.2f
+#define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
+
+static void IdleValve_FastLoop(void)
+{
+  static uint32_t last_tick = 0;
+  static uint8_t is_hold = 0;
+  static uint32_t last_move = 0;
+  uint32_t now = Delay_Tick;
+  uint8_t current = IdleValvePositionCurrent;
+  uint8_t target = IdleValvePositionTarget;
+
+  if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
+    last_tick = now;
+    if(current != target) {
+      STEP_ACCELERATE();
+      if(current < target) {
+        IdleValvePositionCurrent++;
+        STEP_INCREMENT();
+      } else if(current > target) {
+        IdleValvePositionCurrent--;
+        STEP_DECREMENT();
+      }
+      last_move = now;
+      is_hold = 0;
+      STEP_APPEND();
+    } else {
+      if(is_hold) {
+        STEP_HOLD();
+      } else {
+        if(DelayDiff(now, last_move) > 1000000) {
+          STEP_HOLD();
+          is_hold = 1;
+        } else {
+          STEP_NORMAL();
+        }
+      }
+    }
+  }
+}
+
+
+void Misc_Fast_Loop(void)
+{
+
+}
+
 void Misc_Loop(void)
 {
   static uint8_t work_o2 = 0;
@@ -616,6 +702,7 @@ void Misc_Loop(void)
 
   O2_CriticalLoop();
   Knock_CriticalLoop();
+  IdleValve_CriticalLoop();
 
   if(work_o2) {
     if(O2_Loop())

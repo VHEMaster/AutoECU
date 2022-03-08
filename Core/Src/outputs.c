@@ -8,6 +8,7 @@
 #include "outputs.h"
 #include "misc.h"
 #include <string.h>
+#include <limits.h>
 
 typedef struct {
   GPIO_TypeDef *port;
@@ -95,6 +96,18 @@ inline void outputs_loop(void)
   OutputDiagnostic.Outs2.Availability =
       Misc_Outs_GetDiagnostic(MiscDiagChOutputs2,
           &OutputDiagnostic.Outs2.Diagnostic.Byte);
+
+  OutputDiagnostic.IdleValvePosition.Status =
+      Misc_GetIdleValveStatus();
+}
+inline void out_set_idle_valve(int32_t position)
+{
+  Misc_SetIdleValvePosition(position > UCHAR_MAX ? UCHAR_MAX : position < 0 ? 0 : position);
+}
+
+inline uint8_t out_get_idle_valve(void)
+{
+  return Misc_GetIdleValvePosition();
 }
 
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic)

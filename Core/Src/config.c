@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <string.h>
 
+static const float default_voltages[8] = {
+    0.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 25.0f
+};
+
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
     0, 7300, 14700, 22000, 29300, 36700, 44000, 51300,
     58600, 66000, 73300, 80600, 88000, 95300, 12700, 110000
@@ -110,6 +114,25 @@ static const float default_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] =
     { 13.1f, 13.1f, 13.1f, 13.1f, 13.1f, 13.1f, 13.1f, 13.0f, 12.8f, 12.6f, 12.5f, 12.3f, 12.2f, 12.1f, 12.1f, 12.1f }
 };
 
+static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+    { 270, 270, 270, 270, 270, 270, 270, 270, 280, 290, 300, 300, 280, 270, 270 },
+    { 280, 280, 280, 280, 280, 280, 280, 280, 290, 290, 300, 300, 290, 250, 250 },
+    { 390, 390, 390, 390, 390, 390, 390, 390, 300, 310, 330, 320, 300, 200, 230 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 310, 330, 360, 340, 310, 200, 200 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 380, 360, 320, 200, 170 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 380, 330, 200, 140 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 340, 200, 120 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 110 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 },
+    { 300, 300, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 200, 100 }
+};
+
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
     0.013f, 0.025f, 0.038f, 0.050f, 0.063f, 0.075f, 0.088f, 0.100f,
     0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
@@ -130,8 +153,54 @@ static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
     0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f,0.060f,
 };
 
+static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
+    1.6f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+};
+
+static const float default_ignition_time[TABLE_VOLTAGES_MAX] = {
+    5.7f, 4.5f, 3.2f, 2.5f, 2.1f, 1.8f, 1.6f, 1.0f
+};
+
+static const float default_injector_lag[TABLE_VOLTAGES_MAX] = {
+    3.33f, 3.33f, 1.41f, 0.86f, 0.58f, 0.38f, 0.26f, 0.03f
+};
+
+static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
+    -20, -10, 0, 10, 20, 30, 40, 50,
+    60, 70, 80, 90, 100, 110, 120, 130
+};
+
+static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
+    2010, 1970, 1920, 1900, 1820, 1750, 1600, 1440,
+    1150, 1100, 1100, 1100, 1100, 1150, 1300, 1350
+};
+
+static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
+    20.0f, 18.0f, 17.0f, 15.0f, 14.2, 14.0f, 14.0f, 12.7f,
+    11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.2, 11.8, 12.0f
+};
+
+static const float default_idle_wish_ignition[TABLE_ROTATES_MAX] = {
+    20.0f, 21.0f, 18.0f, 16.0f, 15.0f, 15.0f, 15.0f, 15.0f,
+    16.0f, 21.0f, 22.0f, 24.5f, 27.0f, 30.0f, 33.0f, 35.0f
+};
+
+static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
+    0, 10, 20, 30, 40, 50, 60, 70,
+    80, 90, 100, 110, 120, 130, 140, 150
+};
+
+static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
+    0, 50, 100, 100, 100, 150, 150, 150,
+    200, 200, 200, 200, 250, 250, 300, 300
+};
+
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
+  memset(table, 0, sizeof(sEcuTable));
+
   sprintf(table->name, "Default %d", number);
 
   table->inj_channel = InjectorChannel1;
@@ -141,6 +210,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->injector_performance = 214.2f;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
+
+  table->voltages_count = ITEMSOF(default_voltages);
+  memcpy(table->voltages, default_voltages, sizeof(default_voltages));
 
   table->pressures_count = ITEMSOF(default_pressures);
   memcpy(table->pressures, default_pressures, sizeof(default_pressures));
@@ -166,16 +238,74 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
   memcpy(table->fuel_mixtures, default_fuel_mixtures, sizeof(default_fuel_mixtures));
+  memcpy(table->injection_phase, default_injection_phase, sizeof(default_injection_phase));
+
+  memcpy(table->ignition_time_rpm_mult, default_ignition_time_rpm_mult, sizeof(default_ignition_time_rpm_mult));
+  memcpy(table->ignition_time, default_ignition_time, sizeof(default_ignition_time));
+  memcpy(table->injector_lag, default_injector_lag, sizeof(default_injector_lag));
+
+  table->engine_temp_count = ITEMSOF(default_engine_temps);
+  memcpy(table->engine_temps, default_engine_temps, sizeof(default_engine_temps));
+
+  memcpy(table->idle_wish_rotates, default_idle_wish_rotates, sizeof(default_idle_wish_rotates));
+  memcpy(table->idle_wish_massair, default_idle_wish_massair, sizeof(default_idle_wish_massair));
+  memcpy(table->idle_wish_ignition, default_idle_wish_ignition, sizeof(default_idle_wish_ignition));
+
+  table->idle_valve_to_massair_proporion = 4.1f;
+  table->idle_valve_to_massair_pid_p = 1.0f;
+  table->idle_valve_to_massair_pid_i = 0.0f;
+  table->idle_valve_to_massair_pid_d = 0.0f;
+
+  table->idle_ign_to_rpm_pid_p = 1.0f;
+  table->idle_ign_to_rpm_pid_i = 0.0f;
+  table->idle_ign_to_rpm_pid_d = 0.0f;
+
+  table->idle_ign_deviation_min = -14.0f;
+  table->idle_ign_deviation_max = 14.0f;
+
+  table->idle_ign_fan_corr = 10.0f;
+
+  table->idle_speeds_shift_count = ITEMSOF(default_idle_rpm_shift_speeds);
+  memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));
+  memcpy(table->idle_rpm_shift, default_idle_rpm_shift, sizeof(default_idle_rpm_shift));
+
 }
 
 void config_default_params(sEcuParams *table)
 {
+  table->tables_count = TABLE_SETUPS_MAX;
 
+  table->isCutoffEnabled = 1;
+  table->isSwitchByExternal = 0;
+  table->startupTableNumber = 1;
+  table->switchPos1Table = 1;
+  table->switchPos0Table = 1;
+  table->switchPos2Table = 1;
+  table->switchTime = 5000;
+
+  table->cutoffRPM = 6200;
+  table->cutoffMode = 5;
+  table->cutoffAngle = 5.0f;
+  table->cutoffMixture = 12.1f;
+  table->speedCorrection = 1.16f;
+
+  table->useLambdaSensor = 1;
+  table->useTSPS = 1;
 }
 
 void config_default_correctives(sEcuCorrections *table)
 {
+  for(int i = 0; i < TABLE_FILLING_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->ignitions[i][j] = 0.0f;
 
+  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->fill_by_map[i][j] = 1.0f;
+
+  for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->fill_by_thr[i][j] = 1.0f;
 }
 
 HAL_StatusTypeDef config_init(void)

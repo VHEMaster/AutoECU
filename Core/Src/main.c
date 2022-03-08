@@ -94,6 +94,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();
+    Misc_Fast_Loop();
   } else if (htim == &htim4) {
     ecu_irq_slow_loop();
     ADC_Slow_Loop();

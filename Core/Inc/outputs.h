@@ -64,6 +64,9 @@ typedef struct {
     }Diagnostic;
     HAL_StatusTypeDef Availability;
   }Outs2;
+  struct {
+    HAL_StatusTypeDef Status;
+  }IdleValvePosition;
 }sOutputDiagnostic;
 
 void out_set_fuelpump(GPIO_PinState state);
@@ -72,6 +75,9 @@ void out_set_fan(GPIO_PinState state);
 void out_set_starter(GPIO_PinState state);
 void out_set_rsvd1(GPIO_PinState state);
 void out_set_rsvd2(GPIO_PinState state);
+
+void out_set_idle_valve(int32_t position);
+uint8_t out_get_idle_valve(void);
 
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic);
 
