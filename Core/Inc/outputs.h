@@ -78,6 +78,8 @@ void out_set_rsvd2(GPIO_PinState state);
 
 void out_set_idle_valve(int32_t position);
 uint8_t out_get_idle_valve(void);
+int8_t out_calibrate_idle_valve(void);
+void out_enable_idle_valve(uint32_t enablement_position);
 
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic);
 

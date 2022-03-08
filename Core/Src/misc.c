@@ -590,6 +590,9 @@ static void Knock_CriticalLoop(void)
 static volatile uint8_t IdleValvePositionCurrent = 0;
 static volatile uint8_t IdleValvePositionTarget = 0;
 static volatile HAL_StatusTypeDef IdleValvePositionStatus = HAL_OK;
+static volatile uint8_t IdleValveCalibratedOk = 0;
+static volatile uint8_t IdleValveCalibrate = 0;
+static volatile uint8_t IdleValveEnabled = 0;
 
 inline uint8_t Misc_GetIdleValvePosition(void)
 {
@@ -599,6 +602,42 @@ inline uint8_t Misc_GetIdleValvePosition(void)
 inline void Misc_SetIdleValvePosition(uint8_t position)
 {
   IdleValvePositionTarget = position;
+}
+
+inline int8_t Misc_CalibrateIdleValve(void)
+{
+  static uint32_t calibrate_time = 0;
+  static uint8_t state = 0;
+  uint32_t now = Delay_Tick;
+
+  switch(state) {
+    case 0:
+      IdleValveCalibratedOk = 0;
+      IdleValveCalibrate = 1;
+      calibrate_time = now;
+      state++;
+      break;
+    case 1:
+      if(IdleValveCalibratedOk) {
+        IdleValveCalibrate = 0;
+        IdleValveCalibratedOk = 0;
+        state = 0;
+        return 1;
+      } else {
+        if(DelayDiff(now, calibrate_time) > 3000000) {
+          state = 0;
+          IdleValveCalibrate = 0;
+          IdleValveCalibratedOk = 0;
+          return -1;
+        }
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
+
+  return 0;
 }
 
 inline HAL_StatusTypeDef Misc_GetIdleValveStatus(void)
@@ -613,7 +652,7 @@ static void IdleValve_CriticalLoop(void)
   IdleValvePositionStatus = idle_valve_state_pin == GPIO_PIN_RESET ? HAL_ERROR : HAL_OK;
 }
 
-static uint32_t StepPhase = 0;
+static volatile uint32_t StepPhase = 0;
 
 //Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port, STEP_PH1_Pin < STEP_PH2_Pin and close together
 #define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPhase | (StepPhase ^ (STEP_PH1_Pin | STEP_PH2_Pin)) << 16; }
@@ -626,8 +665,20 @@ static uint32_t StepPhase = 0;
 #define STEP_NORMAL() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
 #define STEP_ACCELERATE() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END 0.2f
+#define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
 #define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
+
+inline void Misc_EnableIdleValvePosition(uint8_t enablement_position)
+{
+  IdleValvePositionCurrent = enablement_position;
+  IdleValvePositionTarget = enablement_position;
+  StepPhase = 0;
+  for(int i = 0; i < (enablement_position & 3); i++)
+    STEP_INCREMENT();
+  STEP_APPEND();
+  STEP_HOLD();
+  IdleValveEnabled = 1;
+}
 
 static void IdleValve_FastLoop(void)
 {
@@ -637,40 +688,73 @@ static void IdleValve_FastLoop(void)
   uint32_t now = Delay_Tick;
   uint8_t current = IdleValvePositionCurrent;
   uint8_t target = IdleValvePositionTarget;
+  static uint8_t is_calibrating = 0;
+  static uint16_t calibration_steps = 0;
 
-  if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
-    last_tick = now;
-    if(current != target) {
-      STEP_ACCELERATE();
-      if(current < target) {
-        IdleValvePositionCurrent++;
-        STEP_INCREMENT();
-      } else if(current > target) {
-        IdleValvePositionCurrent--;
-        STEP_DECREMENT();
-      }
-      last_move = now;
-      is_hold = 0;
-      STEP_APPEND();
-    } else {
-      if(is_hold) {
-        STEP_HOLD();
-      } else {
-        if(DelayDiff(now, last_move) > 1000000) {
-          STEP_HOLD();
-          is_hold = 1;
+  if(IdleValveEnabled) {
+    if(IdleValveCalibrate == IdleValveCalibratedOk || !IdleValveCalibrate) {
+      is_calibrating = 0;
+      calibration_steps = 0;
+      if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
+        last_tick = now;
+        if(current != target) {
+          STEP_ACCELERATE();
+          if(current < target) {
+            IdleValvePositionCurrent++;
+            STEP_INCREMENT();
+          } else if(current > target) {
+            IdleValvePositionCurrent--;
+            STEP_DECREMENT();
+          }
+          last_move = now;
+          is_hold = 0;
+          STEP_APPEND();
         } else {
+          if(is_hold) {
+            STEP_HOLD();
+          } else {
+            if(DelayDiff(now, last_move) > 1000000) {
+              STEP_HOLD();
+              is_hold = 1;
+            } else {
+              STEP_NORMAL();
+            }
+          }
+        }
+      }
+    } else {
+      if(IdleValveCalibrate) {
+        if(!is_calibrating) {
+          is_calibrating = 1;
+          calibration_steps = 0;
+          IdleValvePositionCurrent = 0;
+          //STEP_ACCELERATE();
           STEP_NORMAL();
+        } else {
+
+          STEP_DECREMENT();
+          STEP_APPEND();
+
+          if(++calibration_steps >= 256 && StepPhase == 0) {
+            is_calibrating = 0;
+            calibration_steps = 0;
+            IdleValvePositionCurrent = 0;
+            STEP_NORMAL();
+            IdleValveCalibratedOk = 1;
+          }
         }
       }
     }
+  } else {
+    last_tick = now;
+    last_move = now - 1500000;
   }
 }
 
 
 void Misc_Fast_Loop(void)
 {
-
+  IdleValve_FastLoop();
 }
 
 void Misc_Loop(void)
@@ -803,6 +887,8 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
 
   for(int i = 0; i < MiscDiagChCount; i++)
     OutputsDiagBytes[i] = 0xFF;
+
+  STEP_IDLE();
 
   return result;
 }

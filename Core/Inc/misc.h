@@ -53,9 +53,13 @@ HAL_StatusTypeDef Misc_GetKnockValueByRPM(float *value);
 HAL_StatusTypeDef Misc_GetKnockValueRaw(float *value);
 HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte);
 sO2Status Misc_O2_GetStatus(void);
+
 uint8_t Misc_GetIdleValvePosition(void);
 void Misc_SetIdleValvePosition(uint8_t position);
 HAL_StatusTypeDef Misc_GetIdleValveStatus(void);
+void Misc_EnableIdleValvePosition(uint8_t enablement_position);
+int8_t Misc_CalibrateIdleValve(void);
+
 void Misc_Fast_Loop(void);
 void Misc_Loop(void);
 

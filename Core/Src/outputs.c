@@ -110,6 +110,16 @@ inline uint8_t out_get_idle_valve(void)
   return Misc_GetIdleValvePosition();
 }
 
+inline int8_t out_calibrate_idle_valve(void)
+{
+  return Misc_CalibrateIdleValve();
+}
+
+inline void out_enable_idle_valve(uint32_t enablement_position)
+{
+  Misc_EnableIdleValvePosition(enablement_position > UCHAR_MAX ? UCHAR_MAX : enablement_position < 0 ? 0 : enablement_position);
+}
+
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic)
 {
   *diagnostic = OutputDiagnostic;
