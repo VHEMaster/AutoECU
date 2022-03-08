@@ -102,10 +102,15 @@ typedef struct {
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
-    float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
-    float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    int8_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    int8_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    int8_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
 }sEcuCorrections;
+
+typedef struct {
+    sEcuCorrections corrections;
+    int8_t idle_valve_position;
+}sEcuBkpSramContent;
 
 typedef struct {
     int32_t tables_count;

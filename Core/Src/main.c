@@ -252,6 +252,10 @@ int main(void)
   MX_CRC_Init();
   MX_RNG_Init();
 
+  __HAL_RCC_PWR_CLK_ENABLE();
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_BKPSRAM_CLK_ENABLE();
+
   if (0) {
     MX_IWDG_Init();
   }

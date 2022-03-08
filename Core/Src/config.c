@@ -293,62 +293,63 @@ void config_default_params(sEcuParams *table)
   table->useTSPS = 1;
 }
 
-void config_default_correctives(sEcuCorrections *table)
+void config_default_correctives(sEcuBkpSramContent *table)
 {
   for(int i = 0; i < TABLE_FILLING_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->ignitions[i][j] = 0.0f;
+      table->corrections.ignitions[i][j] = 0;
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->fill_by_map[i][j] = 1.0f;
+      table->corrections.fill_by_map[i][j] = 0;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->fill_by_thr[i][j] = 1.0f;
+      table->corrections.fill_by_thr[i][j] = 0;
+
+  table->idle_valve_position = 0;
 }
 
 HAL_StatusTypeDef config_init(void)
 {
   HAL_StatusTypeDef status = HAL_OK;
+
   return status;
 }
 
 int8_t config_load_table(sEcuTable *table, uint8_t number)
 {
-
-  return 0;
+  if(number >= TABLE_SETUPS_MAX)
+    return -1;
+  return flash_page_load(table, sizeof(sEcuTable), number);
 }
 
 int8_t config_save_table(const sEcuTable *table, uint8_t number)
 {
-
-  return 0;
+  if(number >= TABLE_SETUPS_MAX)
+    return -1;
+  return flash_page_save(table, sizeof(sEcuTable), number);
 }
 
 
 int8_t config_load_params(sEcuParams *params)
 {
-
-  return 0;
+  return flash_page_load(params, sizeof(sEcuParams), TABLE_SETUPS_MAX);
 }
 
 int8_t config_save_params(const sEcuParams *params)
 {
-
-  return 0;
+  return flash_page_save(params, sizeof(sEcuParams), TABLE_SETUPS_MAX);
 }
 
 
-int8_t config_load_correctives(sEcuCorrections *table)
+int8_t config_load_correctives(sEcuBkpSramContent *table)
 {
-
-  return 0;
+  return flash_bkpsram_load(table, sizeof(sEcuBkpSramContent));
 }
 
-int8_t config_save_correctives(const sEcuCorrections *table)
+int8_t config_save_correctives(const sEcuBkpSramContent *table)
 {
-
-  return 0;
+  return flash_bkpsram_save(table, sizeof(sEcuBkpSramContent));
 }
 
