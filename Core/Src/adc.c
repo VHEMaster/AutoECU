@@ -79,6 +79,7 @@ void ADC_ErrorCallback(SPI_HandleTypeDef * _hspi)
 void ADC_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    SPI_NSS_OFF();
     semTx = 1;
   }
 }
@@ -86,6 +87,7 @@ void ADC_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 void ADC_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    SPI_NSS_OFF();
     semRx = 1;
   }
 }
@@ -93,6 +95,7 @@ void ADC_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    SPI_NSS_OFF();
     semTx = 1;
     semRx = 1;
   }
@@ -165,7 +168,7 @@ static HAL_StatusTypeDef SPI_SendCommand(uint16_t cmd)
   SPI_NSS_ON();
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 1);
   while(!waitTxRxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 2);
 
   if(rx[0] != 0x00 || rx[1] != 0x00)
@@ -183,7 +186,7 @@ static HAL_StatusTypeDef SPI_WriteRegister(uint8_t reg, uint8_t data)
   SPI_NSS_ON();
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
   while(!waitTxRxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 3);
 
   if(rx[0] != 0x00 || rx[1] != 0x00)
@@ -205,7 +208,7 @@ static HAL_StatusTypeDef SPI_ReadRegister(uint8_t reg, uint8_t *data)
   SPI_NSS_ON();
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
   while(!waitTxRxCplt()) {}
-  SPI_NSS_OFF();
+  //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 3);
 
   if(rx[0] != 0x00 || rx[1] != 0x00)
@@ -302,9 +305,9 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
     case 1:
       if(waitTxRxCplt())
       {
-        SPI_NSS_OFF();
+        //SPI_NSS_OFF();
         SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
-        data = rx[3] << 8 | rx[4];
+        data = rx[2] << 8 | rx[3];
 
         if(!AdcFirstTime)
           AdcBuffer[AdcChannel][AdcWritePos] = data;
@@ -315,11 +318,18 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
         }
 
         if(++AdcChannel >= ADC_CHANNELS) {
-          if(++AdcWritePos >= ADC_BUFFER_SIZE)
+          if(++AdcWritePos >= ADC_BUFFER_SIZE) {
             AdcWritePos = 0;
+          }
           AdcChannel = 0;
           AdcFirstTime = 0;
         }
+
+        //TODO: use this code and comment "state = 0" below.
+        //*((uint32_t *)tx) = 0;
+        //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+        //SPI_NSS_ON();
+        //HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
 
         state = 0;
       }
@@ -339,6 +349,14 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
   uint32_t data;
   uint32_t failed_channels = 0;
 
+  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
+    data = 0;
+    for(int j = 0; j < ADC_BUFFER_SIZE; j++)
+      data += AdcBuffer[i][j];
+    ChData[i] = data / ADC_BUFFER_SIZE;
+    AdcVoltages[i] = ADC_Convert(i) * ChDivider[i];
+  }
+
   for(int i = 0; i < ADC_CHANNELS; i++) {
     if(ChData[i] == 0x0000 || ChData[i] == 0xFFFF)
       failed_channels++;
@@ -347,14 +365,6 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
 
   if(failed_channels == ADC_CHANNELS)
     adcStatus = HAL_ERROR;
-
-  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
-    data = 0;
-    for(int j = 0; j < ADC_BUFFER_SIZE; j++)
-      data += AdcBuffer[i][j];
-    ChData[i] = data / ADC_BUFFER_SIZE;
-    AdcVoltages[i] = ADC_Convert(i) * ChDivider[i];
-  }
 
   return result;
 }
