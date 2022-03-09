@@ -229,6 +229,7 @@ int main(void)
   SystemClock_Config();
 
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
@@ -247,7 +248,6 @@ int main(void)
   MX_SPI4_Init();
   MX_UART4_Init();
   MX_UART5_Init();
-  MX_DMA_Init();
   MX_UART8_Init();
   MX_CRC_Init();
   MX_RNG_Init();
@@ -298,7 +298,6 @@ int main(void)
 
   Misc_O2_Init(htim9.Init.Period,
                &o2_pwm_period);
-  Mics_Knock_Init();
 
   HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
@@ -306,6 +305,9 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
+
+  Mics_Knock_Init();
+
   HAL_ADC_Start_IT(&hadc1);
 
   ecu_init();

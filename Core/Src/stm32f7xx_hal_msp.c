@@ -379,7 +379,11 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    //HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    //TODO: REMOVE IT BEFORE TESTING ON REAL ECU BOARD!!!!!!
+    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3; HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    GPIO_InitStruct.Pin = GPIO_PIN_9; HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     /* SPI2 DMA Init */
     /* SPI2_TX Init */

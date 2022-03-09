@@ -202,7 +202,7 @@ static uint8_t SPI_WaitForWrite(void)
           if(rx[0] & 0x01)
           {
             //Never should get here...
-            if(DelayDiff(now, wait_time) > 500000) {
+            if(DelayDiff(now, wait_time) > 75000) {
               SPI_NSS_OFF();
               state = 0;
               return -1;
