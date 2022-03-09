@@ -73,18 +73,20 @@ inline uint8_t CRC8_Generate(uint8_t *input, uint32_t size)
 
 #endif
 
-inline uint8_t XOR_Generate(const uint8_t *input, uint32_t size)
+inline uint16_t XOR_Generate(const uint8_t *input, uint32_t size)
 {
-  uint8_t result = 0;
+  uint16_t result = 0;
+  uint8_t *r16 = (uint8_t *)&result;
   while(size--) {
-    result ^= *input++;
-    result ^= size;
+    r16[0] ^= *input++;
+    r16[0] ^= size;
   }
+  r16[1] = ~r16[0];
 
-  if(result == 0x00)
-    result++;
-  else if(result == 0xFF)
-    result--;
+  if(result == 0x0000)
+    result += 0x1001;
+  else if(result == 0xFFFF)
+    result -= 0x0101;
 
   return result;
 }

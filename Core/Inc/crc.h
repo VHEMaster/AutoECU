@@ -15,6 +15,6 @@ void CRC16_Init(CRC_HandleTypeDef * hcrc);
 #error Must be defined CRC_HW or CRC_SW
 #endif
 
-uint8_t XOR_Generate(const uint8_t *input, uint32_t size);
+uint16_t XOR_Generate(const uint8_t *input, uint32_t size);
 
 #endif /* INC_CRC_H_ */

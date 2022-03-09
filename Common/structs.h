@@ -108,9 +108,8 @@ typedef struct {
 }sEcuCorrections;
 
 typedef struct {
-    sEcuCorrections corrections;
     int8_t idle_valve_position;
-}sEcuBkpSramContent;
+}sEcuCriticalBackup;
 
 typedef struct {
     int32_t tables_count;

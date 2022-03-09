@@ -33,11 +33,20 @@ typedef struct {
         }Struct;
         uint8_t Byte;
     }Flash;
+    union {
+        struct {
+            HAL_StatusTypeDef Load : 2;
+            HAL_StatusTypeDef Save : 2;
+            HAL_StatusTypeDef Init : 2;
+        }Struct;
+        uint8_t Byte;
+    }Bkpsram;
 }sStatus;
 
 static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
 static sEcuParams gEcuParams;
-static sEcuCorrections gEcuCorrectives;
+static sEcuCorrections gEcuCorrections;
+static sEcuCriticalBackup gEcuCriticalBackup;
 static sStatus gStatus = {{{0}}};
 
 static void ecu_config_init(void)
@@ -46,7 +55,8 @@ static void ecu_config_init(void)
 
   memset(gEcuTable, 0, sizeof(gEcuTable));
   memset(&gEcuParams, 0, sizeof(gEcuParams));
-  memset(&gEcuCorrectives, 0, sizeof(gEcuCorrectives));
+  memset(&gEcuCorrections, 0, sizeof(gEcuCorrections));
+  memset(&gEcuCriticalBackup, 0, sizeof(gEcuCriticalBackup));
   memset(&gStatus, 0, sizeof(gStatus));
 
   gStatus.Flash.Struct.Init = config_init();
@@ -73,13 +83,23 @@ static void ecu_config_init(void)
     }
   }
 
-  while(!(status = config_load_correctives(&gEcuCorrectives))) {}
+  while(!(status = config_load_corrections(&gEcuCorrections))) {}
   if(status < 0) {
     gStatus.Flash.Struct.Load = HAL_ERROR;
-    config_default_correctives(&gEcuCorrectives);
-    while(!(status = config_save_correctives(&gEcuCorrectives))) {}
+    config_default_corrections(&gEcuCorrections);
+    while(!(status = config_save_corrections(&gEcuCorrections))) {}
     if(status < 0) {
         gStatus.Flash.Struct.Save = HAL_ERROR;
+    }
+  }
+
+  while(!(status = config_load_critical_backup(&gEcuCriticalBackup))) {}
+  if(status < 0) {
+    gStatus.Bkpsram.Struct.Load = HAL_ERROR;
+    config_default_critical_backup(&gEcuCriticalBackup);
+    while(!(status = config_save_critical_backup(&gEcuCriticalBackup))) {}
+    if(status < 0) {
+        gStatus.Bkpsram.Struct.Save = HAL_ERROR;
     }
   }
 }

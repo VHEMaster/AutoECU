@@ -11,11 +11,15 @@
  *      Author: VHEMaster
  */
 
-#include "arm_math.h"
+#include "pid.h"
 #include "misc.h"
 #include "adc.h"
 #include "delay.h"
 #include "csps.h"
+
+#define O2_PID_P  0.5f
+#define O2_PID_I  0.1f
+#define O2_PID_D  0.1f
 
 static const float o2_afr_table[548] = {
   00.00f, 00.04f, 00.08f, 00.13f, 00.17f, 00.21f, 00.25f, 00.30f, 00.34f, 00.38f, 00.42f, 00.47f, 00.51f, 00.55f, 00.59f, 00.64f, 00.68f, 00.72f, 00.76f, 00.81f,
@@ -83,7 +87,7 @@ static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
 static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK, HAL_OK};
 
-static arm_pid_instance_f32 o2_pid;
+static sEcuPid o2_pid;
 
 
 static sO2Status O2Status = {0};
@@ -265,6 +269,9 @@ static void O2_SetHeaterDutyCycle(float dutycycle)
 {
   if(dutycycle > 1.0f)
     dutycycle = 1.0f;
+  else if(dutycycle < 0.0f)
+    dutycycle = 0.0f;
+
   *O2PwmDuty = (float)O2PwmPeriod * dutycycle;
 }
 
@@ -275,6 +282,8 @@ static void O2_SetHeaterVoltage(float voltage)
 
   if(voltage > power)
     voltage = power;
+  else if(voltage < 0.0f)
+    voltage = 0.0f;
 
   dutycycle = voltage/power;
   O2_SetHeaterDutyCycle(dutycycle);
@@ -435,6 +444,7 @@ static int8_t O2_Loop(void)
       break;
     case 7 :
       o2reference = ADC_GetVoltage(AdcChO2UR);
+      ecu_pid_set_target(&o2_pid, o2reference);
       status = O2_Enable();
       if(status) {
         O2Status.Valid = 1;
@@ -444,7 +454,7 @@ static int8_t O2_Loop(void)
       break;
     case 8 :
       voltage = ADC_GetVoltage(AdcChO2UR);
-      o2heater = arm_pid_f32(&o2_pid, o2reference - voltage);
+      o2heater = ecu_pid_update(&o2_pid, voltage, now);
       O2_SetHeaterVoltage(o2heater);
       state = 0;
       break;
@@ -859,10 +869,8 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Status.Valid = 0;
   O2Status.Working = 0;
 
-  o2_pid.Kp = 0.5f;
-  o2_pid.Ki = 0.1f;
-  o2_pid.Kd = 0.1f;
-  arm_pid_init_f32(&o2_pid, 1);
+  ecu_pid_init(&o2_pid);
+  ecu_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
 
   while(!O2_GetDevice(&device)) {};
 

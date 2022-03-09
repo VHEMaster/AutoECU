@@ -171,14 +171,15 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
 static uint8_t SPI_WaitForWrite(void)
 {
   static uint8_t state = 0;
-  //static uint32_t wait_time = 0;
+  static uint32_t wait_time = 0;
+  uint32_t now = Delay_Tick;
   do
   {
     switch(state)
     {
       case 0 :
         tx[0] = 0x05;
-        //wait_time = Delay_Tick;
+        wait_time = now;
         SPI_NSS_ON();
         state++;
         continue;
@@ -201,7 +202,11 @@ static uint8_t SPI_WaitForWrite(void)
           if(rx[0] & 0x01)
           {
             //Never should get here...
-            //if(DelayDiff(Delay_Tick, wait_time) > 1000);
+            if(DelayDiff(now, wait_time) > 500000) {
+              SPI_NSS_OFF();
+              state = 0;
+              return -1;
+            }
             state = 1;
           }
           else
@@ -370,7 +375,7 @@ static uint8_t SPI_EraseBlock(uint32_t address, uint8_t cmd)
         }
         break;
       case 3 :
-        if(DelayDiff(Delay_Tick, program_time) >= 36000)
+        if(DelayDiff(Delay_Tick, program_time) >= 25000+3000)
         {
           state++;
           continue;
@@ -427,7 +432,7 @@ static uint8_t SPI_ChipErase(void)
         }
         break;
       case 3 :
-        if(DelayDiff(Delay_Tick, program_time) >= 19000)
+        if(DelayDiff(Delay_Tick, program_time) >= 50000+2000)
         {
           state++;
           continue;
@@ -449,6 +454,10 @@ static uint8_t SPI_ChipErase(void)
   return 0;
 }
 
+HAL_StatusTypeDef SST25_CheckChip(void)
+{
+  return SPI_CheckChip();
+}
 
 HAL_StatusTypeDef SST25_Init(SPI_HandleTypeDef * _hspi)
 {
@@ -458,7 +467,6 @@ HAL_StatusTypeDef SST25_Init(SPI_HandleTypeDef * _hspi)
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
-  status = SPI_CheckChip();
   return status;
 }
 

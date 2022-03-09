@@ -17,6 +17,7 @@ void SST25_Erase4KSectorLock(uint32_t address);
 void SST25_Erase32KBlockLock(uint32_t address);
 void SST25_Erase64KBlockLock(uint32_t address);
 void SST25_ChipEraseLock(void);
+HAL_StatusTypeDef SST25_CheckChip(void);
 
 void SST25_ErrorCallback(SPI_HandleTypeDef * _hspi);
 void SST25_TxCpltCallback(SPI_HandleTypeDef * _hspi);

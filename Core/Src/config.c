@@ -12,13 +12,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#define CONFIG_OFFSET_CORRECTIONS 0
+#define CONFIG_OFFSET_CRITICALS 1920
+
 static const float default_voltages[8] = {
     0.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 25.0f
 };
 
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
     0, 7300, 14700, 22000, 29300, 36700, 44000, 51300,
-    58600, 66000, 73300, 80600, 88000, 95300, 12700, 110000
+    58600, 66000, 73300, 80600, 88000, 95300, 102700, 110000
 };
 
 static const float default_rotates[TABLE_ROTATES_MAX] = {
@@ -140,7 +143,7 @@ static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
 
 static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
     0.116f, 0.113f, 0.109f, 0.105f, 0.101f, 0.098f, 0.094f, 0.090f,
-    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f,0.060f,
+    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f, 0.060f,
 };
 
 static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
@@ -195,7 +198,6 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
     0, 50, 100, 100, 100, 150, 150, 150,
     200, 200, 200, 200, 250, 250, 300, 300
 };
-
 
 void config_default_table(sEcuTable *table, uint8_t number)
 {
@@ -293,29 +295,34 @@ void config_default_params(sEcuParams *table)
   table->useTSPS = 1;
 }
 
-void config_default_correctives(sEcuBkpSramContent *table)
+void config_default_corrections(sEcuCorrections *table)
 {
   for(int i = 0; i < TABLE_FILLING_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->corrections.ignitions[i][j] = 0;
+      table->ignitions[i][j] = 0;
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->corrections.fill_by_map[i][j] = 0;
+      table->fill_by_map[i][j] = 0;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->corrections.fill_by_thr[i][j] = 0;
+      table->fill_by_thr[i][j] = 0;
+}
 
+void config_default_critical_backup(sEcuCriticalBackup *table)
+{
   table->idle_valve_position = 0;
 }
+
 
 HAL_StatusTypeDef config_init(void)
 {
   HAL_StatusTypeDef status = HAL_OK;
-
+  status = SST25_CheckChip();
   return status;
 }
+
 
 int8_t config_load_table(sEcuTable *table, uint8_t number)
 {
@@ -343,13 +350,24 @@ int8_t config_save_params(const sEcuParams *params)
 }
 
 
-int8_t config_load_correctives(sEcuBkpSramContent *table)
+int8_t config_load_corrections(sEcuCorrections *table)
 {
-  return flash_bkpsram_load(table, sizeof(sEcuBkpSramContent));
+  return flash_bkpsram_load(table, sizeof(sEcuCorrections), CONFIG_OFFSET_CORRECTIONS);
 }
 
-int8_t config_save_correctives(const sEcuBkpSramContent *table)
+int8_t config_save_corrections(const sEcuCorrections *table)
 {
-  return flash_bkpsram_save(table, sizeof(sEcuBkpSramContent));
+  return flash_bkpsram_save(table, sizeof(sEcuCorrections), CONFIG_OFFSET_CORRECTIONS);
+}
+
+
+int8_t config_load_critical_backup(sEcuCriticalBackup *table)
+{
+  return flash_bkpsram_load(table, sizeof(sEcuCriticalBackup), CONFIG_OFFSET_CRITICALS);
+}
+
+int8_t config_save_critical_backup(const sEcuCriticalBackup *table)
+{
+  return flash_bkpsram_save(table, sizeof(sEcuCriticalBackup), CONFIG_OFFSET_CRITICALS);
 }
 
