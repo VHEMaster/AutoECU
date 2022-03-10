@@ -87,7 +87,7 @@ static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
 static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK, HAL_OK};
 
-static sEcuPid o2_pid;
+static sMathPid o2_pid;
 
 
 static sO2Status O2Status = {0};
@@ -444,7 +444,7 @@ static int8_t O2_Loop(void)
       break;
     case 7 :
       o2reference = ADC_GetVoltage(AdcChO2UR);
-      ecu_pid_set_target(&o2_pid, o2reference);
+      math_pid_set_target(&o2_pid, o2reference);
       status = O2_Enable();
       if(status) {
         O2Status.Valid = 1;
@@ -454,7 +454,7 @@ static int8_t O2_Loop(void)
       break;
     case 8 :
       voltage = ADC_GetVoltage(AdcChO2UR);
-      o2heater = ecu_pid_update(&o2_pid, voltage, now);
+      o2heater = math_pid_update(&o2_pid, voltage, now);
       O2_SetHeaterVoltage(o2heater);
       state = 0;
       break;
@@ -573,8 +573,10 @@ static void Knock_CriticalLoop(void)
       if(rotates && rpm > 60.0f && diff > 0) {
         corrected = voltage / rpm * 60.0f;
         koff = 1.0f / (60000000.0f / rpm / diff);
+      } else {
+        corrected = 0;
+        koff = 0.025f;
       }
-      else koff = 0.025f;
 
       KnockRawValue = KnockRawValue * (1.0f - koff) + voltage * koff;
       KnockValue = KnockValue * (1.0f - koff) + corrected * koff;
@@ -869,8 +871,8 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Status.Valid = 0;
   O2Status.Working = 0;
 
-  ecu_pid_init(&o2_pid);
-  ecu_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
+  math_pid_init(&o2_pid);
+  math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
 
   while(!O2_GetDevice(&device)) {};
 

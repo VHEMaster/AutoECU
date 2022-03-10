@@ -11,6 +11,7 @@
 #include "main.h"
 #include "structs.h"
 
+HAL_StatusTypeDef flash_checkchip(void);
 int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page);
 int8_t flash_page_save(const void *buffer, uint32_t size, uint8_t page);
 int8_t flash_bkpsram_load(void *buffer, uint32_t size, uint32_t offset);

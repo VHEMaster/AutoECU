@@ -209,3 +209,8 @@ int8_t flash_bkpsram_save(const void *buffer, uint32_t size, uint32_t offset)
   return 1;
 }
 
+HAL_StatusTypeDef flash_checkchip(void)
+{
+  return SST25_CheckChip();
+}
+

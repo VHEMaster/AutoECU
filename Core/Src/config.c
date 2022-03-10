@@ -199,6 +199,11 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
     200, 200, 200, 200, 250, 250, 300, 300
 };
 
+static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -271,6 +276,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));
   memcpy(table->idle_rpm_shift, default_idle_rpm_shift, sizeof(default_idle_rpm_shift));
 
+  memcpy(table->knock_noise_level, default_knock_noise_level, sizeof(default_knock_noise_level));
+
+
 }
 
 void config_default_params(sEcuParams *table)
@@ -319,7 +327,7 @@ void config_default_critical_backup(sEcuCriticalBackup *table)
 HAL_StatusTypeDef config_init(void)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  status = SST25_CheckChip();
+  status = flash_checkchip();
   return status;
 }
 

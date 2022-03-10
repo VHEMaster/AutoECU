@@ -1,68 +1,50 @@
 /*
- * pid.h
+ * pid.c
  *
- *  Created on: 9 мар. 2022 г.
+ *  Created on: 10 мар. 2022 г.
  *      Author: VHEMaster
  */
 
-#ifndef PID_H_
-#define PID_H_
-
 #include "arm_math.h"
+#include "pid.h"
 #include "delay.h"
 #include <string.h>
 #include <float.h>
 
-typedef struct {
-    float ClampFrom;
-    float ClampTo;
-    float Kp;
-    float Ki;
-    float Kd;
-    float P;
-    float I;
-    float D;
-    float Current;
-    float Target;
-    float Output;
-    float Error;
-    uint32_t LastTime;
-}sEcuPid;
-
-CMSIS_INLINE __STATIC_INLINE void ecu_pid_reset(sEcuPid *pid)
+CMSIS_INLINE __INLINE void math_pid_reset(sMathPid *pid)
 {
   pid->Current = 0;
   pid->Target = 0;
   pid->Error = 0;
 }
 
-CMSIS_INLINE __STATIC_INLINE void ecu_pid_set_target(sEcuPid *pid, float target)
+CMSIS_INLINE __INLINE void math_pid_set_target(sMathPid *pid, float target)
 {
   pid->Target = target;
 }
 
-CMSIS_INLINE __STATIC_INLINE void ecu_pid_set_koffs(sEcuPid *pid, float Kp, float Ki, float Kd)
+CMSIS_INLINE __INLINE void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd)
 {
   pid->Kp = Kp;
   pid->Ki = Ki;
   pid->Kd = Kd;
 }
 
-CMSIS_INLINE __STATIC_INLINE void ecu_pid_set_clamp(sEcuPid *pid, float from, float to)
+CMSIS_INLINE __INLINE void math_pid_set_clamp(sMathPid *pid, float from, float to)
 {
   pid->ClampFrom = from;
   pid->ClampTo = to;
 }
 
-CMSIS_INLINE __STATIC_INLINE void ecu_pid_init(sEcuPid *pid)
+CMSIS_INLINE __INLINE void math_pid_init(sMathPid *pid)
 {
-  memset(pid, 0, sizeof(sEcuPid));
+  memset(pid, 0, sizeof(sMathPid));
   pid->Kp = 1.0f;
   pid->ClampFrom = FLT_MIN;
   pid->ClampTo = FLT_MAX;
 }
 
-CMSIS_INLINE __STATIC_INLINE float ecu_pid_update(sEcuPid *pid, float input, uint32_t time)
+CMSIS_INLINE __INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
 {
   float error = input - pid->Target;
   float output;
@@ -88,5 +70,3 @@ CMSIS_INLINE __STATIC_INLINE float ecu_pid_update(sEcuPid *pid, float input, uin
 
   return output;
 }
-
-#endif /* PID_H_ */

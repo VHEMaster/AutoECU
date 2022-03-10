@@ -98,6 +98,8 @@ typedef struct {
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
     float idle_rpm_shift[TABLE_SPEEDS_MAX];
 
+    float knock_noise_level[TABLE_ROTATES_MAX];
+
     int32_t Reserved[128];
 }sEcuTable __attribute__((aligned(32)));
 
