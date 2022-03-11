@@ -47,6 +47,7 @@ static volatile uint32_t csps_pulse_last = 0;
 static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
 static volatile uint8_t csps_found = 0;
 static volatile uint8_t csps_rotates = 0;
+static volatile uint8_t csps_running = 0;
 static volatile uint8_t csps_phased = 0;
 static volatile uint8_t csps_phase_found = 0;
 static volatile uint32_t csps_last = 0;
@@ -417,6 +418,11 @@ float csps_getperiod(void)
   return csps_period;
 }
 
+uint8_t csps_isrunning(void)
+{
+  return csps_running;
+}
+
 uint8_t csps_isrotates(void)
 {
   return csps_rotates;
@@ -453,10 +459,17 @@ void csps_loop(void)
     csps_rotates = 0;
     csps_phase_found = 0;
     csps_phased = 0;
+    csps_running = 0;
     csps_period = 1.0f / csps_rpm;
     htim->Instance->PSC = 0xFFFF;
     if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_READY)
       HAL_TIM_PWM_Stop(htim, tim_channel);
+  }
+
+  if(!csps_running) {
+    if(csps_rpm > 450.0f) {
+      csps_running = 1;
+    }
   }
 
   if(DelayDiff(now, last_error_null) > 50000)

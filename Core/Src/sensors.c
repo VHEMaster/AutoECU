@@ -8,6 +8,8 @@
 #include "sensors.h"
 #include "misc.h"
 #include "adc.h"
+#include "interpolation.h"
+#include "defines.h"
 
 typedef struct {
   GPIO_TypeDef *port;
@@ -79,55 +81,11 @@ inline GPIO_PinState sens_get_rsvd2(void)
 
 static float getTemperatureByResistance(float resistance)
 {
-  const float resistances[22] = {100700,52700,28680,21450,16180,12300,9420,7280,5670,4450,3520,2796,2238,1802,1459,1188,973,667,467,332,241,177};
-  const float temperatures[22] = {-40,-30,-20,-15,-10,-5,0,5,10,15,20,25,30,35,40,45,50,60,70,80,90,100};
-  float result = 0.0f;
-  uint8_t index1, index2;
-  float temp1 = 0.0f, temp2 = 0.0f, mult, tempt1, tempt2;
+  const static float resistances[22] = {100700,52700,28680,21450,16180,12300,9420,7280,5670,4450,3520,2796,2238,1802,1459,1188,973,667,467,332,241,177};
+  const static float temperatures[22] = {-40,-30,-20,-15,-10,-5,0,5,10,15,20,25,30,35,40,45,50,60,70,80,90,100};
+  sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
 
-  if(resistance >= resistances[0])
-  {
-    index1 = 0;
-    index2 = 1;
-    temp1 = resistances[index1];
-    temp2 = resistances[index2];
-  }
-  else if(resistance <= resistances[(sizeof(resistances) / sizeof(float)) - 1])
-  {
-    index1 = (sizeof(resistances) / sizeof(float)) - 2;
-    index2 = (sizeof(resistances) / sizeof(float)) - 1;
-    temp1 = resistances[index1];
-    temp2 = resistances[index2];
-  }
-  else
-  {
-    for(int i = 1; i < (sizeof(resistances) / sizeof(float)); i++)
-    {
-      temp1 = resistances[i-1];
-      temp2 = resistances[i];
-      if(temp1 > resistance && temp2 < resistance)
-      {
-        index1 = i-1;
-        index2 = i;
-        break;
-      }
-      temp1 = 0.0f;
-      temp2 = 0.0f;
-    }
-  }
-
-  if(temp1 != 0.0f || temp2 != 0.0f)
-  {
-    tempt1 = temperatures[index1];
-    tempt2 = temperatures[index2];
-    if(temp2 != temp1)
-    {
-      mult = (resistance - temp1) / (temp2 - temp1);
-      result = (tempt2 - tempt1) * mult + tempt1;
-    }
-    else result = (tempt1 + tempt2) / 2.0f;
-  }
-  return result;
+  return math_interpolate_1d(ipResistance, temperatures);
 }
 
 HAL_StatusTypeDef sens_get_o2_fuelratio(float *output, uint8_t *valid)
@@ -136,9 +94,11 @@ HAL_StatusTypeDef sens_get_o2_fuelratio(float *output, uint8_t *valid)
   sO2Status o2status = Misc_O2_GetStatus();
   *output = o2status.FuelRatio;
   if(o2status.Available) {
-    *valid = o2status.Valid && o2status.Working;
+    if(valid)
+      *valid = o2status.Valid && o2status.Working;
   } else {
-    *valid = 0;
+    if(valid)
+      *valid = 0;
     status = HAL_ERROR;
   }
   return status;

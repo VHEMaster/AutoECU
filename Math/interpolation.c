@@ -8,7 +8,7 @@
 #include "arm_math.h"
 #include "interpolation.h"
 
-CMSIS_INLINE __STATIC_INLINE int math_binary_search(float array[], int start_index, int end_index, float element){
+CMSIS_INLINE __STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element){
    while (start_index <= end_index){
       int middle = start_index + ((end_index- start_index ) >> 1);
       if (array[middle] <= element && array[middle + 1] > element)
@@ -21,7 +21,7 @@ CMSIS_INLINE __STATIC_INLINE int math_binary_search(float array[], int start_ind
    return -1;
 }
 
-CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, float *table, uint32_t size)
+CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size)
 {
   sMathInterpolateInput result = {0};
   int find_index = -1;
@@ -68,7 +68,7 @@ CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, 
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, float *table)
+CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, const float *table)
 {
   float result;
   float output[2];
@@ -81,10 +81,27 @@ CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, flo
   return result;
 }
 
-#define TYPE_PTR_TO_2D(pointer, x, y, y_size, type) ((type *)(pointer))[(y)*(y_size)+(x)]
-
 CMSIS_INLINE __INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[y_size])
+    uint32_t y_size, const float (*table)[y_size])
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]];
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]];
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]];
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]];
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+CMSIS_INLINE __INLINE float math_interpolate_2d_int8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const int8_t (*table)[y_size])
 {
   float result = 0.0f;
   float output_1d[2];

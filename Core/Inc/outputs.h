@@ -76,6 +76,13 @@ void out_set_starter(GPIO_PinState state);
 void out_set_rsvd1(GPIO_PinState state);
 void out_set_rsvd2(GPIO_PinState state);
 
+GPIO_PinState out_get_fuelpump(void);
+GPIO_PinState out_get_checkengine(void);
+GPIO_PinState out_get_fan(void);
+GPIO_PinState out_get_starter(void);
+GPIO_PinState out_get_rsvd1(void);
+GPIO_PinState out_get_rsvd2(void);
+
 void out_set_idle_valve(int32_t position);
 uint8_t out_get_idle_valve(void);
 int8_t out_calibrate_idle_valve(void);

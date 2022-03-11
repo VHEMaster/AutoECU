@@ -50,6 +50,36 @@ inline void out_set_rsvd2(GPIO_PinState state)
   Outputs[OutRsvd2].state = state;
 }
 
+inline GPIO_PinState out_get_fuelpump(void)
+{
+  return Outputs[OutFuelPumpRelay].state;
+}
+
+inline GPIO_PinState out_get_checkengine(void)
+{
+  return Outputs[OutCheckEngine].state;
+}
+
+inline GPIO_PinState out_get_fan(void)
+{
+  return Outputs[OutFanRelay].state;
+}
+
+inline GPIO_PinState out_get_starter(void)
+{
+  return Outputs[OutStarterRelay].state;
+}
+
+inline GPIO_PinState out_get_rsvd1(void)
+{
+  return Outputs[OutRsvd1].state;
+}
+
+inline GPIO_PinState out_get_rsvd2(void)
+{
+  return Outputs[OutRsvd2].state;
+}
+
 void outputs_init(void)
 {
   memset(&OutputDiagnostic, 0xFF, sizeof(OutputDiagnostic));

@@ -116,27 +116,35 @@ typedef struct {
 typedef struct {
     int32_t tables_count;
 
+    float engineVolume;
+
     int32_t isCutoffEnabled;
+    int32_t isForceTable;
     int32_t isSwitchByExternal;
     int32_t startupTableNumber;
     int32_t switchPos1Table;
     int32_t switchPos0Table;
     int32_t switchPos2Table;
     int32_t switchTime;
+    int32_t forceTable;
 
     float cutoffRPM;
     int32_t cutoffMode;
     float cutoffAngle;
     float cutoffMixture;
+
     float speedCorrection;
 
     int32_t useLambdaSensor;
     int32_t useTSPS;
 
-    int32_t Reserved32[1009];
+    int32_t Reserved32[1006];
 }sEcuParams;
 
 typedef struct {
+    int32_t SwitchPosition;
+    int32_t CurrentTable;
+
     float AdcKnockVoltage;
     float AdcAirTemp;
     float AdcEngineTemp;
@@ -174,6 +182,7 @@ typedef struct {
     float InjectionPhase;
     float IgnitionTime;
     float IgnitionDutyCycle;
+    float IdleSpeedShift;
 
     int32_t OilSensor;
     int32_t StarterSensor;
@@ -193,7 +202,22 @@ typedef struct {
 }sParameters;
 
 typedef struct {
-    uint32_t Enable;
+    union {
+      struct {
+        uint8_t IgnitionAngle : 1;
+        uint8_t InjectionPhase : 1;
+        uint8_t IgnitionOctane : 1;
+        uint8_t WishFuelRatio : 1;
+        uint8_t WishIdleRPM : 1;
+        uint8_t WishIdleValvePosition : 1;
+        uint8_t WishIdleIgnitionAngle : 1;
+        uint8_t InjectionTime : 1;
+        uint8_t IgnitionTime : 1;
+        uint8_t FanRelay : 1;
+        uint8_t FuelPumpRelay : 1;
+      } params;
+      uint32_t dword;
+    } Enable;
     float IgnitionAngle;
     float InjectionPhase;
     float IgnitionOctane;
@@ -201,9 +225,8 @@ typedef struct {
     float WishIdleRPM;
     float WishIdleValvePosition;
     float WishIdleIgnitionAngle;
-    float InjectionTime[4];
-    float IgnitionTime[4];
-    float IgnitionTimePP[2];
+    float InjectionTime;
+    float IgnitionTime;
     float FanRelay;
     float FuelPumpRelay;
 }sForceParameters;
