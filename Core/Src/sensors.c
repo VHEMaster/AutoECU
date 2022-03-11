@@ -81,8 +81,8 @@ inline GPIO_PinState sens_get_rsvd2(void)
 
 static float getTemperatureByResistance(float resistance)
 {
-  const static float resistances[22] = {100700,52700,28680,21450,16180,12300,9420,7280,5670,4450,3520,2796,2238,1802,1459,1188,973,667,467,332,241,177};
-  const static float temperatures[22] = {-40,-30,-20,-15,-10,-5,0,5,10,15,20,25,30,35,40,45,50,60,70,80,90,100};
+  const static float resistances[22] = {177,241,332,467,667,973,1188,1459,1802,2238,2796,3520,4450,5670,7280,9420,12300,16180,21450,28680,52700,100700};
+  const static float temperatures[22] = {100,90,80,70,60,50,45,40,35,30,25,20,15,10,5,0,-5,-10,-15,-20,-30,-40};
   sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
 
   return math_interpolate_1d(ipResistance, temperatures);
@@ -145,22 +145,28 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
   float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
   float temperature = ADC_GetVoltage(AdcChAirTemperature);
 
-  if(temperature > power_voltage)
-    temperature = power_voltage;
+  *output = 0.0f;
 
-  reference_resistance = 1000.0f;
-  meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
-  temperature = getTemperatureByResistance(meter_resistance);
-  if(temperature < -40.0f) {
-    *output = -40.0f;
-    status = HAL_ERROR;
-  }
-  else if(temperature > 150.0f) {
-    *output = 150.0f;
-    status = HAL_ERROR;
+  if(power_voltage != 0.0f) {
+    if(temperature > power_voltage)
+      temperature = power_voltage;
+
+    reference_resistance = 1000.0f;
+    meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
+    temperature = getTemperatureByResistance(meter_resistance);
+    if(temperature < -40.0f) {
+      *output = -40.0f;
+      status = HAL_ERROR;
+    }
+    else if(temperature > 150.0f) {
+      *output = 150.0f;
+      status = HAL_ERROR;
+    }
+    else
+      *output = temperature;
   }
   else
-    *output = temperature;
+    status = HAL_ERROR;
 
   return status;
 }
@@ -172,22 +178,28 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
   float power_voltage = ADC_GetVoltage(AdcChPowerVoltage);
   float temperature = ADC_GetVoltage(AdcChEngineTemperature);
 
-  if(temperature > power_voltage)
-    temperature = power_voltage;
+  *output = 0.0f;
 
-  reference_resistance = 200.0f;
-  meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
-  temperature = getTemperatureByResistance(meter_resistance);
-  if(temperature < -40.0f) {
-    *output = -40.0f;
-    status = HAL_ERROR;
-  }
-  else if(temperature > 150.0f) {
-    *output = 150.0f;
-    status = HAL_ERROR;
+  if(power_voltage != 0.0f) {
+    if(temperature > power_voltage)
+      temperature = power_voltage;
+
+    reference_resistance = 200.0f;
+    meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
+    temperature = getTemperatureByResistance(meter_resistance);
+    if(temperature < -40.0f) {
+      *output = -40.0f;
+      status = HAL_ERROR;
+    }
+    else if(temperature > 150.0f) {
+      *output = 150.0f;
+      status = HAL_ERROR;
+    }
+    else
+      *output = temperature;
   }
   else
-    *output = temperature;
+    status = HAL_ERROR;
 
   return status;
 }

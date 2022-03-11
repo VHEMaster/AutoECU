@@ -26,6 +26,9 @@ CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, 
   sMathInterpolateInput result = {0};
   int find_index = -1;
 
+  if(value != value)
+    return result;
+
   result.input = value;
   result.size = size;
 
