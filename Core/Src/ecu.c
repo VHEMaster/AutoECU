@@ -161,58 +161,57 @@ static void ecu_update()
   uint32_t now = Delay_Tick;
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
-  static sMathInterpolateInput ipRpm = {0};
-  static sMathInterpolateInput ipMap = {0};
-  static sMathInterpolateInput ipTemp = {0};
-  static sMathInterpolateInput ipSpeed = {0};
-  static sMathInterpolateInput ipThrottle = {0};
-  static sMathInterpolateInput ipVoltages = {0};
+  sMathInterpolateInput ipRpm = {0};
+  sMathInterpolateInput ipMap = {0};
+  sMathInterpolateInput ipTemp = {0};
+  sMathInterpolateInput ipSpeed = {0};
+  sMathInterpolateInput ipThrottle = {0};
+  sMathInterpolateInput ipVoltages = {0};
 
-  static sMathInterpolateInput ipFilling = {0};
+  sMathInterpolateInput ipFilling = {0};
 
-  static float rpm;
-  static float map;
-  static float fuel_ratio;
-  static float air_temp;
-  static float engine_temp;
-  static float throttle;
-  static float power_voltage;
-  static float reference_voltage;
-  static float speed;
-  static float knock;
-  static float idle_valve_position;
-  static float knock_raw;
+  float rpm;
+  float map;
+  float fuel_ratio;
+  float air_temp;
+  float engine_temp;
+  float throttle;
+  float power_voltage;
+  float reference_voltage;
+  float speed;
+  float knock;
+  float idle_valve_position;
+  float knock_raw;
 
-  static float wish_fuel_ratio;
-  static float filling_map;
-  static float filling_thr;
-  static float filling_volume;
-  static float ignition_angle;
-  static float ignition_time;
-  static float injector_lag;
-  static float cycle_air_flow;
-  static float mass_air_flow;
-  static float injection_time;
-  static float injection_phase;
-  static float air_destiny;
-  static float fuel_flow_per_us;
-  static float knock_filtered;
-  static float knock_noise_level;
-  static float engine_load;
+  float wish_fuel_ratio;
+  float filling_map;
+  float filling_thr;
+  float effective_volume;
+  float ignition_angle;
+  float ignition_time;
+  float injector_lag;
+  float cycle_air_flow;
+  float mass_air_flow;
+  float injection_time;
+  float injection_phase;
+  float air_destiny;
+  float fuel_flow_per_us;
+  float knock_filtered;
+  float knock_noise_level;
 
-  static float fill_proportion;
-  static float fuel_pressure;
-  static float fuel_abs_pressure;
+  float fill_proportion;
+  float fuel_pressure;
+  float fuel_abs_pressure;
 
-  static float idle_wish_rpm;
-  static float idle_wish_massair;
-  static float idle_wish_ignition;
-  static float idle_rpm_shift;
-  static float idle_wish_valve_pos;
-  static float injection_dutycycle;
+  float idle_wish_rpm;
+  float idle_wish_massair;
+  float idle_wish_ignition;
+  float idle_rpm_shift;
+  float idle_wish_valve_pos;
+  float injection_dutycycle;
 
-  static uint8_t running;
-  static uint8_t idle_flag;
+  uint8_t running;
+  uint8_t idle_flag;
 
   running = csps_isrunning();
   fill_proportion = table->fill_proportion_map_vs_thr;
@@ -252,11 +251,12 @@ static void ecu_update()
   filling_map *= math_interpolate_2d_int8(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map) * 0.01f + 1.0f;
   filling_thr *= math_interpolate_2d_int8(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr) * 0.01f + 1.0f;
 
-  filling_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
+  effective_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
+  effective_volume *= gEcuParams.engineVolume;
 
   air_destiny = ecu_get_air_destiny(map, air_temp);
-  cycle_air_flow = filling_volume * air_destiny;
-  mass_air_flow = rpm * 0.03333333f * cycle_air_flow; // rpm / 60 * 2
+  cycle_air_flow = effective_volume * 0.25f * air_destiny * 1000.0f;
+  mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
@@ -270,7 +270,7 @@ static void ecu_update()
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
 
-  injection_time = cycle_air_flow / wish_fuel_ratio / fuel_flow_per_us;
+  injection_time = cycle_air_flow * 0.001f / wish_fuel_ratio / fuel_flow_per_us;
   injection_time += injector_lag;
 
   idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
@@ -304,9 +304,6 @@ static void ecu_update()
       injection_time = 0;
   }
 
-  engine_load = filling_volume / gEcuParams.engineVolume * 4.0f;
-
-
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = ADC_GetVoltage(AdcChEngineTemperature);
@@ -332,8 +329,8 @@ static void ecu_update()
   gParameters.Speed = speed;
   gParameters.MassAirFlow = mass_air_flow;
   gParameters.CyclicAirFlow = cycle_air_flow;
-  gParameters.CyclicFilling = filling_volume;
-  gParameters.EngineLoad = engine_load;
+  gParameters.EffectiveVolume = effective_volume;
+  gParameters.AirDestiny = air_destiny;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
   gParameters.WishIdleRPM = idle_wish_rpm;
@@ -342,8 +339,9 @@ static void ecu_update()
   gParameters.WishIdleIgnitionAngle = idle_wish_ignition;
   gParameters.IgnitionAngle = ignition_angle;
   gParameters.InjectionPhase = injection_phase;
-  gParameters.IgnitionTime = injection_time;
-  gParameters.IgnitionDutyCycle = injection_dutycycle;
+  gParameters.InjectionPulse = injection_time;
+  gParameters.InjectionDutyCycle = injection_dutycycle;
+  gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
 
   gParameters.OilSensor = sens_get_oil_pressure();
@@ -360,7 +358,7 @@ static void ecu_update()
   gParameters.Rsvd1Output = out_get_rsvd1() != GPIO_PIN_RESET;
   gParameters.Rsvd2Output = out_get_rsvd2() != GPIO_PIN_RESET;
 
-
+  gParameters.IsRunning = running;
 }
 
 void ecu_init(void)

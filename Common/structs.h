@@ -170,8 +170,8 @@ typedef struct {
     float Speed;
     float MassAirFlow;
     float CyclicAirFlow;
-    float CyclicFilling;
-    float EngineLoad;
+    float EffectiveVolume;
+    float AirDestiny;
     float WishFuelRatio;
     float IdleValvePosition;
     float WishIdleRPM;
@@ -180,8 +180,9 @@ typedef struct {
     float WishIdleIgnitionAngle;
     float IgnitionAngle;
     float InjectionPhase;
-    float IgnitionTime;
-    float IgnitionDutyCycle;
+    float InjectionPulse;
+    float InjectionDutyCycle;
+    float IgnitionPulse;
     float IdleSpeedShift;
 
     int32_t OilSensor;
@@ -199,6 +200,7 @@ typedef struct {
     int32_t Rsvd2Output;
 
     int32_t StartAllowed;
+    int32_t IsRunning;
 }sParameters;
 
 typedef struct {

@@ -8,17 +8,19 @@
 #include "arm_math.h"
 #include "interpolation.h"
 
-CMSIS_INLINE __STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element){
-   while (start_index <= end_index){
-      int middle = start_index + ((end_index- start_index ) >> 1);
-      if (array[middle] <= element && array[middle + 1] > element)
-         return middle;
-      if (array[middle + 1] <= element)
-         start_index = middle + 1;
-      else if(array[middle] >= element)
-         end_index = middle - 1;
-   }
-   return -1;
+CMSIS_INLINE __STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element)
+{
+  int iterations = 0;
+  while(start_index <= end_index && ++iterations < 256) {
+    int middle = start_index + ((end_index- start_index ) >> 1);
+    if (array[middle] <= element && array[middle + 1] > element)
+      return middle;
+    if (array[middle + 1] <= element)
+      start_index = middle + 1;
+    else if(array[middle] >= element)
+      end_index = middle - 1;
+  }
+  return -1;
 }
 
 CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size)
