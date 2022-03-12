@@ -246,6 +246,10 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
+  HAL_GPIO_WritePin(SPI1_NRST_GPIO_Port, SPI1_NRST_Pin, GPIO_PIN_SET);
+
+  DelayMs(1);
+
   hspi = _hspi;
   hadc = _hadc;
 
@@ -272,6 +276,12 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
     result = SPI_WriteRegister(0x05 + i, ChRange[i]);
     if(result != HAL_OK)
       goto ret;
+  }
+
+  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
+    for(int j = 0; j < ADC_BUFFER_SIZE; j++) {
+      AdcBuffer[i][j] = 0x8000;
+    }
   }
 
   result = SPI_SendCommand(0xA000); //AUTO_RST command

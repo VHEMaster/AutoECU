@@ -113,7 +113,7 @@ typedef struct {
 typedef struct {
     float km_driven;
     float fuel_consumed;
-    int8_t idle_valve_position;
+    uint8_t idle_valve_position;
 }sEcuCriticalBackup;
 
 typedef struct {
@@ -142,8 +142,9 @@ typedef struct {
     int32_t useTSPS;
     int32_t useKnockSensor;
     int32_t performAdaptation;
+    int32_t isIndividualCoils;
 
-    int32_t Reserved32[1004];
+    int32_t Reserved32[1003];
 }sEcuParams;
 
 typedef struct {

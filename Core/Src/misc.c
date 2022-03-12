@@ -577,7 +577,7 @@ static void Knock_CriticalLoop(void)
       KNOCK_INTEGRATE();
       state++;
 
-      rpm = csps_getrpm();
+      rpm = csps_getrpm(csps_data());
       rotates = csps_isfound();
       diff = DelayDiff(now, knock_prev);
       knock_prev = now;
@@ -903,6 +903,11 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
 HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
 {
   HAL_StatusTypeDef result = HAL_OK;
+
+  HAL_GPIO_WritePin(O2_NRST_GPIO_Port, O2_NRST_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SW_NRST_GPIO_Port, SW_NRST_Pin, GPIO_PIN_SET);
+  DelayMs(1);
+
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
   hspi = _hspi;
