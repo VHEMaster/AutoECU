@@ -16,6 +16,7 @@
 #include "adc.h"
 #include "delay.h"
 #include "csps.h"
+#include "sensors.h"
 
 #define O2_PID_P  0.5f
 #define O2_PID_I  0.1f
@@ -328,31 +329,46 @@ static int8_t O2_Enable(void)
 
 static void O2_CriticalLoop(void)
 {
+  static uint32_t last_process = 0;
+  float voltage;
+  float o2heater;
+  uint8_t now = Delay_Tick;
   O2Status.FuelRatio = O2_GetFuelRatio();
+
+  if(O2Status.Valid) {
+    if(DelayDiff(now, last_process) >= 5000) {
+      last_process = now;
+      voltage = ADC_GetVoltage(AdcChO2UR);
+      o2heater = math_pid_update(&o2_pid, voltage, now);
+      O2_SetHeaterVoltage(o2heater);
+    }
+  } else {
+    last_process = now;
+  }
+
+
 }
 
 static int8_t O2_Loop(void)
 {
-  static uint8_t is_engine_runned = 0;
+  static uint8_t was_engine_running = 0;
   static uint8_t state = 0;
   static uint32_t last_spi_check = 0;
   static uint32_t calibrate_timestamp = 0;
   static float o2heater = 0.0f;
-  static float o2reference = 0.0f;
+  uint8_t is_engine_running = 0;
   float voltage;
   uint32_t now = Delay_Tick;
   uint8_t device,diag;
   int8_t status;
 
-  if(is_engine_runned) {
-    if(!csps_isrotates())
-      is_engine_runned = 0;
-  } else {
-    if(csps_isrotates() && csps_getrpm() > 800)
-      is_engine_runned = 1;
+  is_engine_running = csps_isrunning();
+  if(was_engine_running != is_engine_running) {
+    was_engine_running = is_engine_running;
   }
 
-  float engine_temperature = 50.0f;
+  float engine_temperature;
+  sens_get_engine_temperature(&engine_temperature);
 
   switch(state) {
     case 0 :
@@ -361,8 +377,7 @@ static int8_t O2_Loop(void)
         state = 1;
       } else if(O2Status.Valid) {
         state = 8;
-      }
-      else if(is_engine_runned) {
+      } else if(is_engine_running) {
         state = 3;
       }
       else {
@@ -387,7 +402,7 @@ static int8_t O2_Loop(void)
       status = O2_GetDiag(&diag);
       if(status) {
         O2Status.Diag.Byte = diag;
-        if(is_engine_runned) {
+        if(is_engine_running) {
           O2Status.Working = 1;
           if(O2Status.Valid) {
             state = 8;
@@ -410,14 +425,14 @@ static int8_t O2_Loop(void)
       }
       break;
     case 5 :
-      if(!is_engine_runned) {
+      if(!is_engine_running) {
         O2_SetHeaterVoltage(0.0f);
         O2Status.Valid = 0;
         state = 0;
         break;
       }
       O2_SetHeaterVoltage(1.5f);
-      if(DelayDiff(now, calibrate_timestamp) > 10000) {
+      if(DelayDiff(now, calibrate_timestamp) > 10*1000*1000) {
         o2heater = 8.5f;
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
@@ -425,7 +440,7 @@ static int8_t O2_Loop(void)
       }
       break;
     case 6 :
-      if(!is_engine_runned) {
+      if(!is_engine_running) {
         O2_SetHeaterVoltage(0.0f);
         O2Status.Valid = 0;
         state = 0;
@@ -434,6 +449,8 @@ static int8_t O2_Loop(void)
       voltage = ADC_GetVoltage(AdcChPowerVoltage);
       if(o2heater >= voltage) {
         O2_SetHeaterVoltage(0);
+        O2Status.ReferenceVoltage = ADC_GetVoltage(AdcChO2UR);
+        math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         state++;
       }
       if(DelayDiff(now, calibrate_timestamp) > 100000) {
@@ -443,8 +460,6 @@ static int8_t O2_Loop(void)
       }
       break;
     case 7 :
-      o2reference = ADC_GetVoltage(AdcChO2UR);
-      math_pid_set_target(&o2_pid, o2reference);
       status = O2_Enable();
       if(status) {
         O2Status.Valid = 1;
@@ -453,9 +468,6 @@ static int8_t O2_Loop(void)
       }
       break;
     case 8 :
-      voltage = ADC_GetVoltage(AdcChO2UR);
-      o2heater = math_pid_update(&o2_pid, voltage, now);
-      O2_SetHeaterVoltage(o2heater);
       state = 0;
       break;
     default:

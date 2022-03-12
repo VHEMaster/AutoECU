@@ -55,6 +55,8 @@ static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
 static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
+static volatile uint32_t csps_turns = 0;
+static volatile uint32_t csps_halfturns = 0;
 static volatile uint32_t *csps_timebase = NULL;
 
 static TIM_HandleTypeDef *htim;
@@ -179,6 +181,7 @@ inline void csps_exti(uint32_t timestamp)
     switch(t2)
     {
       case 2:
+        csps_turns++;
         csps_angle14 = ANGLE_INITIAL;
         if (ANGLE_INITIAL > 0)
           csps_angle23 = ANGLE_INITIAL - 180.0f;
@@ -240,9 +243,16 @@ inline void csps_exti(uint32_t timestamp)
       csps_period = 1000000.0f;
 
     csps_period = csps_period * (1.0f - rpm_koff) + (diff * 120.0f) * rpm_koff;
-    csps_rpm = 1000000.0f / csps_period * 60.0f;
+    csps_rpm = 60000000.0f / csps_period;
 
-    csps_uspa = diff / 3.0f;
+    csps_uspa = diff * 0.33333333f;
+
+    if((csps_angle14 >= 0.0f && cs14_p < 0.0f) && (cs14_p > -90.0f && csps_angle14 < 90.0f)) {
+      csps_halfturns++;
+    }
+    else if(csps_angle14 < -90.0f && cs14_p > 90.0f) {
+      csps_halfturns++;
+    }
 
     data.AngleCur14 = csps_angle14;
     data.AngleCur23 = csps_angle23;
@@ -441,6 +451,16 @@ uint8_t csps_isfound(void)
 uint8_t csps_iserror(void)
 {
   return csps_errors > 3.0f;
+}
+
+uint32_t csps_gethalfturns(void)
+{
+  return csps_halfturns;
+}
+
+uint32_t csps_getturns(void)
+{
+  return csps_turns;
 }
 
 void csps_loop(void)

@@ -25,10 +25,11 @@ typedef struct {
 }sO2Diagnostic;
 
 typedef struct {
+    volatile float ReferenceVoltage;
     float FuelRatio;
+    volatile uint8_t Valid;
     uint8_t Available;
     uint8_t Working;
-    uint8_t Valid;
     union {
         uint8_t Byte;
         sO2Diagnostic Fields;

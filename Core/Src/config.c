@@ -137,7 +137,7 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
-    0.013f, 0.025f, 0.038f, 0.050f, 0.063f, 0.075f, 0.088f, 0.100f,
+    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
     0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
 };
 
@@ -147,13 +147,13 @@ static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
-    0.013f, 0.025f, 0.038f, 0.050f, 0.063f, 0.075f, 0.088f, 0.100f,
+    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
     0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
 };
 
 static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
     0.116f, 0.113f, 0.109f, 0.105f, 0.101f, 0.098f, 0.094f, 0.090f,
-    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f,0.060f,
+    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f, 0.060f,
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
@@ -177,6 +177,11 @@ static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
     2010, 1970, 1920, 1900, 1820, 1750, 1600, 1440,
     1150, 1100, 1100, 1100, 1100, 1150, 1300, 1350
+};
+
+static const float default_idle_valve_to_rpm[TABLE_ROTATES_MAX] = {
+    60.0f, 60.0f, 55.0f, 50.0f, 47.0, 42.0f, 40.0f, 43.0f,
+    45.0f, 45.0f, 45.0f, 45.0f, 45.0f, 47.0f, 49.0f, 50.0f
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
@@ -257,13 +262,13 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_wish_rotates, default_idle_wish_rotates, sizeof(default_idle_wish_rotates));
   memcpy(table->idle_wish_massair, default_idle_wish_massair, sizeof(default_idle_wish_massair));
   memcpy(table->idle_wish_ignition, default_idle_wish_ignition, sizeof(default_idle_wish_ignition));
+  memcpy(table->idle_valve_to_rpm, default_idle_valve_to_rpm, sizeof(default_idle_valve_to_rpm));
 
-  table->idle_valve_to_massair_proporion = 4.1f;
-  table->idle_valve_to_massair_pid_p = 1.0f;
+  table->idle_valve_to_massair_pid_p = 3.0f;
   table->idle_valve_to_massair_pid_i = 0.0f;
   table->idle_valve_to_massair_pid_d = 0.0f;
 
-  table->idle_ign_to_rpm_pid_p = 1.0f;
+  table->idle_ign_to_rpm_pid_p = 0.08f;
   table->idle_ign_to_rpm_pid_i = 0.0f;
   table->idle_ign_to_rpm_pid_d = 0.0f;
 
@@ -318,6 +323,9 @@ void config_default_corrections(sEcuCorrections *table)
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->fill_by_thr[i][j] = 0;
+
+  for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+    table->idle_valve_to_rpm[j] = 0;
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)

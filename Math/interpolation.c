@@ -86,6 +86,19 @@ CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, con
   return result;
 }
 
+CMSIS_INLINE __INLINE float math_interpolate_1d_int8(sMathInterpolateInput input, const int8_t *table)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]];
+  output[1] = table[input.indexes[1]];
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
 CMSIS_INLINE __INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[y_size])
 {

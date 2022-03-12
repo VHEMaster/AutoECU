@@ -16,6 +16,9 @@ CMSIS_INLINE __INLINE void math_pid_reset(sMathPid *pid)
   pid->Current = 0;
   pid->Target = 0;
   pid->Error = 0;
+  pid->P = 0;
+  pid->I = 0;
+  pid->D = 0;
 }
 
 CMSIS_INLINE __INLINE void math_pid_set_target(sMathPid *pid, float target)

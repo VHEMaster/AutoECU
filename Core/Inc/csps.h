@@ -14,4 +14,7 @@ uint8_t csps_isrotates(void);
 uint8_t csps_isrunning(void);
 uint8_t csps_isfound(void);
 uint8_t csps_isphased(void);
+uint8_t csps_iserror(void);
+uint32_t csps_getturns(void);
+uint32_t csps_gethalfturns(void);
 float csps_getphasedangle(void);

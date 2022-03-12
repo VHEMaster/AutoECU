@@ -20,10 +20,14 @@
 #include "injector.h"
 #include "sst25vf032b.h"
 #include "interpolation.h"
+#include "math_misc.h"
 #include "config.h"
+#include "pid.h"
 
 #include <string.h>
 #include "arm_math.h"
+
+#define ENRICHMENT_STATES_COUNT 3
 
 typedef struct {
     union {
@@ -42,6 +46,7 @@ typedef struct {
         }Struct;
         uint8_t Byte;
     }Bkpsram;
+    //TODO: add more diagnostic fields
 }sStatus;
 
 static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
@@ -51,6 +56,9 @@ static sEcuCriticalBackup gEcuCriticalBackup;
 static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
+
+static sMathPid gPidIdleIgnition = {0};
+static sMathPid gPidIdleAirFlow = {0};
 
 static HAL_StatusTypeDef ecu_get_start_allowed(void)
 {
@@ -156,7 +164,31 @@ static void ecu_update_current_table(void)
   gParameters.CurrentTable = table;
 }
 
-static void ecu_update()
+static inline void ecu_pid_update(uint8_t isidle)
+{
+  uint32_t table_number = gParameters.CurrentTable;
+  sEcuTable *table = &gEcuTable[table_number];
+
+  math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
+  math_pid_set_clamp(&gPidIdleAirFlow, 0, 255);
+
+  if(isidle) {
+    math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, table->idle_ign_to_rpm_pid_i, table->idle_ign_to_rpm_pid_d);
+    math_pid_set_koffs(&gPidIdleAirFlow, table->idle_valve_to_massair_pid_p, table->idle_valve_to_massair_pid_i, table->idle_valve_to_massair_pid_d);
+  } else {
+    math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, 0, 0);
+    math_pid_set_koffs(&gPidIdleAirFlow, table->idle_valve_to_massair_pid_p, 0, 0);
+  }
+}
+
+static void ecu_pid_init(void)
+{
+  math_pid_init(&gPidIdleIgnition);
+  math_pid_init(&gPidIdleAirFlow);
+  ecu_pid_update(0);
+}
+
+static void ecu_update(void)
 {
   uint32_t now = Delay_Tick;
   uint32_t table_number = gParameters.CurrentTable;
@@ -169,6 +201,9 @@ static void ecu_update()
   sMathInterpolateInput ipVoltages = {0};
 
   sMathInterpolateInput ipFilling = {0};
+
+  sMathInterpolateInput ipEnrichmentMap = {0};
+  sMathInterpolateInput ipEnrichmentThr = {0};
 
   float rpm;
   float map;
@@ -198,6 +233,22 @@ static void ecu_update()
   float fuel_flow_per_us;
   float knock_filtered;
   float knock_noise_level;
+  float idle_valve_pos_correction;
+
+  float min, max;
+  static uint32_t prev_halfturns = 0;
+  uint32_t halfturns;
+  static uint32_t enrichment_step = 0;
+  static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
+  static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
+  static float enrichment_status_map = 0.0f;
+  static float enrichment_status_thr = 0.0f;
+  float enrichment_map_value;
+  float enrichment_thr_value;
+  float enrichment_by_map_hpf;
+  float enrichment_by_thr_hpf;
+  static float enrichment = 0.0f;
+  float enrichment_proportion;
 
   float fill_proportion;
   float fuel_pressure;
@@ -208,13 +259,16 @@ static void ecu_update()
   float idle_wish_ignition;
   float idle_rpm_shift;
   float idle_wish_valve_pos;
+  float idle_angle_correction;
   float injection_dutycycle;
 
   uint8_t running;
   uint8_t idle_flag;
 
+  halfturns = csps_gethalfturns();
   running = csps_isrunning();
   fill_proportion = table->fill_proportion_map_vs_thr;
+  enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
 
   rpm = csps_getrpm();
@@ -230,7 +284,7 @@ static void ecu_update()
   sens_get_power_voltage(&power_voltage);
   idle_valve_position = out_get_idle_valve();
 
-  idle_flag = throttle < 0.2f;
+  idle_flag = throttle < 0.5f && running;
 
   fuel_abs_pressure = fuel_pressure + (1.0f - map * 0.00001f);
   fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
@@ -258,6 +312,43 @@ static void ecu_update()
   cycle_air_flow = effective_volume * 0.25f * air_destiny * 1000.0f;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
+
+  while(halfturns != prev_halfturns) {
+    prev_halfturns++;
+    enrichment_map_states[enrichment_step] = map;
+    enrichment_thr_states[enrichment_step] = throttle;
+    if(++enrichment_step >= ENRICHMENT_STATES_COUNT)
+      enrichment_step = 0;
+
+    if(running) {
+      math_minmax(enrichment_map_states, ENRICHMENT_STATES_COUNT, &min, &max);
+      if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
+      math_minmax(enrichment_thr_states, ENRICHMENT_STATES_COUNT, &min, &max);
+      if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
+
+      ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
+      enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+
+      ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
+      enrichment_thr_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+
+      enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_sens);
+      enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_sens);
+
+      enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
+      enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
+
+      if(enrichment_map_value > enrichment_status_map)
+        enrichment_status_map = enrichment_map_value;
+      if(enrichment_thr_value > enrichment_status_thr)
+        enrichment_status_thr = enrichment_thr_value;
+
+      enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
+    } else {
+      enrichment = 0.0f;
+    }
+  }
+
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
@@ -271,6 +362,7 @@ static void ecu_update()
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
 
   injection_time = cycle_air_flow * 0.001f / wish_fuel_ratio / fuel_flow_per_us;
+  injection_time *= enrichment + 1.0f;
   injection_time += injector_lag;
 
   idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
@@ -282,9 +374,25 @@ static void ecu_update()
 
   idle_wish_rpm += idle_rpm_shift;
 
-  //TODO!!!!
-  idle_wish_valve_pos = 0.0f;
-  injection_dutycycle = 0.0f;
+  idle_wish_valve_pos = math_interpolate_1d(ipRpm, table->idle_valve_to_rpm);
+  idle_wish_valve_pos *= math_interpolate_1d_int8(ipRpm, gEcuCorrections.idle_valve_to_rpm) * 0.01f + 1.0f;
+
+  ecu_pid_update(idle_flag);
+
+  math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
+  math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
+
+  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+
+  idle_wish_valve_pos += idle_valve_pos_correction;
+  if(idle_flag) {
+    ignition_angle += idle_angle_correction;
+  }
+
+  //TODO: modify correction parameters here
+
+  injection_dutycycle = injection_time / csps_getperiod() * 2.0f;
 
   out_set_idle_valve(idle_wish_valve_pos);
 
@@ -300,9 +408,11 @@ static void ecu_update()
 
   if(!running) {
     ignition_angle = table->ignition_initial;
-    if(throttle >= 75.0f)
+    if(throttle >= 90.0f)
       injection_time = 0;
   }
+
+  //TODO: add usage of gForceParameters
 
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
@@ -341,15 +451,16 @@ static void ecu_update()
   gParameters.InjectionPhase = injection_phase;
   gParameters.InjectionPulse = injection_time;
   gParameters.InjectionDutyCycle = injection_dutycycle;
+  gParameters.InjectionEnrichment = enrichment;
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
 
-  gParameters.OilSensor = sens_get_oil_pressure();
-  gParameters.StarterSensor = sens_get_starter();
-  gParameters.HandbrakeSensor = sens_get_handbrake();
+  gParameters.OilSensor = sens_get_oil_pressure() != GPIO_PIN_RESET;
+  gParameters.StarterSensor = sens_get_starter() != GPIO_PIN_RESET;
+  gParameters.HandbrakeSensor = sens_get_handbrake() != GPIO_PIN_RESET;
   gParameters.ChargeSensor = sens_get_charge();
-  gParameters.Rsvd1Sensor = sens_get_rsvd1();
-  gParameters.Rsvd2Sensor = sens_get_rsvd2();
+  gParameters.Rsvd1Sensor = sens_get_rsvd1() != GPIO_PIN_RESET;
+  gParameters.Rsvd2Sensor = sens_get_rsvd2() != GPIO_PIN_RESET;
 
   gParameters.FuelPumpRelay = out_get_fuelpump() != GPIO_PIN_RESET;
   gParameters.FanRelay = out_get_fan() != GPIO_PIN_RESET;
@@ -367,6 +478,8 @@ void ecu_init(void)
 
   ecu_set_start_allowed(HAL_OK);
   ecu_set_table(0);
+
+  ecu_pid_init();
 
 }
 

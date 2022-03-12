@@ -37,12 +37,15 @@ HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim,
 HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
 {
   if(injector < InjectorCount) {
-    if(!injectors[injector].enabled) {
-      injectors[injector].htim->Init.Period = usec;
-      injectors[injector].htim->Instance->ARR = usec;
-      if(HAL_TIM_PWM_Start_IT(injectors[injector].htim, injectors[injector].tim_channel) == HAL_OK) {
-        injectors[injector].enabled = 1;
-      } else return HAL_ERROR;
+    if(injectors[injector].enabled) {
+      if(TIM_CHANNEL_STATE_GET(injectors[injector].htim, injectors[injector].tim_channel) != HAL_TIM_CHANNEL_STATE_READY) {
+        HAL_TIM_PWM_Stop_IT(injectors[injector].htim, injectors[injector].tim_channel);
+      }
+    }
+    injectors[injector].htim->Init.Period = usec;
+    injectors[injector].htim->Instance->ARR = usec;
+    if(HAL_TIM_PWM_Start_IT(injectors[injector].htim, injectors[injector].tim_channel) == HAL_OK) {
+      injectors[injector].enabled = 1;
     } else return HAL_ERROR;
   } else return HAL_ERROR;
   return HAL_OK;
