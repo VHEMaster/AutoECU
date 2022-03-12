@@ -308,6 +308,8 @@ void config_default_params(sEcuParams *table)
 
   table->useLambdaSensor = 1;
   table->useTSPS = 1;
+  table->useKnockSensor = 1;
+  table->performAdaptation = 1;
 }
 
 void config_default_corrections(sEcuCorrections *table)
@@ -330,6 +332,8 @@ void config_default_corrections(sEcuCorrections *table)
 
 void config_default_critical_backup(sEcuCriticalBackup *table)
 {
+  table->km_driven = 0;
+  table->fuel_consumed = 0;
   table->idle_valve_position = 0;
 }
 

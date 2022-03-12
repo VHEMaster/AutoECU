@@ -104,13 +104,15 @@ typedef struct {
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
-    int8_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
-    int8_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    int8_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
-    int8_t idle_valve_to_rpm[TABLE_ROTATES_MAX];
+    int16_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    int16_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    int16_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    int16_t idle_valve_to_rpm[TABLE_ROTATES_MAX];
 }sEcuCorrections;
 
 typedef struct {
+    float km_driven;
+    float fuel_consumed;
     int8_t idle_valve_position;
 }sEcuCriticalBackup;
 
@@ -138,8 +140,10 @@ typedef struct {
 
     int32_t useLambdaSensor;
     int32_t useTSPS;
+    int32_t useKnockSensor;
+    int32_t performAdaptation;
 
-    int32_t Reserved32[1006];
+    int32_t Reserved32[1004];
 }sEcuParams;
 
 typedef struct {
@@ -186,6 +190,10 @@ typedef struct {
     float InjectionEnrichment;
     float IgnitionPulse;
     float IdleSpeedShift;
+
+    float DrivenKilometers;
+    float FuelConsumed;
+    float FuelConsumption;
 
     int32_t OilSensor;
     int32_t StarterSensor;

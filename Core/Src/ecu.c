@@ -57,6 +57,8 @@ static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 
+static volatile uint8_t gEcuCriticalBackupWriteAccess = 0;
+
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
 
@@ -190,14 +192,20 @@ static void ecu_pid_init(void)
 
 static void ecu_update(void)
 {
+  static uint32_t adaptation_last = 0;
+  static float fuel_consumed = 0;
+  static float km_driven = 0;
+  static uint32_t updated_last = 0;
   uint32_t now = Delay_Tick;
+  float adapt_diff = DelayDiff(now, adaptation_last);
+  float diff = DelayDiff(now, updated_last);
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipMap = {0};
   sMathInterpolateInput ipTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
-  sMathInterpolateInput ipThrottle = {0};
+  sMathInterpolateInput ipThr = {0};
   sMathInterpolateInput ipVoltages = {0};
 
   sMathInterpolateInput ipFilling = {0};
@@ -249,24 +257,38 @@ static void ecu_update(void)
   float enrichment_by_thr_hpf;
   static float enrichment = 0.0f;
   float enrichment_proportion;
+  float fuel_amount_per_cycle;
 
   float fill_proportion;
   float fuel_pressure;
   float fuel_abs_pressure;
+  float fuel_consumption;
 
   float idle_wish_rpm;
   float idle_wish_massair;
   float idle_wish_ignition;
   float idle_rpm_shift;
+  float idle_table_valve_pos;
   float idle_wish_valve_pos;
   float idle_angle_correction;
   float injection_dutycycle;
 
+  float filling_diff;
+  float filling_diff_map;
+  float filling_diff_thr;
+  float lpf_calculation;
+  float fill_correction_map;
+  float fill_correction_thr;
+  float idle_valve_pos_adaptation;
+  float idle_valve_pos_dif;
+
+  uint8_t rotates;
   uint8_t running;
   uint8_t idle_flag;
 
   halfturns = csps_gethalfturns();
   running = csps_isrunning();
+  rotates = csps_isrotates();
   fill_proportion = table->fill_proportion_map_vs_thr;
   enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
@@ -296,14 +318,17 @@ static void ecu_update(void)
   ipMap = math_interpolate_input(map, table->pressures, table->pressures_count);
   ipTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
-  ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
+  ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
   filling_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
-  filling_thr = math_interpolate_2d(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->fill_by_thr);
+  filling_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->fill_by_thr);
 
-  filling_map *= math_interpolate_2d_int8(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map) * 0.01f + 1.0f;
-  filling_thr *= math_interpolate_2d_int8(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr) * 0.01f + 1.0f;
+  fill_correction_map = math_interpolate_2d_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map) * 0.00006103515625f;
+  fill_correction_thr = math_interpolate_2d_int16(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr) * 0.00006103515625f;
+
+  filling_map *= fill_correction_map + 1.0f;
+  filling_thr *= fill_correction_thr + 1.0f;
 
   effective_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
   effective_volume *= gEcuParams.engineVolume;
@@ -311,7 +336,6 @@ static void ecu_update(void)
   air_destiny = ecu_get_air_destiny(map, air_temp);
   cycle_air_flow = effective_volume * 0.25f * air_destiny * 1000.0f;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
-
 
   while(halfturns != prev_halfturns) {
     prev_halfturns++;
@@ -342,17 +366,17 @@ static void ecu_update(void)
         enrichment_status_map = enrichment_map_value;
       if(enrichment_thr_value > enrichment_status_thr)
         enrichment_status_thr = enrichment_thr_value;
-
-      enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
     } else {
-      enrichment = 0.0f;
+      enrichment_status_map = 0.0f;
+      enrichment_status_thr = 0.0f;
     }
+    enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
   }
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  ignition_angle += math_interpolate_2d_int8(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions) * 0.1f;
+  ignition_angle += math_interpolate_2d_int16(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions) * 0.001220703125f;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
@@ -361,7 +385,8 @@ static void ecu_update(void)
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
 
-  injection_time = cycle_air_flow * 0.001f / wish_fuel_ratio / fuel_flow_per_us;
+  fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
+  injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= enrichment + 1.0f;
   injection_time += injector_lag;
 
@@ -374,8 +399,11 @@ static void ecu_update(void)
 
   idle_wish_rpm += idle_rpm_shift;
 
-  idle_wish_valve_pos = math_interpolate_1d(ipRpm, table->idle_valve_to_rpm);
-  idle_wish_valve_pos *= math_interpolate_1d_int8(ipRpm, gEcuCorrections.idle_valve_to_rpm) * 0.01f + 1.0f;
+  idle_valve_pos_adaptation = math_interpolate_1d_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm) * 0.015625f;
+
+  idle_table_valve_pos = math_interpolate_1d(ipRpm, table->idle_valve_to_rpm);
+  idle_wish_valve_pos = idle_table_valve_pos;
+  idle_wish_valve_pos *= idle_valve_pos_adaptation + 1.0f;
 
   ecu_pid_update(idle_flag);
 
@@ -389,8 +417,6 @@ static void ecu_update(void)
   if(idle_flag) {
     ignition_angle += idle_angle_correction;
   }
-
-  //TODO: modify correction parameters here
 
   injection_dutycycle = injection_time / csps_getperiod() * 2.0f;
 
@@ -410,6 +436,50 @@ static void ecu_update(void)
     ignition_angle = table->ignition_initial;
     if(throttle >= 90.0f)
       injection_time = 0;
+  }
+
+  if(!rotates) {
+    injection_time = 0;
+    cycle_air_flow = 0;
+    mass_air_flow = 0;
+    injection_dutycycle = 0;
+    fuel_consumption = 0;
+  } else {
+    km_driven += speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
+    fuel_consumed += fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / (60000000.0f / rpm)) * 0.001f;
+    fuel_consumption = fuel_consumed / km_driven * 100.0f;
+  }
+
+  if(running) {
+    if(!gEcuCriticalBackupWriteAccess) {
+      if(adapt_diff >= 100000) {
+        adaptation_last = now;
+        lpf_calculation = adapt_diff * 0.000001f * 0.1f;
+        filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
+
+        filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
+        fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
+
+        filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
+        fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
+
+        math_interpolate_2d_set_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
+        math_interpolate_2d_set_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
+
+        idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
+        idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
+
+        math_interpolate_1d_set_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+
+      }
+    }
+  }
+
+  if(!gEcuCriticalBackupWriteAccess) {
+    gEcuCriticalBackup.km_driven += km_driven;
+    gEcuCriticalBackup.fuel_consumed += fuel_consumed;
+    km_driven = 0;
+    fuel_consumed = 0;
   }
 
   //TODO: add usage of gForceParameters
@@ -455,6 +525,10 @@ static void ecu_update(void)
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
 
+  gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven;
+  gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed;
+  gParameters.FuelConsumption = fuel_consumption;
+
   gParameters.OilSensor = sens_get_oil_pressure() != GPIO_PIN_RESET;
   gParameters.StarterSensor = sens_get_starter() != GPIO_PIN_RESET;
   gParameters.HandbrakeSensor = sens_get_handbrake() != GPIO_PIN_RESET;
@@ -470,6 +544,8 @@ static void ecu_update(void)
   gParameters.Rsvd2Output = out_get_rsvd2() != GPIO_PIN_RESET;
 
   gParameters.IsRunning = running;
+
+  updated_last = now;
 }
 
 void ecu_init(void)

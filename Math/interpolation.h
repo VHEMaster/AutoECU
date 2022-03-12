@@ -24,7 +24,11 @@ sMathInterpolateInput math_interpolate_input(float value, const float *table, ui
 float math_interpolate_1d(sMathInterpolateInput input, const float *table);
 float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y, uint32_t y_size, const float (*table)[y_size]);
 
-float math_interpolate_1d_int8(sMathInterpolateInput input, const int8_t *table);
-float math_interpolate_2d_int8(sMathInterpolateInput input_x, sMathInterpolateInput input_y, uint32_t y_size, const int8_t (*table)[y_size]);
+float math_interpolate_1d_int16(sMathInterpolateInput input, const int16_t *table);
+float math_interpolate_2d_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y, uint32_t y_size, const int16_t (*table)[y_size]);
+
+float math_interpolate_1d_set_int16(sMathInterpolateInput input, int16_t *table, float new_value);
+float math_interpolate_2d_set_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, int16_t (*table)[y_size], float new_value);
 
 #endif /* INTERPOLATION_H_ */
