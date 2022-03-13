@@ -294,6 +294,7 @@ static void ecu_update(void)
   uint8_t rotates;
   uint8_t running;
   uint8_t idle_flag;
+  uint8_t cutoff_processing = gEcuCutoffProcessing;
   sCspsData csps = csps_data();
 
   halfturns = csps_gethalfturns();
@@ -393,6 +394,18 @@ static void ecu_update(void)
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
+
+  if(idle_flag && running) {
+    if(out_get_fan() != GPIO_PIN_RESET) {
+      ignition_angle += table->idle_ign_fan_corr;
+    }
+  }
+
+  if(cutoff_processing) {
+    ignition_angle = gEcuParams.cutoffAngle;
+    wish_fuel_ratio = gEcuParams.cutoffMixture;
+  }
+
   if(!gEcuParams.useLambdaSensor)
     fuel_ratio = wish_fuel_ratio;
 
@@ -428,10 +441,11 @@ static void ecu_update(void)
   idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
   idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
 
-  idle_wish_valve_pos += idle_valve_pos_correction;
-  if(idle_flag) {
+  if(idle_flag && !cutoff_processing) {
     ignition_angle += idle_angle_correction;
   }
+
+  idle_wish_valve_pos += idle_valve_pos_correction;
 
   injection_dutycycle = injection_time / csps_getperiod(csps) * 2.0f;
 
@@ -440,12 +454,6 @@ static void ecu_update(void)
   knock_filtered = knock - knock_noise_level;
   if(knock_filtered < 0.0f)
     knock_filtered = 0.0f;
-
-  if(idle_flag && running) {
-    if(out_get_fan() != GPIO_PIN_RESET) {
-      ignition_angle += table->idle_ign_fan_corr;
-    }
-  }
 
   if(!running) {
     ignition_angle = table->ignition_initial;
@@ -716,8 +724,8 @@ static void ecu_process(void)
     angles_per_turn = 720.0f;
   } else {
     angles_per_turn = 360.0f;
-    saturated[2] = ignited[2] = 1;
-    saturated[3] = ignited[3] = 1;
+    saturated[2] = ignited[2] = injection[2] = injected[2] = 1;
+    saturated[3] = ignited[3] = injection[3] = injected[3] = 1;
     inj_pulse *= 0.5;
 
   }
@@ -746,10 +754,6 @@ static void ecu_process(void)
 
     saturate = time_sat / uspa;
     inj_angle = inj_pulse / uspa;
-
-    //TODO: move this step to update phase function
-    if(gEcuCutoffProcessing)
-      angle_ignite = gEcuParams.cutoffAngle;
 
     //Ignition part
     for(int i = 0; i < cy_count; i++)
@@ -805,7 +809,7 @@ static void ecu_process(void)
         {
           injection[i] = 1;
 
-          if(inj_pulse > 0.0f)
+          if(ecu_cutoff_inj_act(cy_count, i) && inj_pulse > 0.0f)
             ecu_inject(cy_count, i, inj_pulse);
         }
       }

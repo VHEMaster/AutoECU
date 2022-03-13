@@ -252,8 +252,8 @@ inline void csps_exti(uint32_t timestamp)
     if(csps_phase_found) {
       csps_phase_found = 0;
       csps_phased = 1;
-      csps_angle_phased = csps_angle14 + 180.0f;
-      cs_phased_p = cs14_p + 180.0f;
+      csps_angle_phased = csps_angle14;
+      cs_phased_p = cs14_p;
     }
 
     data.PhasedActive = csps_phased;
