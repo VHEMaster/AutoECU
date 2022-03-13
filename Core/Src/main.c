@@ -681,7 +681,7 @@ static void MX_TIM1_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = (HAL_RCC_GetPCLK2Freq() * 2 / 1000000 * 10 / 2) - 1;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -729,7 +729,7 @@ static void MX_TIM2_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10 / 2) - 1;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -1017,7 +1017,7 @@ static void MX_TIM10_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM2;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim10, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -1063,7 +1063,7 @@ static void MX_TIM11_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM2;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim11, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -1109,7 +1109,7 @@ static void MX_TIM13_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM2;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim13, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -1155,7 +1155,7 @@ static void MX_TIM14_Init(void)
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM2;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim14, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
@@ -1347,6 +1347,9 @@ static void MX_GPIO_Init(void)
       O2_NRST_Pin | CAN1_LBK_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_RSVD2_Pin
           | OUT_STARTER_Pin, GPIO_PIN_RESET);
 
+  HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_RSVD2_Pin
+      | OUT_STARTER_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB,
       SPI4_NSS_INJ_Pin | IGN_NALLOW_Pin | SPI2_NSS_FLASH_Pin | SPI1_NSS_ADC_Pin,
@@ -1361,14 +1364,16 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, IGN_4_Pin | SW_NRST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, GPIO_PIN_RESET);
 
   HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET);
 
   HAL_GPIO_WritePin(GPIOD,
       SPI2_WP_Pin | IGN_3_Pin | IGN_2_Pin | IGN_1_Pin
-          | FUEL_PUMP_Pin | SPI1_NRST_Pin,
+          | SPI1_NRST_Pin,
       GPIO_PIN_RESET);
+
+  HAL_GPIO_WritePin(FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : SPI4_NSS_OUTS1_Pin SPI4_NSS_OUTS2_Pin STEP_I0_Pin STEP_I1_Pin
    STEP_PH1_Pin STEP_PH2_Pin LOGIC_OE_Pin */

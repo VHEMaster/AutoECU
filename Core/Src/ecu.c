@@ -45,6 +45,13 @@ typedef struct {
         }Struct;
         uint8_t Byte;
     }Bkpsram;
+    union {
+        struct {
+            //TODO: continue sensors
+            HAL_StatusTypeDef Sensor : 2;
+        };
+        uint32_t Dword;
+    }Sensors;
     //TODO: add more diagnostic fields
 }sStatus;
 
@@ -59,6 +66,7 @@ static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
 static sEcuCriticalBackup gEcuCriticalBackup;
 static sStatus gStatus = {{{0}}};
+static sStatus gRecordedStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 
@@ -884,6 +892,29 @@ static void ecu_fan_process(void)
   }
 }
 
+static void ecu_check_process(void)
+{
+  uint8_t running = csps_isrunning();
+  uint8_t iserror = 0;
+
+  uint8_t byte;
+  uint8_t *ptr_status = (uint8_t *)&gStatus;
+  uint8_t *ptr_recorded = (uint8_t *)&gRecordedStatus;
+  uint32_t size = sizeof(sStatus);
+
+  while(size--) {
+    byte = *ptr_status++;
+    iserror |= byte;
+    *ptr_recorded++ |= byte;
+  }
+
+  if(!running || iserror) {
+    out_set_checkengine(GPIO_PIN_SET);
+  } else {
+    out_set_checkengine(GPIO_PIN_RESET);
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -918,6 +949,7 @@ void ecu_irq_slow_loop(void)
   ecu_backup_save_process();
   ecu_fuelpump_process();
   ecu_fan_process();
+  ecu_check_process();
 
 }
 
