@@ -252,13 +252,14 @@ int main(void)
   MX_CRC_Init();
   MX_RNG_Init();
 
+  __HAL_DBGMCU_FREEZE_TIM5();
+  __HAL_DBGMCU_FREEZE_IWDG();
+
   __HAL_RCC_PWR_CLK_ENABLE();
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
 
-  if (0) {
-    MX_IWDG_Init();
-  }
+  MX_IWDG_Init();
 
   DelayInit();
   HAL_TIM_Base_Start(&htim5);
@@ -319,6 +320,8 @@ int main(void)
     ecu_loop();
     xGetterLoop();
     PK_SenderLoop();
+
+    HAL_IWDG_Refresh(&hiwdg);
   }
 }
 
@@ -492,7 +495,7 @@ static void MX_IWDG_Init(void)
 
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
   hiwdg.Init.Window = 4095;
   hiwdg.Init.Reload = 4095;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK) {

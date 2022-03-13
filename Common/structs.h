@@ -111,12 +111,6 @@ typedef struct {
 }sEcuCorrections;
 
 typedef struct {
-    float km_driven;
-    float fuel_consumed;
-    uint8_t idle_valve_position;
-}sEcuCriticalBackup;
-
-typedef struct {
     int32_t tables_count;
 
     float engineVolume;
@@ -246,5 +240,38 @@ typedef struct {
     float FanRelay;
     float FuelPumpRelay;
 }sForceParameters;
+
+typedef struct {
+    union {
+        struct {
+            HAL_StatusTypeDef Load : 2;
+            HAL_StatusTypeDef Save : 2;
+            HAL_StatusTypeDef Init : 2;
+        }Struct;
+        uint8_t Byte;
+    }Flash;
+    union {
+        struct {
+            HAL_StatusTypeDef Save : 2;
+            HAL_StatusTypeDef Load : 2;
+        }Struct;
+        uint8_t Byte;
+    }Bkpsram;
+    union {
+        struct {
+            //TODO: continue sensors
+            HAL_StatusTypeDef Sensor : 2;
+        };
+        uint32_t Dword;
+    }Sensors;
+    //TODO: add more diagnostic fields
+}sStatus;
+
+typedef struct {
+    float km_driven;
+    float fuel_consumed;
+    sStatus status_recorded;
+    uint8_t idle_valve_position;
+}sEcuCriticalBackup;
 
 #endif /* STRUCTS_H_ */

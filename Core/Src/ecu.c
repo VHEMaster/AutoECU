@@ -29,32 +29,6 @@
 
 #define ENRICHMENT_STATES_COUNT 3
 
-typedef struct {
-    union {
-        struct {
-            HAL_StatusTypeDef Load : 2;
-            HAL_StatusTypeDef Save : 2;
-            HAL_StatusTypeDef Init : 2;
-        }Struct;
-        uint8_t Byte;
-    }Flash;
-    union {
-        struct {
-            HAL_StatusTypeDef Save : 2;
-            HAL_StatusTypeDef Load : 2;
-        }Struct;
-        uint8_t Byte;
-    }Bkpsram;
-    union {
-        struct {
-            //TODO: continue sensors
-            HAL_StatusTypeDef Sensor : 2;
-        };
-        uint32_t Dword;
-    }Sensors;
-    //TODO: add more diagnostic fields
-}sStatus;
-
 static GPIO_TypeDef * const gIgnPorts[4] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[4] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -66,7 +40,6 @@ static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
 static sEcuCriticalBackup gEcuCriticalBackup;
 static sStatus gStatus = {{{0}}};
-static sStatus gRecordedStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 
@@ -322,7 +295,6 @@ static void ecu_update(void)
   sens_get_throttle_position(&throttle);
   sens_get_reference_voltage(&reference_voltage);
   sens_get_power_voltage(&power_voltage);
-  idle_valve_position = out_get_idle_valve();
 
   if(gEcuParams.useLambdaSensor)
     sens_get_o2_fuelratio(&fuel_ratio, NULL);
@@ -517,7 +489,10 @@ static void ecu_update(void)
     }
   }
 
+  idle_valve_position = out_get_idle_valve();
+
   if(!gEcuCriticalBackupWriteAccess) {
+    gEcuCriticalBackup.idle_valve_position = idle_valve_position;
     gEcuCriticalBackup.km_driven += km_driven;
     gEcuCriticalBackup.fuel_consumed += fuel_consumed;
     km_driven = 0;
@@ -892,20 +867,36 @@ static void ecu_fan_process(void)
   }
 }
 
-static void ecu_check_process(void)
+static void ecu_checkengine_process(void)
 {
+  static uint32_t error_last = 0;
+  static uint8_t was_error = 0;
+  uint32_t now = Delay_Tick;
   uint8_t running = csps_isrunning();
   uint8_t iserror = 0;
 
   uint8_t byte;
   uint8_t *ptr_status = (uint8_t *)&gStatus;
-  uint8_t *ptr_recorded = (uint8_t *)&gRecordedStatus;
+  uint8_t *ptr_recorded = (uint8_t *)&gEcuCriticalBackup.status_recorded;
   uint32_t size = sizeof(sStatus);
 
   while(size--) {
     byte = *ptr_status++;
     iserror |= byte;
     *ptr_recorded++ |= byte;
+  }
+
+  if(iserror) {
+    was_error = 1;
+    error_last = now;
+  }
+
+  if(was_error) {
+    if(DelayDiff(now, error_last) < 5000000) {
+      iserror = 1;
+    } else {
+      was_error = 0;
+    }
   }
 
   if(!running || iserror) {
@@ -949,7 +940,7 @@ void ecu_irq_slow_loop(void)
   ecu_backup_save_process();
   ecu_fuelpump_process();
   ecu_fan_process();
-  ecu_check_process();
+  ecu_checkengine_process();
 
 }
 

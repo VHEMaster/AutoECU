@@ -738,6 +738,7 @@ static void IdleValve_FastLoop(void)
             STEP_HOLD();
           } else {
             if(DelayDiff(now, last_move) > 1000000) {
+              last_move = now;
               STEP_HOLD();
               is_hold = 1;
             } else {
@@ -756,22 +757,25 @@ static void IdleValve_FastLoop(void)
           STEP_NORMAL();
         } else {
 
-          STEP_DECREMENT();
-          STEP_APPEND();
+          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
+            last_tick = now;
+            STEP_DECREMENT();
+            STEP_APPEND();
 
-          if(++calibration_steps >= 256 && StepPhase == 0) {
-            is_calibrating = 0;
-            calibration_steps = 0;
-            IdleValvePositionCurrent = 0;
-            STEP_NORMAL();
-            IdleValveCalibratedOk = 1;
+            if(++calibration_steps >= 256 && StepPhase == 0) {
+              is_calibrating = 0;
+              calibration_steps = 0;
+              IdleValvePositionCurrent = 0;
+              STEP_NORMAL();
+              IdleValveCalibratedOk = 1;
+            }
           }
         }
       }
     }
   } else {
     last_tick = now;
-    last_move = now - 1500000;
+    last_move = now;
   }
 }
 
