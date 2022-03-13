@@ -396,7 +396,7 @@ static void ecu_update(void)
 
 
   if(idle_flag && running) {
-    if(out_get_fan() != GPIO_PIN_RESET) {
+    if(out_get_fan(NULL) != GPIO_PIN_RESET) {
       ignition_angle += table->idle_ign_fan_corr;
     }
   }
@@ -563,19 +563,19 @@ static void ecu_update(void)
   gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed;
   gParameters.FuelConsumption = fuel_consumption;
 
-  gParameters.OilSensor = sens_get_oil_pressure() != GPIO_PIN_RESET;
-  gParameters.StarterSensor = sens_get_starter() != GPIO_PIN_RESET;
-  gParameters.HandbrakeSensor = sens_get_handbrake() != GPIO_PIN_RESET;
-  gParameters.ChargeSensor = sens_get_charge();
-  gParameters.Rsvd1Sensor = sens_get_rsvd1() != GPIO_PIN_RESET;
-  gParameters.Rsvd2Sensor = sens_get_rsvd2() != GPIO_PIN_RESET;
+  gParameters.OilSensor = sens_get_oil_pressure(NULL) != GPIO_PIN_RESET;
+  gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
+  gParameters.HandbrakeSensor = sens_get_handbrake(NULL) != GPIO_PIN_RESET;
+  gParameters.ChargeSensor = sens_get_charge(NULL);
+  gParameters.Rsvd1Sensor = sens_get_rsvd1(NULL) != GPIO_PIN_RESET;
+  gParameters.Rsvd2Sensor = sens_get_rsvd2(NULL) != GPIO_PIN_RESET;
 
-  gParameters.FuelPumpRelay = out_get_fuelpump() != GPIO_PIN_RESET;
-  gParameters.FanRelay = out_get_fan() != GPIO_PIN_RESET;
-  gParameters.CheckEngine = out_get_checkengine() != GPIO_PIN_RESET;
-  gParameters.StarterRelay = out_get_starter() != GPIO_PIN_RESET;
-  gParameters.Rsvd1Output = out_get_rsvd1() != GPIO_PIN_RESET;
-  gParameters.Rsvd2Output = out_get_rsvd2() != GPIO_PIN_RESET;
+  gParameters.FuelPumpRelay = out_get_fuelpump(NULL) != GPIO_PIN_RESET;
+  gParameters.FanRelay = out_get_fan(NULL) != GPIO_PIN_RESET;
+  gParameters.CheckEngine = out_get_checkengine(NULL) != GPIO_PIN_RESET;
+  gParameters.StarterRelay = out_get_starter(NULL) != GPIO_PIN_RESET;
+  gParameters.Rsvd1Output = out_get_rsvd1(NULL) != GPIO_PIN_RESET;
+  gParameters.Rsvd2Output = out_get_rsvd2(NULL) != GPIO_PIN_RESET;
 
   gParameters.IsRunning = running;
 
@@ -710,7 +710,7 @@ static void ecu_process(void)
   uint8_t use_tsps;
   uint8_t injector_channel;
 
-  injector_channel = gEcuTable[ecu_get_table()].inj_channel;
+  injector_channel = gEcuTable[gParameters.CurrentTable].inj_channel;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
   phased = use_tsps && individual_coils && csps_isphased(csps);
@@ -839,6 +839,51 @@ static void ecu_process(void)
   }
 }
 
+static void ecu_fuelpump_process(void)
+{
+  static uint32_t active_last = 0;
+  static uint8_t active = 0;
+  uint32_t now = Delay_Tick;
+  uint8_t rotates = csps_isrotates();
+
+  if(rotates || active_last == 0 || DelayDiff(now, active_last) < 1000000) {
+    active_last = now;
+    active = 1;
+  } else {
+    active = 0;
+  }
+
+  if(active) {
+    out_set_fuelpump(GPIO_PIN_SET);
+  } else {
+    out_set_fuelpump(GPIO_PIN_RESET);
+  }
+
+}
+
+static void ecu_fan_process(void)
+{
+  float engine_temp;
+  HAL_StatusTypeDef status;
+  GPIO_PinState fan_state;
+  float temp_low, temp_high;
+
+  temp_low = gEcuParams.fanLowTemperature;
+  temp_high = gEcuParams.fanHighTemperature;
+  fan_state = out_get_fan(NULL);
+  status = sens_get_engine_temperature(&engine_temp);
+
+  if(status != HAL_OK) {
+    out_set_fan(GPIO_PIN_SET);
+  } else if(fan_state != GPIO_PIN_RESET) {
+    if(engine_temp < temp_low) {
+      out_set_fan(GPIO_PIN_RESET);
+    }
+  } else if(engine_temp >= temp_high) {
+    out_set_fan(GPIO_PIN_SET);
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -871,6 +916,8 @@ void ecu_irq_slow_loop(void)
   ecu_update();
   ecu_idle_valve_process();
   ecu_backup_save_process();
+  ecu_fuelpump_process();
+  ecu_fan_process();
 
 }
 

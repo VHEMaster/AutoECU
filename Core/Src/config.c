@@ -311,6 +311,9 @@ void config_default_params(sEcuParams *table)
   table->useKnockSensor = 1;
   table->performAdaptation = 1;
   table->isIndividualCoils = 0;
+
+  table->fanHighTemperature = 101;
+  table->fanLowTemperature = 97;
 }
 
 void config_default_corrections(sEcuCorrections *table)

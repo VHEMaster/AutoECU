@@ -144,7 +144,10 @@ typedef struct {
     int32_t performAdaptation;
     int32_t isIndividualCoils;
 
-    int32_t Reserved32[1003];
+    float fanHighTemperature;
+    float fanLowTemperature;
+
+    int32_t Reserved32[1001];
 }sEcuParams;
 
 typedef struct {

@@ -15,7 +15,7 @@ typedef struct {
 
 static sInjector injectors[InjectorCount] = {{0}};
 
-void injector_irq(eInjector injector)
+inline void injector_irq(eInjector injector)
 {
   if(injector < InjectorCount) {
     injectors[injector].htim->Init.Period = 0;
@@ -34,7 +34,15 @@ HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim,
   return HAL_OK;
 }
 
-HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
+inline HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
+{
+  if(injector < InjectorCount && enabled) {
+    *enabled = injectors[injector].enabled;
+  } else return HAL_ERROR;
+  return HAL_OK;
+}
+
+inline HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
 {
   if(injector < InjectorCount) {
     if(injectors[injector].enabled) {

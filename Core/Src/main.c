@@ -263,6 +263,23 @@ int main(void)
   DelayInit();
   HAL_TIM_Base_Start(&htim5);
 
+  sensors_init();
+  outputs_init();
+
+  sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
+  sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
+  sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
+  sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
+  sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
+  sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
+
+  outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
+  outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 1, GPIO_PIN_RESET);
+
   CRC16_Init(&hcrc);
 
   PK_SenderInit();
@@ -275,23 +292,6 @@ int main(void)
 
   csps_init(&htim5.Instance->CNT, &htim2, TIM_CHANNEL_1);
   speed_init(&htim8.Instance->CNT, &htim1, TIM_CHANNEL_1);
-
-  sensors_init();
-  outputs_init();
-
-  sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
-  sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
-  sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
-  sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
-  sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
-  sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
-
-  outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 0, GPIO_PIN_RESET);
-  outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 0, GPIO_PIN_SET);
-  outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 0, GPIO_PIN_RESET);
-  outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 0, GPIO_PIN_RESET);
-  outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 0, GPIO_PIN_RESET);
-  outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 0, GPIO_PIN_RESET);
 
   injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
   injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);

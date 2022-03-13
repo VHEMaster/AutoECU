@@ -10,12 +10,14 @@
 #include "adc.h"
 #include "interpolation.h"
 #include "defines.h"
+#include "delay.h"
 
 typedef struct {
   GPIO_TypeDef *port;
+  uint32_t time_switched;
+  volatile GPIO_PinState state;
   uint16_t pin;
   uint8_t inverted;
-  volatile GPIO_PinState state;
 }sSensor;
 
 static sSensor Sensors[SensorCount] = {{0}};
@@ -41,41 +43,57 @@ HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t 
 
 inline void sensors_loop(void)
 {
+  GPIO_PinState pin_state;
   for(int i = 0; i < SensorCount; i++) {
     if(Sensors[i].port && Sensors[i].pin) {
-      Sensors[i].state = ((Sensors[i].port->IDR & Sensors[i].pin) != GPIO_PIN_RESET) ?
-          !Sensors[i].inverted : Sensors[i].inverted;
+      pin_state = ((Sensors[i].port->IDR & Sensors[i].pin) != GPIO_PIN_RESET) ? (!Sensors[i].inverted) : (Sensors[i].inverted);
+      if(Sensors[i].state != pin_state) {
+        Sensors[i].time_switched = Delay_Tick;
+        Sensors[i].state = pin_state;
+      }
     }
   }
 }
 
-inline GPIO_PinState sens_get_oil_pressure(void)
+inline GPIO_PinState sens_get_oil_pressure(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorOilPressure].time_switched);
   return Sensors[SensorOilPressure].state;
 }
 
-inline GPIO_PinState sens_get_starter(void)
+inline GPIO_PinState sens_get_starter(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorStarter].time_switched);
   return Sensors[SensorStarter].state;
 }
 
-inline GPIO_PinState sens_get_handbrake(void)
+inline GPIO_PinState sens_get_handbrake(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorHandbrake].time_switched);
   return Sensors[SensorHandbrake].state;
 }
 
-inline GPIO_PinState sens_get_charge(void)
+inline GPIO_PinState sens_get_charge(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorCharge].time_switched);
   return Sensors[SensorCharge].state;
 }
 
-inline GPIO_PinState sens_get_rsvd1(void)
+inline GPIO_PinState sens_get_rsvd1(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorRsvd1].time_switched);
   return Sensors[SensorRsvd1].state;
 }
 
-inline GPIO_PinState sens_get_rsvd2(void)
+inline GPIO_PinState sens_get_rsvd2(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Sensors[SensorRsvd2].time_switched);
   return Sensors[SensorRsvd2].state;
 }
 

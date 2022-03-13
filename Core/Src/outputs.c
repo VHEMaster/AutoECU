@@ -7,14 +7,16 @@
 
 #include "outputs.h"
 #include "misc.h"
+#include "delay.h"
 #include <string.h>
 #include <limits.h>
 
 typedef struct {
   GPIO_TypeDef *port;
+  volatile GPIO_PinState state;
+  uint32_t time_switched;
   uint16_t pin;
   uint8_t inverted;
-  volatile GPIO_PinState state;
 }sOutput;
 
 static sOutput Outputs[OutputCount] = {{0}};
@@ -22,61 +24,92 @@ static sOutputDiagnostic OutputDiagnostic;
 
 inline void out_set_fuelpump(GPIO_PinState state)
 {
-  Outputs[OutFuelPumpRelay].state = state;
+  if(Outputs[OutFuelPumpRelay].state != state) {
+    Outputs[OutFuelPumpRelay].time_switched = Delay_Tick;
+    Outputs[OutFuelPumpRelay].state = state;
+  }
 }
 
 inline void out_set_checkengine(GPIO_PinState state)
 {
   Outputs[OutCheckEngine].state = state;
+  if(Outputs[OutFuelPumpRelay].state != state) {
+    Outputs[OutFuelPumpRelay].time_switched = Delay_Tick;
+    Outputs[OutFuelPumpRelay].state = state;
+  }
 }
 
 inline void out_set_fan(GPIO_PinState state)
 {
-  Outputs[OutFanRelay].state = state;
+  if(Outputs[OutFanRelay].state != state) {
+    Outputs[OutFanRelay].time_switched = Delay_Tick;
+    Outputs[OutFanRelay].state = state;
+  }
 }
 
 inline void out_set_starter(GPIO_PinState state)
 {
-  Outputs[OutStarterRelay].state = state;
+  if(Outputs[OutStarterRelay].state != state) {
+    Outputs[OutStarterRelay].time_switched = Delay_Tick;
+    Outputs[OutStarterRelay].state = state;
+  }
 }
 
 inline void out_set_rsvd1(GPIO_PinState state)
 {
-  Outputs[OutRsvd1].state = state;
+  if(Outputs[OutRsvd1].state != state) {
+    Outputs[OutRsvd1].time_switched = Delay_Tick;
+    Outputs[OutRsvd1].state = state;
+  }
 }
 
 inline void out_set_rsvd2(GPIO_PinState state)
 {
-  Outputs[OutRsvd2].state = state;
+  if(Outputs[OutRsvd2].state != state) {
+    Outputs[OutRsvd2].time_switched = Delay_Tick;
+    Outputs[OutRsvd2].state = state;
+  }
 }
 
-inline GPIO_PinState out_get_fuelpump(void)
+inline GPIO_PinState out_get_fuelpump(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutFuelPumpRelay].time_switched);
   return Outputs[OutFuelPumpRelay].state;
 }
 
-inline GPIO_PinState out_get_checkengine(void)
+inline GPIO_PinState out_get_checkengine(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutCheckEngine].time_switched);
   return Outputs[OutCheckEngine].state;
 }
 
-inline GPIO_PinState out_get_fan(void)
+inline GPIO_PinState out_get_fan(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutFanRelay].time_switched);
   return Outputs[OutFanRelay].state;
 }
 
-inline GPIO_PinState out_get_starter(void)
+inline GPIO_PinState out_get_starter(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutStarterRelay].time_switched);
   return Outputs[OutStarterRelay].state;
 }
 
-inline GPIO_PinState out_get_rsvd1(void)
+inline GPIO_PinState out_get_rsvd1(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutRsvd1].time_switched);
   return Outputs[OutRsvd1].state;
 }
 
-inline GPIO_PinState out_get_rsvd2(void)
+inline GPIO_PinState out_get_rsvd2(uint32_t *time)
 {
+  if(time)
+    *time = DelayDiff(Delay_Tick, Outputs[OutRsvd2].time_switched);
   return Outputs[OutRsvd2].state;
 }
 
@@ -92,6 +125,7 @@ HAL_StatusTypeDef outputs_register(eOutput output, GPIO_TypeDef *port, uint16_t 
     Outputs[output].pin = pin;
     Outputs[output].inverted = inverted;
     Outputs[output].state = initial;
+    Outputs[output].time_switched = Delay_Tick;
 
     port->BSRR = pin << ((initial == inverted) * 16);
 

@@ -33,12 +33,12 @@ HAL_StatusTypeDef sens_get_reference_voltage(float *output);
 HAL_StatusTypeDef sens_get_o2_fuelratio(float *output, uint8_t *valid);
 HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output);
 
-GPIO_PinState sens_get_charge(void);
-GPIO_PinState sens_get_handbrake(void);
-GPIO_PinState sens_get_oil_pressure(void);
-GPIO_PinState sens_get_starter(void);
-GPIO_PinState sens_get_rsvd1(void);
-GPIO_PinState sens_get_rsvd2(void);
+GPIO_PinState sens_get_charge(uint32_t *time);
+GPIO_PinState sens_get_handbrake(uint32_t *time);
+GPIO_PinState sens_get_oil_pressure(uint32_t *time);
+GPIO_PinState sens_get_starter(uint32_t *time);
+GPIO_PinState sens_get_rsvd1(uint32_t *time);
+GPIO_PinState sens_get_rsvd2(uint32_t *time);
 
 void sensors_init(void);
 HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted);
