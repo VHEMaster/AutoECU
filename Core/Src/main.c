@@ -261,6 +261,8 @@ int main(void)
   }
 
   DelayInit();
+  HAL_TIM_Base_Start(&htim5);
+
   CRC16_Init(&hcrc);
 
   PK_SenderInit();
@@ -296,8 +298,7 @@ int main(void)
   injector_register(InjectorCy3, &htim14, TIM_CHANNEL_1);
   injector_register(InjectorCy4, &htim13, TIM_CHANNEL_1);
 
-  Misc_O2_Init(htim9.Init.Period,
-               &o2_pwm_period);
+  Misc_O2_Init(htim9.Init.Period, &o2_pwm_period);
 
   HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
