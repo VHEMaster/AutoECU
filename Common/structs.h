@@ -259,9 +259,17 @@ typedef struct {
     }Bkpsram;
     union {
         struct {
-            //TODO: continue sensors
-            HAL_StatusTypeDef Sensor : 2;
-        };
+            HAL_StatusTypeDef Map : 2;
+            HAL_StatusTypeDef Knock : 2;
+            HAL_StatusTypeDef Csps : 2;
+            HAL_StatusTypeDef Tsps : 2;
+            HAL_StatusTypeDef AirTemp : 2;
+            HAL_StatusTypeDef EngineTemp : 2;
+            HAL_StatusTypeDef ThrottlePos : 2;
+            HAL_StatusTypeDef ReferenceVoltage : 2;
+            HAL_StatusTypeDef PowerVoltage : 2;
+            HAL_StatusTypeDef Lambda : 2;
+        }Struct;
         uint32_t Dword;
     }Sensors;
     //TODO: add more diagnostic fields

@@ -272,8 +272,10 @@ static void ecu_update(void)
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
 
+  HAL_StatusTypeDef knock_status;
   uint8_t rotates;
   uint8_t running;
+  uint8_t phased;
   uint8_t idle_flag;
   uint8_t cutoff_processing = gEcuCutoffProcessing;
   sCspsData csps = csps_data();
@@ -281,23 +283,42 @@ static void ecu_update(void)
   halfturns = csps_gethalfturns();
   running = csps_isrunning();
   rotates = csps_isrotates();
+  phased = csps_isphased(csps);
   fill_proportion = table->fill_proportion_map_vs_thr;
   enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
 
+  gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
-  sens_get_map(&map);
-  sens_get_knock(&knock);
+  gStatus.Sensors.Struct.Map = sens_get_map(&map);
+  knock_status = sens_get_knock(&knock);
   sens_get_knock_raw(&knock_raw);
-  sens_get_air_temperature(&air_temp);
-  sens_get_engine_temperature(&engine_temp);
-  sens_get_throttle_position(&throttle);
-  sens_get_reference_voltage(&reference_voltage);
-  sens_get_power_voltage(&power_voltage);
+  gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
+  gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
+  gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
+  gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
+  gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
 
-  if(gEcuParams.useLambdaSensor)
-    sens_get_o2_fuelratio(&fuel_ratio, NULL);
+  if(gEcuParams.useLambdaSensor) {
+    gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, NULL);
+  } else {
+    gStatus.Sensors.Struct.Lambda = HAL_OK;
+  }
+
+  if(running && gEcuParams.useTSPS && !phased) {
+    gStatus.Sensors.Struct.Tsps = HAL_ERROR;
+  } else {
+    gStatus.Sensors.Struct.Tsps = HAL_OK;
+  }
+
+  if(gEcuParams.useKnockSensor) {
+    gStatus.Sensors.Struct.Knock = knock_status;
+  } else {
+    gStatus.Sensors.Struct.Knock = HAL_OK;
+  }
+
+
 
   idle_flag = throttle < 0.5f && running;
 
