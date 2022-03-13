@@ -291,8 +291,8 @@ int main(void)
   SST25_Init(&hspi2);
   Misc_Init(&hspi4);
 
-  csps_init(&htim5.Instance->CNT, &htim2, TIM_CHANNEL_1);
-  speed_init(&htim8.Instance->CNT, &htim1, TIM_CHANNEL_1);
+  csps_init(&Delay_Tick, &htim2, TIM_CHANNEL_1);
+  speed_init(&Delay_Tick, &htim1, TIM_CHANNEL_1);
 
   injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
   injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);
