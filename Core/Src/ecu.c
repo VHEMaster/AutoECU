@@ -708,7 +708,9 @@ static void ecu_process(void)
   uint8_t cy_count;
   uint8_t individual_coils;
   uint8_t use_tsps;
+  uint8_t injector_channel;
 
+  injector_channel = gEcuTable[ecu_get_table()].inj_channel;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
   phased = use_tsps && individual_coils && csps_isphased(csps);
@@ -745,8 +747,10 @@ static void ecu_process(void)
 
   if(found)
   {
+    //TODO: do smooth switching between tables
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
-    gInjChPorts[0]->BSRR = gInjChPins[0];
+    gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
+    gInjChPorts[injector_channel ^ 1]->BSRR = gInjChPins[injector_channel ^ 1] << 16;
 
     if(period < time_sat + time_pulse) {
       time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
