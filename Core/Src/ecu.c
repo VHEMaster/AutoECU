@@ -693,7 +693,8 @@ static void ecu_process(void)
   static uint8_t ignited[4] = { 1,1,1,1 };
   static uint8_t injected[4] = { 1,1,1,1 };
   static uint8_t injection[4] = { 1,1,1,1 };
-  float angle[4];
+  float angle_injection[4];
+  float angle_ignition[4];
   float anglesbeforeignite[4];
   float anglesbeforeinject[4];
 
@@ -704,12 +705,15 @@ static void ecu_process(void)
   float time_pulse;
   float angle_ignite;
   float saturate;
-  float angles_per_turn;
+  float angles_injection_per_turn;
+  float angles_ignition_per_turn;
   float inj_phase;
   float inj_pulse;
   float inj_angle;
-  uint8_t phased;
-  uint8_t cy_count;
+  uint8_t phased_ignition;
+  uint8_t phased_injection;
+  uint8_t cy_count_ignition;
+  uint8_t cy_count_injection;
   uint8_t individual_coils;
   uint8_t use_tsps;
   uint8_t injector_channel;
@@ -717,8 +721,10 @@ static void ecu_process(void)
   injector_channel = gEcuTable[gParameters.CurrentTable].inj_channel;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
-  phased = use_tsps && individual_coils && csps_isphased(csps);
-  cy_count = phased ? 4 : 2;
+  phased_injection = use_tsps && csps_isphased(csps);
+  phased_ignition = phased_injection && individual_coils;
+  cy_count_injection = phased_injection ? 4 : 2;
+  cy_count_ignition = phased_ignition ? 4 : 2;
   angle_ignite = gParameters.IgnitionAngle;
   time_sat = gParameters.IgnitionPulse;
   time_pulse = 2000;
@@ -726,32 +732,48 @@ static void ecu_process(void)
   inj_phase = gParameters.InjectionPhase;
   inj_pulse = gParameters.InjectionPulse;
 
-  if(phased) {
-    angles_per_turn = 720.0f;
+  if(phased_ignition) {
+    angles_ignition_per_turn = 720.0f;
   } else {
-    angles_per_turn = 360.0f;
-    saturated[2] = ignited[2] = injection[2] = injected[2] = 1;
-    saturated[3] = ignited[3] = injection[3] = injected[3] = 1;
+    angles_ignition_per_turn = 360.0f;
+    saturated[2] = ignited[2] = 1;
+    saturated[3] = ignited[3] = 1;
     inj_pulse *= 0.5;
-
   }
 
-  while(inj_phase > angles_per_turn * 0.5f) {
-    inj_phase -= angles_per_turn;
+  if(phased_injection) {
+    angles_injection_per_turn = 720.0f;
+  } else {
+    angles_injection_per_turn = 360.0f;
+    injection[2] = injected[2] = 1;
+    injection[3] = injected[3] = 1;
+    inj_pulse *= 0.5;
   }
 
-  if(phased) {
-    for(int i = 0; i < cy_count; i++) {
-      angle[i] = csps_getphasedangle_cy(csps, i);
+  while(inj_phase > angles_injection_per_turn * 0.5f) {
+    inj_phase -= angles_injection_per_turn;
+  }
+
+  if(phased_ignition) {
+    for(int i = 0; i < cy_count_ignition; i++) {
+      angle_ignition[i] = csps_getphasedangle_cy(csps, i);
     }
   } else {
-    angle[0] = csps_getangle14(csps);
-    angle[1] = csps_getangle23from14(angle[0]);
+    angle_ignition[0] = csps_getangle14(csps);
+    angle_ignition[1] = csps_getangle23from14(angle_ignition[0]);
+  }
+
+  if(phased_injection) {
+    for(int i = 0; i < cy_count_injection; i++) {
+      angle_injection[i] = csps_getphasedangle_cy(csps, i);
+    }
+  } else {
+    angle_injection[0] = csps_getangle14(csps);
+    angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
   if(found)
   {
-    //TODO: do smooth switching between tables
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
     gInjChPorts[injector_channel ^ 1]->BSRR = gInjChPins[injector_channel ^ 1] << 16;
@@ -764,12 +786,12 @@ static void ecu_process(void)
     inj_angle = inj_pulse / uspa;
 
     //Ignition part
-    for(int i = 0; i < cy_count; i++)
+    for(int i = 0; i < cy_count_ignition; i++)
     {
-      if(angle[i] < -angle_ignite)
-        anglesbeforeignite[i] = -angle[i] - angle_ignite;
+      if(angle_ignition[i] < -angle_ignite)
+        anglesbeforeignite[i] = -angle_ignition[i] - angle_ignite;
       else
-        anglesbeforeignite[i] = angles_per_turn - angle[i] - angle_ignite;
+        anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - angle_ignite;
 
       if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
         anglesbeforeignite[i] = oldanglesbeforeignite[i];
@@ -780,8 +802,8 @@ static void ecu_process(void)
         {
           saturated[i] = 1;
 
-          if(ecu_cutoff_ign_act(cy_count, i))
-            ecu_coil_saturate(cy_count, i);
+          if(ecu_cutoff_ign_act(cy_count_ignition, i))
+            ecu_coil_saturate(cy_count_ignition, i);
         }
       }
 
@@ -792,7 +814,7 @@ static void ecu_process(void)
           ignited[i] = 1;
           saturated[i] = 0;
 
-          ecu_coil_ignite(cy_count, i);
+          ecu_coil_ignite(cy_count_ignition, i);
         }
       }
       else ignited[i] = 0;
@@ -801,12 +823,12 @@ static void ecu_process(void)
     }
 
     //Injection part
-    for(int i = 0; i < cy_count; i++)
+    for(int i = 0; i < cy_count_injection; i++)
     {
-      if(angle[i] < inj_phase)
-        anglesbeforeinject[i] = -angle[i] + inj_phase;
+      if(angle_injection[i] < inj_phase)
+        anglesbeforeinject[i] = -angle_injection[i] + inj_phase;
       else
-        anglesbeforeinject[i] = angles_per_turn - angle[i] + inj_phase;
+        anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase;
 
       if(anglesbeforeinject[i] - oldanglesbeforeinject[i] > 0.0f && anglesbeforeinject[i] - oldanglesbeforeinject[i] < 180.0f)
         anglesbeforeinject[i] = oldanglesbeforeinject[i];
@@ -817,8 +839,8 @@ static void ecu_process(void)
         {
           injection[i] = 1;
 
-          if(ecu_cutoff_inj_act(cy_count, i) && inj_pulse > 0.0f)
-            ecu_inject(cy_count, i, inj_pulse);
+          if(ecu_cutoff_inj_act(cy_count_injection, i) && inj_pulse > 0.0f)
+            ecu_inject(cy_count_injection, i, inj_pulse);
         }
       }
 
@@ -932,7 +954,7 @@ void ecu_init(void)
   ecu_config_init();
 
   ecu_set_start_allowed(HAL_OK);
-  ecu_set_table(0);
+  ecu_set_table(gEcuParams.startupTableNumber);
 
   ecu_pid_init();
 

@@ -294,11 +294,10 @@ void config_default_params(sEcuParams *table)
 
   table->isCutoffEnabled = 1;
   table->isSwitchByExternal = 0;
-  table->startupTableNumber = 1;
-  table->switchPos1Table = 1;
-  table->switchPos0Table = 1;
-  table->switchPos2Table = 1;
-  table->switchTime = 5000;
+  table->startupTableNumber = 0;
+  table->switchPos1Table = 0;
+  table->switchPos0Table = 0;
+  table->switchPos2Table = 0;
 
   table->cutoffRPM = 6200;
   table->cutoffMode = 5;

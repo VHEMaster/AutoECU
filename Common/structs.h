@@ -122,7 +122,6 @@ typedef struct {
     int32_t switchPos1Table;
     int32_t switchPos0Table;
     int32_t switchPos2Table;
-    int32_t switchTime;
     int32_t forceTable;
 
     float cutoffRPM;
@@ -141,7 +140,7 @@ typedef struct {
     float fanHighTemperature;
     float fanLowTemperature;
 
-    int32_t Reserved32[1001];
+    int32_t Reserved32[1002];
 }sEcuParams;
 
 typedef struct {
