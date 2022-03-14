@@ -351,8 +351,6 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-
-
   idle_flag = throttle < 0.5f && running;
 
   fuel_abs_pressure = fuel_pressure + (1.0f - map * 0.00001f);
@@ -428,6 +426,9 @@ static void ecu_update(void)
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
+  if(gForceParameters.Enable.params.InjectionPhase)
+    injection_phase = gForceParameters.InjectionPhase;
+
 
   if(idle_flag && running) {
     if(out_get_fan(NULL) != GPIO_PIN_RESET) {
@@ -435,10 +436,18 @@ static void ecu_update(void)
     }
   }
 
+  if(gForceParameters.Enable.params.IgnitionAngle)
+    ignition_angle = gForceParameters.IgnitionAngle;
+  if(gForceParameters.Enable.params.IgnitionOctane)
+    ignition_angle += gForceParameters.IgnitionOctane;
+
   if(cutoff_processing) {
     ignition_angle = gEcuParams.cutoffAngle;
     wish_fuel_ratio = gEcuParams.cutoffMixture;
   }
+
+  if(gForceParameters.Enable.params.WishFuelRatio)
+    wish_fuel_ratio = gForceParameters.WishFuelRatio;
 
   if(!gEcuParams.useLambdaSensor)
     fuel_ratio = wish_fuel_ratio;
@@ -447,10 +456,16 @@ static void ecu_update(void)
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
 
+  if(gForceParameters.Enable.params.IgnitionTime)
+    ignition_time = gForceParameters.IgnitionTime;
+
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= enrichment + 1.0f;
   injection_time += injector_lag;
+
+  if(gForceParameters.Enable.params.InjectionTime)
+    injection_time = gForceParameters.InjectionTime;
 
   idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipTemp, table->idle_wish_massair);
@@ -460,6 +475,9 @@ static void ecu_update(void)
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
 
   idle_wish_rpm += idle_rpm_shift;
+
+  if(gForceParameters.Enable.params.WishIdleRPM)
+    idle_wish_rpm = gForceParameters.WishIdleRPM;
 
   idle_valve_pos_adaptation = math_interpolate_1d_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm) * 0.015625f;
 
@@ -477,9 +495,19 @@ static void ecu_update(void)
 
   if(idle_flag && !cutoff_processing) {
     ignition_angle += idle_angle_correction;
+
+    if(gForceParameters.Enable.params.WishIdleIgnitionAngle) {
+      math_pid_reset(&gPidIdleIgnition);
+      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
+    }
   }
 
   idle_wish_valve_pos += idle_valve_pos_correction;
+
+  if(gForceParameters.Enable.params.WishIdleValvePosition) {
+    math_pid_reset(&gPidIdleAirFlow);
+    idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
+  }
 
   injection_dutycycle = injection_time / csps_getperiod(csps) * 2.0f;
 
@@ -516,7 +544,7 @@ static void ecu_update(void)
   }
 
   //TODO: handle knock sensor adaptation
-  if(gEcuParams.useKnockSensor) {
+  if(gEcuParams.useKnockSensor && !gForceParameters.Enable.params.IgnitionAngle) {
 
   }
 
@@ -527,7 +555,7 @@ static void ecu_update(void)
           adaptation_last = now;
           lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-          if(gEcuParams.useLambdaSensor) {
+          if(gEcuParams.useLambdaSensor && !gForceParameters.Enable.params.InjectionTime) {
             filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
 
             filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
@@ -540,10 +568,12 @@ static void ecu_update(void)
             math_interpolate_2d_set_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
           }
 
-          idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
-          idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
+          if(!gForceParameters.Enable.params.WishIdleValvePosition) {
+            idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
+            idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
 
-          math_interpolate_1d_set_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+            math_interpolate_1d_set_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+          }
 
         }
       }
@@ -559,8 +589,6 @@ static void ecu_update(void)
     km_driven = 0;
     fuel_consumed = 0;
   }
-
-  //TODO: add usage of gForceParameters
 
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
@@ -944,11 +972,16 @@ static void ecu_fuelpump_process(void)
   uint32_t now = Delay_Tick;
   uint8_t rotates = csps_isrotates();
 
-  if(rotates || active_last == 0 || DelayDiff(now, active_last) < 1000000) {
+  if(gForceParameters.Enable.params.FuelPumpRelay) {
+    active = gForceParameters.FuelPumpRelay > 0;
     active_last = now;
-    active = 1;
   } else {
-    active = 0;
+    if(rotates || active_last == 0 || DelayDiff(now, active_last) < 1000000) {
+      active_last = now;
+      active = 1;
+    } else {
+      active = 0;
+    }
   }
 
   if(active) {
@@ -956,7 +989,6 @@ static void ecu_fuelpump_process(void)
   } else {
     out_set_fuelpump(GPIO_PIN_RESET);
   }
-
 }
 
 static void ecu_fan_process(void)
@@ -971,7 +1003,9 @@ static void ecu_fan_process(void)
   fan_state = out_get_fan(NULL);
   status = sens_get_engine_temperature(&engine_temp);
 
-  if(status != HAL_OK) {
+  if(gForceParameters.Enable.params.FanRelay) {
+    out_set_fan(gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  } else if(status != HAL_OK) {
     out_set_fan(GPIO_PIN_SET);
   } else if(fan_state != GPIO_PIN_RESET) {
     if(engine_temp < temp_low) {
@@ -995,29 +1029,35 @@ static void ecu_checkengine_process(void)
   uint8_t *ptr_recorded = (uint8_t *)&gEcuCriticalBackup.status_recorded;
   uint32_t size = sizeof(sStatus);
 
-  while(size--) {
-    byte = *ptr_status++;
-    iserror |= byte;
-    *ptr_recorded++ |= byte;
-  }
-
-  if(iserror) {
-    was_error = 1;
-    error_last = now;
-  }
-
-  if(was_error) {
-    if(DelayDiff(now, error_last) < 5000000) {
-      iserror = 1;
-    } else {
-      was_error = 0;
-    }
-  }
-
-  if(!running || iserror) {
-    out_set_checkengine(GPIO_PIN_SET);
+  if(gForceParameters.Enable.params.CheckEngine) {
+    out_set_checkengine(gForceParameters.CheckEngine > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    was_error = 0;
+    iserror = 0;
   } else {
-    out_set_checkengine(GPIO_PIN_RESET);
+    while(size--) {
+      byte = *ptr_status++;
+      iserror |= byte;
+      *ptr_recorded++ |= byte;
+    }
+
+    if(iserror) {
+      was_error = 1;
+      error_last = now;
+    }
+
+    if(was_error) {
+      if(DelayDiff(now, error_last) < 5000000) {
+        iserror = 1;
+      } else {
+        was_error = 0;
+      }
+    }
+
+    if(!running || iserror) {
+      out_set_checkengine(GPIO_PIN_SET);
+    } else {
+      out_set_checkengine(GPIO_PIN_RESET);
+    }
   }
 }
 

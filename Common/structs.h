@@ -218,28 +218,30 @@ typedef struct {
         uint8_t IgnitionAngle : 1;
         uint8_t InjectionPhase : 1;
         uint8_t IgnitionOctane : 1;
+        uint8_t IgnitionTime : 1;
+        uint8_t InjectionTime : 1;
         uint8_t WishFuelRatio : 1;
         uint8_t WishIdleRPM : 1;
         uint8_t WishIdleValvePosition : 1;
         uint8_t WishIdleIgnitionAngle : 1;
-        uint8_t InjectionTime : 1;
-        uint8_t IgnitionTime : 1;
         uint8_t FanRelay : 1;
         uint8_t FuelPumpRelay : 1;
+        uint8_t CheckEngine : 1;
       } params;
       uint32_t dword;
     } Enable;
     float IgnitionAngle;
     float InjectionPhase;
     float IgnitionOctane;
+    float IgnitionTime;
+    float InjectionTime;
     float WishFuelRatio;
     float WishIdleRPM;
     float WishIdleValvePosition;
     float WishIdleIgnitionAngle;
-    float InjectionTime;
-    float IgnitionTime;
-    float FanRelay;
-    float FuelPumpRelay;
+    uint32_t FanRelay;
+    uint32_t FuelPumpRelay;
+    uint32_t CheckEngine;
 }sForceParameters;
 
 typedef struct {
