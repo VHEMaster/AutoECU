@@ -27,4 +27,7 @@
 #define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
 #define ITEMSOF(ARRAY) (sizeof((ARRAY)) / sizeof((ARRAY)[0]))
 
+#define STATIC_INLINE __attribute__((always_inline)) static inline
+#define INLINE __attribute__((always_inline)) inline
+
 #endif /* DEFINES_H_ */

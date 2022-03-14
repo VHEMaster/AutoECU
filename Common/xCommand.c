@@ -16,7 +16,7 @@
 #ifndef taskENTER_CRITICAL
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 5
 #define taskENTER_CRITICAL entercritical
-static inline void entercritical(void)
+STATIC_INLINE void entercritical(void)
 {
   /*
   uint32_t ulNewBASEPRI;
@@ -36,7 +36,7 @@ static inline void entercritical(void)
 
 #ifndef taskEXIT_CRITICAL
 #define taskEXIT_CRITICAL exitcritical
-static inline void exitcritical(void)
+STATIC_INLINE void exitcritical(void)
 {
   /*
   __asm volatile
@@ -62,6 +62,14 @@ typedef struct
     uint8_t BufParser[MAX_PACK_LEN];
     UART_HandleTypeDef * xUart;
     eTransChannels xChannels[4];
+
+    volatile uint16_t ReceivedAckPacket;
+    volatile uint16_t RetriesPacket;
+    volatile uint16_t NeedAckPacket;
+    volatile uint16_t NeededAckPacketId;
+    volatile uint32_t LastNotAckedTime;
+    volatile uint8_t TxBusy;
+
     uint16_t ReceivedPackets[etrCount][10];
     uint16_t ReceivedPacketId[etrCount];
     sProFIFO xTxFifo;
@@ -70,27 +78,22 @@ typedef struct
     uint32_t dataLen;
     uint16_t packetId;
     uint32_t RxPointer;
-    volatile uint8_t TxBusy;
 }sGetterHandle __attribute__((aligned(32)));
 
 extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart5;
-
-static volatile uint16_t RetriesPacket = 0;
-static volatile uint16_t NeedAckPacket = 0;
-static volatile uint16_t ReceivedAckPacket = 1;
-static volatile uint16_t NeededAckPacketId = 0;
-static volatile uint32_t LastNotAckedTime = 0;
+extern UART_HandleTypeDef huart8;;
 
 static sGetterHandle xHandles[] = {
-    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone} },
-    {{0},{0},{0},{0},{0},{0}, &huart4, {etrIMMO,etrNone} },
+    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone}, 1,0,0,0,0,0 },
+    {{0},{0},{0},{0},{0},{0}, &huart4, {etrIMMO,etrNone}, 1,0,0,0,0,0 },
+    {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0 },
 };
 
-static inline int Msg_GetSrc(uint8_t xValue) { return (xValue & 7); }
-static inline int Msg_GetDest(uint8_t xValue) { return ((xValue >> 3) & 7); }
+STATIC_INLINE int Msg_GetSrc(uint8_t xValue) { return (xValue & 7); }
+STATIC_INLINE int Msg_GetDest(uint8_t xValue) { return ((xValue >> 3) & 7); }
 
-static inline void CacheInvalidate(void * buffer, uint32_t size)
+STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)
 {
   uint32_t aligned = (uint32_t)buffer % 32;
   if(aligned == 0)
@@ -98,7 +101,7 @@ static inline void CacheInvalidate(void * buffer, uint32_t size)
   else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
 }
 
-static inline void CacheClean(void * buffer, uint32_t size)
+STATIC_INLINE void CacheClean(void * buffer, uint32_t size)
 {
   uint32_t aligned = (uint32_t)buffer % 32;
   if(aligned == 0)
@@ -106,7 +109,7 @@ static inline void CacheClean(void * buffer, uint32_t size)
   else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
 }
 
-static inline uint16_t calculatePacketId(void)
+STATIC_INLINE uint16_t calculatePacketId(void)
 {
   static uint16_t counter = 0;
   uint16_t returnvalue;
@@ -122,7 +125,7 @@ static inline uint16_t calculatePacketId(void)
 
 }
 
-static inline sGetterHandle * findHandleForChannel(eTransChannels xChannel)
+STATIC_INLINE sGetterHandle * findHandleForChannel(eTransChannels xChannel)
 {
   for(int i = 0; i < ITEMSOF(xHandles); i++)
   {
@@ -130,13 +133,15 @@ static inline sGetterHandle * findHandleForChannel(eTransChannels xChannel)
     {
       if(xHandles[i].xChannels[j] == xChannel) {
         return &xHandles[i];
+      } else if(xHandles[i].xChannels[j] == etrNone) {
+        break;
       }
     }
   }
   return NULL;
 }
 
-static inline void packager(sGetterHandle* xHandle, uint8_t* xMsgPtr, uint16_t xMsgLen, eTransChannels xChaDest, uint16_t aPacketId) {
+STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint16_t xMsgLen, eTransChannels xChaDest, uint16_t aPacketId) {
 
     if (xHandle && xMsgLen<MAX_PACK_LEN)
     {
@@ -178,8 +183,12 @@ static inline void packager(sGetterHandle* xHandle, uint8_t* xMsgPtr, uint16_t x
               memcpy(&xHandle->BufTx[xMsgLen+8], &aCrc15,2);
             }
 
-            CacheClean(xHandle->BufTx, aTotLen);
-            HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, aTotLen);
+            if(xHandle->xUart->hdmatx) {
+              CacheClean(xHandle->BufTx, aTotLen);
+              HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, aTotLen);
+            }
+            else
+              HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, aTotLen);
           }
           else taskEXIT_CRITICAL();
         }
@@ -195,7 +204,7 @@ static inline void packager(sGetterHandle* xHandle, uint8_t* xMsgPtr, uint16_t x
     }
 }
 
-static inline void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChannels xChaDest) {
+STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChannels xChaDest) {
 
     if (xHandle)
     {
@@ -222,8 +231,12 @@ static inline void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
             handled = 1;
             taskEXIT_CRITICAL();
             memcpy(xHandle->BufTx,header,8);
-            CacheClean(xHandle->BufTx, 8);
-            HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, 8);
+            if(xHandle->xUart->hdmatx) {
+              CacheClean(xHandle->BufTx, 8);
+              HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, 8);
+            }
+            else
+              HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, 8);
           }
           else taskEXIT_CRITICAL();
         }
@@ -235,8 +248,41 @@ static inline void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
     }
 }
 
+void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen)
+{
+  sGetterHandle * xHandle = NULL;
+  xHandle = findHandleForChannel(xChaDest);
 
-int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
+  uint8_t handled = 0;
+
+  if(!protIsSome(&xHandle->xTxFifo))
+  {
+    taskENTER_CRITICAL();
+    if(!xHandle->TxBusy)
+    {
+      xHandle->TxBusy = 1;
+      handled = 1;
+      taskEXIT_CRITICAL();
+
+      memcpy(&xHandle->BufTx[0],xMsgPtr,xMsgLen);
+
+      if(xHandle->xUart->hdmatx) {
+        CacheClean(xHandle->BufTx, xMsgLen);
+        HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, xMsgLen);
+      }
+      else
+        HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, xMsgLen);
+    }
+    else taskEXIT_CRITICAL();
+  }
+
+  if(!handled)
+  {
+    protPushSequence(&xHandle->xTxFifo,xMsgPtr,xMsgLen);
+  }
+}
+
+int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen)
 {
   uint32_t now = Delay_Tick;
 
@@ -248,50 +294,50 @@ int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
     return -2;
 
   taskENTER_CRITICAL();
-  if(NeedAckPacket)
+  if(handle->NeedAckPacket)
   {
-    if(ReceivedAckPacket)
+    if(handle->ReceivedAckPacket)
     {
-      NeedAckPacket = 0;
-      NeededAckPacketId = 0;
+      handle->NeedAckPacket = 0;
+      handle->NeededAckPacketId = 0;
       taskEXIT_CRITICAL();
       return 1;
     }
     else
     {
-      if(DelayDiff(now, LastNotAckedTime) > (xChaDest == etrPC ? RETRIES_TIMEOUT_PC : RETRIES_TIMEOUT_CTRL))
+      if(DelayDiff(now, handle->LastNotAckedTime) > (xChaDest == etrPC ? RETRIES_TIMEOUT_PC : RETRIES_TIMEOUT_CTRL))
       {
-        if(RetriesPacket > RETRIES_MAX)
+        if(handle->RetriesPacket > RETRIES_MAX)
         {
-          NeedAckPacket = 0;
-          NeededAckPacketId = 0;
+          handle->NeedAckPacket = 0;
+          handle->NeededAckPacketId = 0;
           taskEXIT_CRITICAL();
           return -1;
         }
-        LastNotAckedTime = now;
-        RetriesPacket++;
+        handle->LastNotAckedTime = now;
+        handle->RetriesPacket++;
         taskEXIT_CRITICAL();
-        packager(handle, xMsgPtr, xMsgLen, xChaDest, NeededAckPacketId);
+        packager(handle, xMsgPtr, xMsgLen, xChaDest, handle->NeededAckPacketId);
       }
       else taskEXIT_CRITICAL();
     }
   }
   else
   {
-    ReceivedAckPacket = 0;
-    NeedAckPacket = 1;
-    LastNotAckedTime = now;
-    RetriesPacket = 0;
+    handle->ReceivedAckPacket = 0;
+    handle->NeedAckPacket = 1;
+    handle->LastNotAckedTime = now;
+    handle->RetriesPacket = 0;
     taskEXIT_CRITICAL();
-    NeededAckPacketId = calculatePacketId();
-    packager(handle, xMsgPtr, xMsgLen, xChaDest, NeededAckPacketId);
+    handle->NeededAckPacketId = calculatePacketId();
+    packager(handle, xMsgPtr, xMsgLen, xChaDest, handle->NeededAckPacketId);
   }
 
   return 0;
 
 }
 
-static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen, eTransChannels xChaSrc, eTransChannels xChaDest) {
+STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen, eTransChannels xChaSrc, eTransChannels xChaDest) {
 
   uint32_t aCount;
   uint8_t data, idis = 0;
@@ -352,9 +398,9 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
               }
 
               taskENTER_CRITICAL();
-              if(NeedAckPacket && NeededAckPacketId != 0 && NeededAckPacketId == xPacketId && !ReceivedAckPacket)
+              if(hDest->NeedAckPacket && hDest->NeededAckPacketId != 0 && hDest->NeededAckPacketId == xPacketId && !hDest->ReceivedAckPacket)
               {
-                ReceivedAckPacket = 1;
+                hDest->ReceivedAckPacket = 1;
               }
               taskEXIT_CRITICAL();
 
@@ -366,6 +412,7 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
       case etrCTRL:
       case etrPC:
       case etrIMMO:
+      case etrBT:
       {
         sCount = (xDataLen > 10) ? xDataLen : 8;
 
@@ -387,8 +434,12 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 protPull(xFifo, &hDest->BufTx[aCount]);
               }
 
-              CacheClean(hDest->BufTx, sCount);
-              HAL_UART_Transmit_DMA(hDest->xUart, hDest->BufTx, sCount);
+              if(hDest->xUart->hdmatx) {
+                CacheClean(hDest->BufTx, sCount);
+                HAL_UART_Transmit_DMA(hDest->xUart, hDest->BufTx, sCount);
+              }
+              else
+                HAL_UART_Transmit_IT(hDest->xUart, hDest->BufTx, sCount);
             }
             else taskEXIT_CRITICAL();
           }
@@ -419,16 +470,16 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
   }
 }
 
-static inline uint8_t lookByte(sProFIFO* xFifo, uint32_t xOffset) { uint8_t aByte; protLook(xFifo,xOffset,&aByte); return aByte; }
+STATIC_INLINE uint8_t lookByte(sProFIFO* xFifo, uint32_t xOffset) { uint8_t aByte; protLook(xFifo,xOffset,&aByte); return aByte; }
 
-static inline uint8_t countCRC8(sGetterHandle * handle) {
+STATIC_INLINE uint8_t countCRC8(sGetterHandle * handle) {
     uint32_t i; uint8_t aCrc8 = 0;
     for (i=0; i<7; i++) { handle->BufParser[i] = lookByte(&handle->xRxFifo,i); }
     aCrc8 = CRC8_Generate(handle->BufParser, 7);
     return aCrc8;
 }
 
-static inline int32_t countCRC16(sGetterHandle * handle, uint32_t xLen) {
+STATIC_INLINE int32_t countCRC16(sGetterHandle * handle, uint32_t xLen) {
     uint32_t i; int32_t aCrc16 = 0;
     for (i=0; i<xLen-2; i++) { handle->BufParser[i] = lookByte(&handle->xRxFifo,i); }
     aCrc16 = CRC16_Generate(handle->BufParser, xLen-2);
@@ -501,8 +552,6 @@ static void Getter(sGetterHandle * handle)
   *pPacketId = packetId;
 }
 
-
-
 void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
 {
   sGetterHandle * handle;
@@ -517,11 +566,29 @@ void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
         handle->TxBusy = 1;
         while(protPull(&handle->xTxFifo, &handle->BufTx[length++])
             && length < MAX_PACK_LEN);
-        CacheClean(handle->BufTx, length);
-        HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
+        if(handle->xUart->hdmatx) {
+          CacheClean(handle->BufTx, length);
+          HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
+        }
+        else
+          HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
       }
       else handle->TxBusy = 0;
       break;
+    }
+  }
+}
+
+void xDmaRxIrqHandler(UART_HandleTypeDef *huart)
+{
+  sGetterHandle * handle;
+  for(int i = 0; i < ITEMSOF(xHandles); i++)
+  {
+    handle = &xHandles[i];
+    if(!handle->xUart->hdmarx && huart == handle->xUart)
+    {
+      protPush(&handle->xRxFifo, &handle->BufRx[0]);
+      HAL_UART_Receive_IT(handle->xUart, &handle->BufRx[0], 1);
     }
   }
 }
@@ -559,8 +626,12 @@ void xGetterInit(void)
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
     handle = &xHandles[i];
-    CacheClean(handle->BufRx, UART_DMA_BUFFER);
-    HAL_UART_Receive_DMA(handle->xUart, handle->BufRx, UART_DMA_BUFFER);
+    if(handle->xUart->hdmarx) {
+      CacheClean(handle->BufRx, UART_DMA_BUFFER);
+      HAL_UART_Receive_DMA(handle->xUart, handle->BufRx, UART_DMA_BUFFER);
+    } else {
+      HAL_UART_Receive_IT(handle->xUart, handle->BufRx, 1);
+    }
     handle->RxPointer = handle->xUart->RxXferSize;
   }
 }
@@ -576,29 +647,31 @@ void xGetterLoop(void)
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
     handle = &xHandles[i];
-    do
-    {
-      dmacnt = handle->xUart->hdmarx->Instance->NDTR;
-      dmasize = handle->xUart->RxXferSize;
-      if(handle->RxPointer == 0xFFFFFFFF) handle->RxPointer = dmacnt;
-      if(dmacnt > handle->RxPointer)
-        length = (dmasize-dmacnt)+handle->RxPointer;
-      else length = handle->RxPointer-dmacnt;
-
-      if(length > MAX_PACK_LEN) length = MAX_PACK_LEN;
-      if(length > 0)
+    if(handle->xUart->hdmarx) {
+      do
       {
-        CacheInvalidate(handle->BufRx, UART_DMA_BUFFER);
-        for(i=0;i<length;i++)
-        {
-          tempbuffer[i] = handle->BufRx[dmasize-handle->RxPointer];
-          if(handle->RxPointer == 1) handle->RxPointer = dmasize;
-          else handle->RxPointer--;
-        }
+        dmacnt = handle->xUart->hdmarx->Instance->NDTR;
+        dmasize = handle->xUart->RxXferSize;
+        if(handle->RxPointer == 0xFFFFFFFF) handle->RxPointer = dmacnt;
+        if(dmacnt > handle->RxPointer)
+          length = (dmasize-dmacnt)+handle->RxPointer;
+        else length = handle->RxPointer-dmacnt;
 
-        protPushSequence(&handle->xRxFifo, tempbuffer, length);
-      }
-    } while(length > 0);
+        if(length > MAX_PACK_LEN) length = MAX_PACK_LEN;
+        if(length > 0)
+        {
+          CacheInvalidate(handle->BufRx, UART_DMA_BUFFER);
+          for(i=0;i<length;i++)
+          {
+            tempbuffer[i] = handle->BufRx[dmasize-handle->RxPointer];
+            if(handle->RxPointer == 1) handle->RxPointer = dmasize;
+            else handle->RxPointer--;
+          }
+
+          protPushSequence(&handle->xRxFifo, tempbuffer, length);
+        }
+      } while(length > 0);
+    }
 
     if(protIsSome(&handle->xRxFifo))
     {
@@ -613,8 +686,12 @@ void xGetterLoop(void)
       taskEXIT_CRITICAL();
       while(protPull(&handle->xTxFifo, &handle->BufTx[length++])
           && length < MAX_PACK_LEN);
-      CacheClean(handle->BufTx, length);
-      HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
+      if(handle->xUart->hdmatx) {
+        CacheClean(handle->BufTx, length);
+        HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
+      }
+      else
+        HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
     }
     else taskEXIT_CRITICAL();
   }

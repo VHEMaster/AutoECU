@@ -1,4 +1,5 @@
 #include "main.h"
+#include "defines.h"
 #include "delay.h"
 #include "ecu.h"
 #include "crc.h"
@@ -81,14 +82,14 @@ static void MX_RNG_Init(void);
 
 static volatile uint32_t o2_pwm_period = 0;
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
+INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
 {
   if(hadc == &hadc1) {
     ADC_MCU_ConvCpltCallback(hadc);
   }
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim == &htim3) {
     ecu_irq_fast_loop();
@@ -104,7 +105,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
   uint32_t timestamp;
   if (htim == &htim5) {
@@ -124,7 +125,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   }
 }
 
-void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+INLINE void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim9 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
     htim9.Instance->CCR1 = o2_pwm_period;
@@ -143,14 +144,14 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
   }
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+INLINE void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == TIM5_CH1_SENS_CSPS_Pin) {
     //csps_exti(Delay_Tick, DelayMask);
   }
 }
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+INLINE void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
   if(huart == &huart4 || huart == &huart5) {
     xDmaErIrqHandler(huart);
@@ -159,7 +160,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   }
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+INLINE void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart == &huart4 || huart == &huart5) {
     xDmaTxIrqHandler(huart);
@@ -168,14 +169,16 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
   }
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+INLINE void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  if(huart == &huart8) {
+  if(huart == &huart4 || huart == &huart5) {
 
+  } else if(huart == &huart8) {
+    xDmaRxIrqHandler(huart);
   }
 }
 
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
+INLINE void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
 {
   if(hspi == &hspi2) {
     SST25_TxCpltCallback(hspi);
@@ -186,7 +189,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
   }
 }
 
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
+INLINE void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
 {
   if(hspi == &hspi2) {
     SST25_RxCpltCallback(hspi);
@@ -196,7 +199,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
     Misc_RxCpltCallback(hspi);
   }
 }
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef * hspi)
+INLINE void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef * hspi)
 {
   if(hspi == &hspi2) {
     SST25_TxRxCpltCallback(hspi);
@@ -207,7 +210,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef * hspi)
   }
 }
 
-void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
+INLINE void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
 {
   if(hspi == &hspi2) {
     SST25_ErrorCallback(hspi);

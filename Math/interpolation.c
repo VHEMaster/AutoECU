@@ -5,10 +5,10 @@
  *      Author: VHEMaster
  */
 
-#include "arm_math.h"
+#include "defines.h"
 #include "interpolation.h"
 
-CMSIS_INLINE __STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element)
+STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element)
 {
   int iterations = 0;
   while(start_index <= end_index && ++iterations < 256) {
@@ -23,7 +23,7 @@ CMSIS_INLINE __STATIC_INLINE int math_binary_search(const float *array, int star
   return -1;
 }
 
-CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size)
+INLINE sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size)
 {
   sMathInterpolateInput result = {0};
   int find_index = -1;
@@ -73,7 +73,7 @@ CMSIS_INLINE __INLINE sMathInterpolateInput math_interpolate_input(float value, 
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, const float *table)
+INLINE float math_interpolate_1d(sMathInterpolateInput input, const float *table)
 {
   float result;
   float output[2];
@@ -86,7 +86,7 @@ CMSIS_INLINE __INLINE float math_interpolate_1d(sMathInterpolateInput input, con
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[y_size])
 {
   float result = 0.0f;
@@ -105,7 +105,7 @@ CMSIS_INLINE __INLINE float math_interpolate_2d(sMathInterpolateInput input_x, s
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_1d_int16(sMathInterpolateInput input, const int16_t *table)
+INLINE float math_interpolate_1d_int16(sMathInterpolateInput input, const int16_t *table)
 {
   float result;
   float output[2];
@@ -118,7 +118,7 @@ CMSIS_INLINE __INLINE float math_interpolate_1d_int16(sMathInterpolateInput inpu
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_2d_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+INLINE float math_interpolate_2d_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const int16_t (*table)[y_size])
 {
   float result = 0.0f;
@@ -137,7 +137,7 @@ CMSIS_INLINE __INLINE float math_interpolate_2d_int16(sMathInterpolateInput inpu
   return result;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_1d_set_int16(sMathInterpolateInput input, int16_t *table, float new_value)
+INLINE float math_interpolate_1d_set_int16(sMathInterpolateInput input, int16_t *table, float new_value)
 {
   float previous;
   float diff;
@@ -156,7 +156,7 @@ CMSIS_INLINE __INLINE float math_interpolate_1d_set_int16(sMathInterpolateInput 
   return diff;
 }
 
-CMSIS_INLINE __INLINE float math_interpolate_2d_set_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+INLINE float math_interpolate_2d_set_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, int16_t (*table)[y_size], float new_value)
 {
   float previous;

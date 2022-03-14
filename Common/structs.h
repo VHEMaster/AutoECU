@@ -115,7 +115,6 @@ typedef struct {
 
     float engineVolume;
 
-    int32_t isCutoffEnabled;
     int32_t isForceTable;
     int32_t isSwitchByExternal;
     int32_t startupTableNumber;
@@ -140,7 +139,7 @@ typedef struct {
     float fanHighTemperature;
     float fanLowTemperature;
 
-    int32_t Reserved32[1002];
+    int32_t Reserved32[1003];
 }sEcuParams;
 
 typedef struct {

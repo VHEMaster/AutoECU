@@ -34,7 +34,7 @@ HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim,
   return HAL_OK;
 }
 
-inline HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
+HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
 {
   if(injector < InjectorCount && enabled) {
     *enabled = injectors[injector].enabled;

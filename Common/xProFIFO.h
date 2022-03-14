@@ -25,8 +25,8 @@ typedef struct {
 
 extern void protInit(sProFIFO* fifo, void* xBuffer, uint8_t xElemSize, int xCapacity);
 extern void protClear(sProFIFO* fifo);
-extern uint32_t protPush(sProFIFO* fifo, void* xData);
-extern uint32_t protPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount);
+extern uint32_t protPush(sProFIFO* fifo, const void* xData);
+extern uint32_t protPushSequence(sProFIFO* fifo, const void* xData, uint32_t xCount);
 extern uint32_t protPull(sProFIFO* fifo, void* xDest);
 extern void protLook(sProFIFO* fifo, uint32_t xOffset, void* xDest);
 extern uint32_t protGetSize(sProFIFO* fifo);

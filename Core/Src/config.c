@@ -292,7 +292,6 @@ void config_default_params(sEcuParams *table)
 
   table->engineVolume = 1551.0f;
 
-  table->isCutoffEnabled = 1;
   table->isSwitchByExternal = 0;
   table->startupTableNumber = 0;
   table->switchPos1Table = 0;

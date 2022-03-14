@@ -5,13 +5,13 @@
  *      Author: VHEMaster
  */
 
-#include "arm_math.h"
+#include "defines.h"
 #include "pid.h"
 #include "delay.h"
 #include <string.h>
 #include <float.h>
 
-CMSIS_INLINE __INLINE void math_pid_reset(sMathPid *pid)
+INLINE void math_pid_reset(sMathPid *pid)
 {
   pid->Current = 0;
   pid->Target = 0;
@@ -21,25 +21,25 @@ CMSIS_INLINE __INLINE void math_pid_reset(sMathPid *pid)
   pid->D = 0;
 }
 
-CMSIS_INLINE __INLINE void math_pid_set_target(sMathPid *pid, float target)
+INLINE void math_pid_set_target(sMathPid *pid, float target)
 {
   pid->Target = target;
 }
 
-CMSIS_INLINE __INLINE void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd)
+INLINE void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd)
 {
   pid->Kp = Kp;
   pid->Ki = Ki;
   pid->Kd = Kd;
 }
 
-CMSIS_INLINE __INLINE void math_pid_set_clamp(sMathPid *pid, float from, float to)
+INLINE void math_pid_set_clamp(sMathPid *pid, float from, float to)
 {
   pid->ClampFrom = from;
   pid->ClampTo = to;
 }
 
-CMSIS_INLINE __INLINE void math_pid_init(sMathPid *pid)
+INLINE void math_pid_init(sMathPid *pid)
 {
   memset(pid, 0, sizeof(sMathPid));
   pid->Kp = 1.0f;
@@ -47,7 +47,7 @@ CMSIS_INLINE __INLINE void math_pid_init(sMathPid *pid)
   pid->ClampTo = FLT_MAX;
 }
 
-CMSIS_INLINE __INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
+INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
 {
   float error = input - pid->Target;
   float output;

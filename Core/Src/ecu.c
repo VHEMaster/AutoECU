@@ -54,6 +54,11 @@ typedef volatile struct {
     eTransChannels loadreqsrc;
 }sMem;
 
+typedef volatile struct {
+    uint8_t Processing;
+    uint8_t Cutting;
+}sCutoff;
+
 static GPIO_TypeDef * const gIgnPorts[4] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[4] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -72,13 +77,13 @@ static volatile uint8_t gEcuCriticalBackupWriteAccess = 0;
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
 static volatile uint8_t gEcuInitialized = 0;
-static volatile uint8_t gEcuCutoffProcessing = 0;
 
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
+static sCutoff Cutoff = {0};
 
 static HAL_StatusTypeDef ecu_get_start_allowed(void)
 {
@@ -184,7 +189,7 @@ static void ecu_update_current_table(void)
   gParameters.CurrentTable = table;
 }
 
-static inline void ecu_pid_update(uint8_t isidle)
+STATIC_INLINE void ecu_pid_update(uint8_t isidle)
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
@@ -308,7 +313,7 @@ static void ecu_update(void)
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
-  uint8_t cutoff_processing = gEcuCutoffProcessing;
+  uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
 
   halfturns = csps_gethalfturns();
@@ -727,19 +732,187 @@ static void ecu_backup_save_process(void)
 
 }
 
-static uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
 {
-  //TODO
+  static uint8_t cutoff_processing_prev = 0;
+  static int8_t cutoffcnt0 = -1;
+  static int8_t cutoffcnt1 = -1;
+  static int8_t cutoffcnt2 = -1;
+  static int8_t cutoffcnt3 = -1;
+  static int8_t cutoffcnt4 = -1;
+  static int8_t cutoffcnt5 = -1;
+  static int8_t cutoffcnt6 = -1;
+  static int8_t cy_prev = -1;
+
+  if(cutoff_processing_prev)
+  {
+    cutoff_processing_prev--;
+    Cutoff.Processing = 1;
+  }
+  else Cutoff.Processing = 0;
+
+  //Cutoff always enabled
+  if(1)
+  {
+    sCspsData csps = csps_data();
+    float rpm = csps_getrpm(csps);
+    int32_t mode = gEcuParams.cutoffMode;
+    float cutoffrpm = gEcuParams.cutoffRPM;
+    if(rpm >= cutoffrpm)
+    {
+      if(mode == 0)
+      {
+        Cutoff.Processing = 1;
+        cutoff_processing_prev = 32;
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+      else if(mode == 1)
+      {
+        if(cutoffcnt0 == -1)
+          cutoffcnt0 = 0;
+      }
+      else if(mode == 2)
+      {
+        if(cutoffcnt1 == -1)
+          cutoffcnt1 = 0;
+      }
+      else if(mode == 3)
+      {
+        if(cutoffcnt2 == -1)
+          cutoffcnt2 = 0;
+      }
+      else if(mode == 4)
+      {
+        if(cutoffcnt3 == -1)
+          cutoffcnt3 = 0;
+      }
+      else if(mode == 5)
+      {
+        if(cutoffcnt4 == -1)
+          cutoffcnt4 = 0;
+      }
+      else if(mode == 6)
+      {
+        if(cutoffcnt5 == -1)
+          cutoffcnt5 = 0;
+      }
+      else if(mode == 7)
+      {
+        if(cutoffcnt6 == -1)
+          cutoffcnt6 = 0;
+      }
+    }
+  }
+
+  if(cy_prev != cylinder)
+  {
+    cy_prev = cylinder;
+
+    if(cutoffcnt0 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 36+4+8;
+      if(++cutoffcnt0 > 36)
+        cutoffcnt0 = -1;
+      else if(cutoffcnt0 <= 36-4) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt1 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 24+4+8;
+      if(++cutoffcnt1 > 24)
+        cutoffcnt1 = -1;
+      else if(cutoffcnt1 <= 24-4) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt2 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 16+4+8;
+      if(++cutoffcnt2 > 16)
+        cutoffcnt2 = -1;
+      else if(cutoffcnt2 <= 16-4) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt3 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 8+4+8;
+      if(++cutoffcnt3 > 8)
+        cutoffcnt3 = -1;
+      else if(cutoffcnt3 <= 8-4) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt4 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 20+4+8;
+      if(++cutoffcnt4 > 20)
+        cutoffcnt4 = -1;
+      else if((cutoffcnt4 % 5) != 0) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt5 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 12+4+8;
+      if(++cutoffcnt5 > 12)
+        cutoffcnt5 = -1;
+      else if((cutoffcnt5 % 3) != 0) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+    if(cutoffcnt6 >= 0)
+    {
+      Cutoff.Processing = 1;
+      cutoff_processing_prev = 12+4+8;
+      if(++cutoffcnt6 > 12)
+        cutoffcnt6 = -1;
+      else if((cutoffcnt6 % 3) == 0) {
+        Cutoff.Cutting = 1;
+        return 0;
+      }
+    }
+
+  }
+  Cutoff.Cutting = 0;
   return 1;
 }
 
-static uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder)
 {
-  //TODO
+  sCspsData csps = csps_data();
+  float rpm = csps_getrpm(csps);
+  float cutoffrpm = gEcuParams.cutoffRPM;
+
+  //Just for safety purpose...
+  if(rpm >= cutoffrpm + 500) {
+    return 0;
+  }
+
   return 1;
 }
 
-static void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == 4 && cylinder < 4) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder];
@@ -754,7 +927,7 @@ static void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
   }
 }
 
-static void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == 4 && cylinder < 4) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder] << 16;
@@ -769,7 +942,7 @@ static void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
   }
 }
 
-static void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
+STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
 {
   if(cy_count == 4 && cylinder < 4) {
     injector_enable(cylinder, time);
@@ -1289,6 +1462,7 @@ volatile float debug_time = 0;
 void ecu_loop(void)
 {
   ecu_drag_loop();
+  ecu_mem_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)

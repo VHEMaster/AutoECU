@@ -22,15 +22,19 @@ typedef enum {
     etrECU,
     etrIMMO,
     etrCTRL,
+    etrBT,
     etrCount
 } eTransChannels;
 
 void xFifosInit(void);
 void xGetterInit(void);
 void xGetterLoop(void);
-int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen);
+int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen);
 void xDmaTxIrqHandler(UART_HandleTypeDef *huart);
+void xDmaRxIrqHandler(UART_HandleTypeDef *huart);
 void xDmaErIrqHandler(UART_HandleTypeDef *huart);
+
+void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen);
 
 
 #endif /* XCOMMAND_H_ */

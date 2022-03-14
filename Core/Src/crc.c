@@ -1,4 +1,5 @@
 #include "crc.h"
+#include "defines.h"
 
 #ifdef CRC_SW
 
@@ -53,7 +54,7 @@ void CRC16_Init(CRC_HandleTypeDef *hcrc)
   }
 }
 
-inline uint16_t CRC16_Generate(uint8_t *input, uint32_t size)
+INLINE uint16_t CRC16_Generate(uint8_t *input, uint32_t size)
 {
   uint16_t result = 0;
   if (handle_crc != NULL) {
@@ -62,7 +63,7 @@ inline uint16_t CRC16_Generate(uint8_t *input, uint32_t size)
   return result;
 }
 
-inline uint8_t CRC8_Generate(uint8_t *input, uint32_t size)
+INLINE uint8_t CRC8_Generate(uint8_t *input, uint32_t size)
 {
   uint16_t result = 0;
   if (handle_crc != NULL) {

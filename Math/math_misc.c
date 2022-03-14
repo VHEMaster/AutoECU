@@ -5,10 +5,11 @@
  *      Author: VHEMaster
  */
 
+#include "defines.h"
 #include "math_misc.h"
 #include <float.h>
 
-void math_minmax(const float *array, unsigned int size, float *pmin, float *pmax)
+INLINE void math_minmax(const float *array, unsigned int size, float *pmin, float *pmax)
 {
   float min = FLT_MAX;
   float max = FLT_MIN;
