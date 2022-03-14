@@ -381,7 +381,7 @@ float inline csps_getphasedangle_cy(sCspsData data, uint8_t cylinder)
       break;
   }
 
-  if(csps_isphased) {
+  if(phased) {
     while(angle <= -360.0f)
       angle += 720.0f;
   } else {

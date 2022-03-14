@@ -170,6 +170,7 @@ typedef struct {
     int32_t IdleFlag;
     float RPM;
     float Speed;
+    float Acceleration;
     float MassAirFlow;
     float CyclicAirFlow;
     float EffectiveVolume;
@@ -182,6 +183,7 @@ typedef struct {
     float WishIdleIgnitionAngle;
     float IgnitionAngle;
     float InjectionPhase;
+    float InjectionPhaseDuration;
     float InjectionPulse;
     float InjectionDutyCycle;
     float InjectionEnrichment;

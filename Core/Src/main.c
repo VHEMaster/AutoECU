@@ -261,8 +261,7 @@ int main(void)
 
   MX_IWDG_Init();
 
-  DelayInit();
-  HAL_TIM_Base_Start(&htim5);
+  DelayInit(&htim5);
 
   sensors_init();
   outputs_init();

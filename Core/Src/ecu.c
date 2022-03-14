@@ -29,6 +29,30 @@
 
 #define ENRICHMENT_STATES_COUNT 3
 
+
+typedef struct {
+    sDragPoint Points[DRAG_MAX_POINTS];
+    uint32_t PointsCount;
+    float FromSpeed;
+    float ToSpeed;
+    uint8_t Ready;
+    uint8_t Started;
+    uint8_t Completed;
+    uint8_t Status;
+    uint32_t TimeLast;
+    uint32_t StartTime;
+    uint32_t StopTime;
+}sDrag;
+
+typedef volatile struct {
+    uint8_t savepartreq;
+    uint8_t savereq;
+    uint8_t loadreq;
+
+    eTransChannels savereqsrc;
+    eTransChannels loadreqsrc;
+}sMem;
+
 static GPIO_TypeDef * const gIgnPorts[4] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[4] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -52,6 +76,9 @@ static volatile uint8_t gEcuCutoffProcessing = 0;
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
 
+static sDrag Drag = {0};
+static sMem Mem = {0};
+
 static HAL_StatusTypeDef ecu_get_start_allowed(void)
 {
   return gParameters.StartAllowed ? HAL_OK : HAL_ERROR;
@@ -69,7 +96,7 @@ static uint8_t ecu_get_table(void)
 
 static void ecu_set_table(uint8_t number)
 {
-  gParameters.CurrentTable = number;
+  gParameters.SwitchPosition = number;
 }
 
 static void ecu_config_init(void)
@@ -212,9 +239,11 @@ static void ecu_update(void)
   float power_voltage;
   float reference_voltage;
   float speed;
+  float acceleration;
   float knock;
   float idle_valve_position;
   float knock_raw;
+  float uspa;
 
   float wish_fuel_ratio;
   float filling_map;
@@ -227,6 +256,7 @@ static void ecu_update(void)
   float mass_air_flow;
   float injection_time;
   float injection_phase;
+  float injection_phase_duration;
   float air_destiny;
   float fuel_flow_per_us;
   float knock_filtered;
@@ -284,6 +314,7 @@ static void ecu_update(void)
   running = csps_isrunning();
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
+  uspa = csps_getuspa(csps);
   fill_proportion = table->fill_proportion_map_vs_thr;
   enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
@@ -291,6 +322,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
+  acceleration = speed_getacceleration();
   gStatus.Sensors.Struct.Map = sens_get_map(&map);
   knock_status = sens_get_knock(&knock);
   sens_get_knock_raw(&knock_raw);
@@ -476,6 +508,13 @@ static void ecu_update(void)
     fuel_consumption = fuel_consumed / km_driven * 100.0f;
   }
 
+  if(uspa > 0.0f && injection_time > 0.0f) {
+    injection_phase_duration = injection_time / uspa;
+  } else {
+    injection_phase_duration = 0;
+  }
+
+  //TODO: handle knock sensor adaptation
   if(gEcuParams.useKnockSensor) {
 
   }
@@ -544,6 +583,7 @@ static void ecu_update(void)
 
   gParameters.IdleFlag = idle_flag;
   gParameters.RPM = rpm;
+  gParameters.Acceleration = acceleration;
   gParameters.Speed = speed;
   gParameters.MassAirFlow = mass_air_flow;
   gParameters.CyclicAirFlow = cycle_air_flow;
@@ -556,6 +596,7 @@ static void ecu_update(void)
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;
   gParameters.WishIdleIgnitionAngle = idle_wish_ignition;
   gParameters.IgnitionAngle = ignition_angle;
+  gParameters.InjectionPhaseDuration = injection_phase_duration;
   gParameters.InjectionPhase = injection_phase;
   gParameters.InjectionPulse = injection_time;
   gParameters.InjectionDutyCycle = injection_dutycycle;
@@ -614,10 +655,40 @@ static void ecu_idle_valve_process(void)
 
 static void ecu_backup_save_process(void)
 {
-  int8_t status;
+  static uint8_t state = 0;
+  static uint32_t save_corecction_last = 0;
+  uint32_t now = Delay_Tick;
+  int8_t status = 0;
 
-  gEcuCriticalBackupWriteAccess = 1;
-  status = config_save_critical_backup(&gEcuCriticalBackup);
+
+  switch(state) {
+    case 0:
+      gEcuCriticalBackupWriteAccess = 1;
+      status = config_save_critical_backup(&gEcuCriticalBackup);
+      if(status) {
+        state++;
+      }
+      break;
+    case 1:
+      if(DelayDiff(now, save_corecction_last) > 1000000) {
+        save_corecction_last = now;
+        state++;
+      } else {
+        state = 0;
+      }
+      break;
+    case 2:
+      gEcuCriticalBackupWriteAccess = 1;
+      status = config_save_corrections(&gEcuCorrections);
+      if(status) {
+        state = 0;
+      }
+      break;
+
+    default:
+      state = 0;
+      break;
+  }
 
   if(status) {
     gEcuCriticalBackupWriteAccess = 0;
@@ -949,6 +1020,148 @@ static void ecu_checkengine_process(void)
   }
 }
 
+
+static void ecu_drag_loop(void)
+{
+  uint32_t now = Delay_Tick;
+  float rpm = gParameters.RPM;
+  float speed = gParameters.Speed;
+  if(Drag.Ready)
+  {
+    if(Drag.Completed)
+    {
+      Drag.StopTime = 0;
+      Drag.Ready = 0;
+      Drag.Started = 0;
+    }
+    else
+    {
+      if(Drag.Started)
+      {
+        if(DelayDiff(now, Drag.TimeLast) >= DRAG_POINTS_DISTANCE)
+        {
+          Drag.TimeLast = now;
+          if(Drag.PointsCount < DRAG_MAX_POINTS)
+          {
+            Drag.StopTime = now;
+            Drag.Points[Drag.PointsCount].RPM = rpm;
+            Drag.Points[Drag.PointsCount].Speed = speed;
+            Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
+            Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
+            Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
+            Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+            Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
+            Drag.PointsCount++;
+
+            if(Drag.FromSpeed < Drag.ToSpeed)
+            {
+              if(speed >= Drag.ToSpeed)
+              {
+                Drag.Started = 0;
+                Drag.Status = 0;
+                Drag.Ready = 0;
+                Drag.Completed = 1;
+                Drag.TimeLast = 0;
+              }
+              else if(speed < Drag.FromSpeed - 3.0f)
+              {
+                Drag.Started = 0;
+                Drag.Status = 4;
+                Drag.Ready = 0;
+                Drag.Completed = 1;
+                Drag.TimeLast = 0;
+              }
+            }
+            else if(Drag.FromSpeed > Drag.ToSpeed)
+            {
+              if(speed <= Drag.ToSpeed)
+              {
+                Drag.Started = 0;
+                Drag.Status = 0;
+                Drag.Ready = 0;
+                Drag.Completed = 1;
+                Drag.TimeLast = 0;
+              }
+              else if(speed > Drag.FromSpeed + 3.0f)
+              {
+                Drag.Started = 0;
+                Drag.Status = 4;
+                Drag.Ready = 0;
+                Drag.Completed = 1;
+                Drag.TimeLast = 0;
+              }
+            }
+          }
+          else
+          {
+            Drag.Started = 0;
+            Drag.Status = 5;
+            Drag.Ready = 0;
+            Drag.Completed = 1;
+            Drag.TimeLast = 0;
+          }
+        }
+      }
+      else
+      {
+        if(Drag.FromSpeed < Drag.ToSpeed)
+        {
+          if(speed >= Drag.FromSpeed)
+          {
+            if(Drag.TimeLast != 0)
+            {
+              Drag.TimeLast = now;
+              Drag.Started = 1;
+              Drag.Status = 0;
+              Drag.PointsCount = 0;
+              Drag.StartTime = now;
+              Drag.StopTime = now;
+              Drag.Points[Drag.PointsCount].RPM = rpm;
+              Drag.Points[Drag.PointsCount].Speed = speed;
+              Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
+              Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
+              Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
+              Drag.PointsCount++;
+            }
+          }
+          else
+          {
+            Drag.TimeLast = now;
+          }
+        }
+        else if(Drag.FromSpeed > Drag.ToSpeed)
+        {
+          if(speed <= Drag.FromSpeed)
+          {
+            if(Drag.TimeLast != 0)
+            {
+              Drag.TimeLast = now;
+              Drag.Started = 1;
+              Drag.PointsCount = 0;
+              Drag.StartTime = now;
+              Drag.StopTime = now;
+              Drag.Points[Drag.PointsCount].RPM = rpm;
+              Drag.Points[Drag.PointsCount].Speed = speed;
+              Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
+              Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
+              Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
+              Drag.PointsCount++;
+            }
+          }
+          else
+          {
+            Drag.TimeLast = now;
+          }
+        }
+      }
+    }
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -987,12 +1200,453 @@ void ecu_irq_slow_loop(void)
 
 }
 
+volatile float debug_time = 0;
+
 void ecu_loop(void)
 {
-
+  ecu_drag_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)
 {
+  static uint32_t pclastsent = 0;
+  uint32_t now = Delay_Tick;
+  uint32_t offset;
+  uint32_t size;
+  uint32_t table;
+  uint32_t tablesize;
+  uint32_t configsize;
+  uint32_t dragpoint;
+  if(xChaSrc == etrPC)
+  {
+    if(DelayDiff(now, pclastsent) > 100000)
+    {
+      pclastsent = now;
+      PK_PcConnected.Destination = etrCTRL;
+      PK_SendCommand(xChaSrc, &PK_PcConnected, sizeof(PK_PcConnected));
+    }
+  }
+  switch(msgBuf[0])
+  {
+    case PK_PingID :
+      PK_Copy(&PK_Ping, msgBuf);
+      PK_Pong.RandomPong = PK_Ping.RandomPing;
+      PK_Pong.Destination = xChaSrc;
+      PK_SendCommand(xChaSrc, &PK_Pong, sizeof(PK_Pong));
+      break;
 
+    case PK_PongID :
+      PK_Copy(&PK_Pong, msgBuf);
+      (void)PK_Pong.RandomPong;
+      break;
+
+    case PK_GeneralStatusRequestID :
+      //PK_Copy(&PK_GeneralStatusRequest, msgBuf);
+      PK_GeneralStatusResponse.Destination = xChaSrc;
+      PK_GeneralStatusResponse.RPM = gParameters.RPM;
+      PK_GeneralStatusResponse.Pressure = gParameters.ManifoldAirPressure;
+      PK_GeneralStatusResponse.IgnitionAngle = gParameters.IgnitionAngle;
+      PK_GeneralStatusResponse.Injectiontime = gParameters.InjectionPulse;
+      PK_GeneralStatusResponse.Voltage = gParameters.PowerVoltage;
+      PK_GeneralStatusResponse.EngineTemp = gParameters.EngineTemp;
+      PK_GeneralStatusResponse.FuelUsage = gParameters.FuelConsumption;
+      PK_GeneralStatusResponse.check = out_get_checkengine(NULL);
+      PK_GeneralStatusResponse.tablenum = ecu_get_table();
+      strcpy(PK_GeneralStatusResponse.tablename, gEcuTable[ecu_get_table()].name);
+      PK_SendCommand(xChaSrc, &PK_GeneralStatusResponse, sizeof(PK_GeneralStatusResponse));
+      break;
+
+    case PK_TableMemoryRequestID :
+      PK_Copy(&PK_TableMemoryRequest, msgBuf);
+      PK_TableMemoryData.Destination = xChaSrc;
+      offset = PK_TableMemoryData.offset = PK_TableMemoryRequest.offset;
+      size = PK_TableMemoryData.size = PK_TableMemoryRequest.size;
+      table = PK_TableMemoryData.table = PK_TableMemoryRequest.table;
+      tablesize = PK_TableMemoryData.tablesize = PK_TableMemoryRequest.tablesize;
+      PK_TableMemoryData.ErrorCode = 0;
+
+      if(tablesize != sizeof(sEcuTable))
+        PK_TableMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(sEcuTable))
+        PK_TableMemoryData.ErrorCode = 2;
+
+      if(size > PACKET_TABLE_MAX_SIZE || size > sizeof(sEcuTable))
+        PK_TableMemoryData.ErrorCode = 3;
+
+      if(table >= TABLE_SETUPS_MAX)
+        PK_TableMemoryData.ErrorCode = 4;
+
+      if(PK_TableMemoryData.ErrorCode == 0)
+      {
+        memcpy(&PK_TableMemoryData.data[0], &((uint8_t*)&gEcuTable[table])[offset], size);
+        memset(&PK_TableMemoryData.data[size], 0, sizeof(PK_TableMemoryData.data) - size);
+      }
+      else
+      {
+        memset(&PK_TableMemoryData.data[0], 0, sizeof(PK_TableMemoryData.data));
+      }
+      PK_SendCommand(xChaSrc, &PK_TableMemoryData, sizeof(PK_TableMemoryData));
+      break;
+
+    case PK_TableMemoryDataID :
+      PK_Copy(&PK_TableMemoryData, msgBuf);
+      PK_TableMemoryAcknowledge.Destination = xChaSrc;
+      offset = PK_TableMemoryAcknowledge.offset = PK_TableMemoryData.offset;
+      size = PK_TableMemoryAcknowledge.size = PK_TableMemoryData.size;
+      table = PK_TableMemoryAcknowledge.table = PK_TableMemoryData.table;
+      tablesize = PK_TableMemoryAcknowledge.tablesize = PK_TableMemoryData.tablesize;
+      PK_TableMemoryAcknowledge.ErrorCode = 0;
+
+      if(tablesize != sizeof(sEcuTable))
+        PK_TableMemoryAcknowledge.ErrorCode = 1;
+
+      if(size + offset > sizeof(sEcuTable))
+        PK_TableMemoryAcknowledge.ErrorCode = 2;
+
+      if(size > PACKET_TABLE_MAX_SIZE || size > sizeof(sEcuTable))
+        PK_TableMemoryAcknowledge.ErrorCode = 3;
+
+      if(table >= TABLE_SETUPS_MAX)
+        PK_TableMemoryAcknowledge.ErrorCode = 4;
+
+      if(PK_TableMemoryAcknowledge.ErrorCode == 0)
+      {
+        memcpy(&((uint8_t*)&gEcuTable[table])[offset], &PK_TableMemoryData.data[0], size);
+      }
+
+      PK_SendCommand(xChaSrc, &PK_TableMemoryAcknowledge, sizeof(PK_TableMemoryAcknowledge));
+      break;
+
+    case PK_ConfigMemoryRequestID :
+      PK_Copy(&PK_ConfigMemoryRequest, msgBuf);
+      PK_ConfigMemoryData.Destination = xChaSrc;
+      offset = PK_ConfigMemoryData.offset = PK_ConfigMemoryRequest.offset;
+      size = PK_ConfigMemoryData.size = PK_ConfigMemoryRequest.size;
+      configsize = PK_ConfigMemoryData.configsize = PK_ConfigMemoryRequest.configsize;
+      PK_ConfigMemoryData.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuParams))
+        PK_ConfigMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuParams))
+        PK_ConfigMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuParams) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_ConfigMemoryData.ErrorCode = 3;
+
+      if(PK_ConfigMemoryData.ErrorCode == 0)
+      {
+        memcpy(&PK_ConfigMemoryData.data[0], &((uint8_t*)&gEcuParams)[offset], size);
+        memset(&PK_ConfigMemoryData.data[size], 0, sizeof(PK_ConfigMemoryData.data) - size);
+      }
+      else
+      {
+        memset(&PK_ConfigMemoryData.data[0], 0, sizeof(PK_ConfigMemoryData.data));
+      }
+      PK_SendCommand(xChaSrc, &PK_ConfigMemoryData, sizeof(PK_ConfigMemoryData));
+      break;
+
+    case PK_ConfigMemoryDataID :
+      PK_Copy(&PK_ConfigMemoryData, msgBuf);
+      PK_ConfigMemoryAcknowledge.Destination = xChaSrc;
+      offset = PK_ConfigMemoryAcknowledge.offset = PK_ConfigMemoryData.offset;
+      size = PK_ConfigMemoryAcknowledge.size = PK_ConfigMemoryData.size;
+      configsize = PK_ConfigMemoryAcknowledge.configsize = PK_ConfigMemoryData.configsize;
+      PK_ConfigMemoryAcknowledge.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuParams))
+        PK_ConfigMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuParams))
+        PK_ConfigMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuParams) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_ConfigMemoryData.ErrorCode = 3;
+
+      if(PK_ConfigMemoryAcknowledge.ErrorCode == 0)
+      {
+        memcpy(&((uint8_t*)&gEcuParams)[offset], &PK_ConfigMemoryData.data[0], size);
+      }
+
+      PK_SendCommand(xChaSrc, &PK_ConfigMemoryAcknowledge, sizeof(PK_ConfigMemoryAcknowledge));
+      break;
+
+    case PK_CriticalMemoryRequestID :
+      PK_Copy(&PK_CriticalMemoryRequest, msgBuf);
+      PK_CriticalMemoryData.Destination = xChaSrc;
+      offset = PK_CriticalMemoryData.offset = PK_CriticalMemoryRequest.offset;
+      size = PK_CriticalMemoryData.size = PK_CriticalMemoryRequest.size;
+      configsize = PK_CriticalMemoryData.configsize = PK_CriticalMemoryRequest.configsize;
+      PK_CriticalMemoryData.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuCriticalBackup))
+        PK_CriticalMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuCriticalBackup))
+        PK_CriticalMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuCriticalBackup) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_CriticalMemoryData.ErrorCode = 3;
+
+      if(PK_CriticalMemoryData.ErrorCode == 0)
+      {
+        memcpy(&PK_CriticalMemoryData.data[0], &((uint8_t*)&gEcuCriticalBackup)[offset], size);
+        memset(&PK_CriticalMemoryData.data[size], 0, sizeof(PK_CriticalMemoryData.data) - size);
+      }
+      else
+      {
+        memset(&PK_CriticalMemoryData.data[0], 0, sizeof(PK_CriticalMemoryData.data));
+      }
+      PK_SendCommand(xChaSrc, &PK_CriticalMemoryData, sizeof(PK_CriticalMemoryData));
+      break;
+
+    case PK_CriticalMemoryDataID :
+      PK_Copy(&PK_CriticalMemoryData, msgBuf);
+      PK_CriticalMemoryAcknowledge.Destination = xChaSrc;
+      offset = PK_CriticalMemoryAcknowledge.offset = PK_CriticalMemoryData.offset;
+      size = PK_CriticalMemoryAcknowledge.size = PK_CriticalMemoryData.size;
+      configsize = PK_CriticalMemoryAcknowledge.configsize = PK_CriticalMemoryData.configsize;
+      PK_CriticalMemoryAcknowledge.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuCriticalBackup))
+        PK_CriticalMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuCriticalBackup))
+        PK_CriticalMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuCriticalBackup) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_CriticalMemoryData.ErrorCode = 3;
+
+      if(PK_CriticalMemoryAcknowledge.ErrorCode == 0)
+      {
+        memcpy(&((uint8_t*)&gEcuCriticalBackup)[offset], &PK_CriticalMemoryData.data[0], size);
+      }
+
+      PK_SendCommand(xChaSrc, &PK_CriticalMemoryAcknowledge, sizeof(PK_CriticalMemoryAcknowledge));
+      break;
+
+    case PK_CorrectionsMemoryRequestID :
+      PK_Copy(&PK_CorrectionsMemoryRequest, msgBuf);
+      PK_CorrectionsMemoryData.Destination = xChaSrc;
+      offset = PK_CorrectionsMemoryData.offset = PK_CorrectionsMemoryRequest.offset;
+      size = PK_CorrectionsMemoryData.size = PK_CorrectionsMemoryRequest.size;
+      configsize = PK_CorrectionsMemoryData.configsize = PK_CorrectionsMemoryRequest.configsize;
+      PK_CorrectionsMemoryData.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuCorrections))
+        PK_CorrectionsMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuCorrections))
+        PK_CorrectionsMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuCorrections) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_CorrectionsMemoryData.ErrorCode = 3;
+
+      if(PK_CorrectionsMemoryData.ErrorCode == 0)
+      {
+        memcpy(&PK_CorrectionsMemoryData.data[0], &((uint8_t*)&gEcuCorrections)[offset], size);
+        memset(&PK_CorrectionsMemoryData.data[size], 0, sizeof(PK_CorrectionsMemoryData.data) - size);
+      }
+      else
+      {
+        memset(&PK_CorrectionsMemoryData.data[0], 0, sizeof(PK_CorrectionsMemoryData.data));
+      }
+      PK_SendCommand(xChaSrc, &PK_CorrectionsMemoryData, sizeof(PK_CorrectionsMemoryData));
+      break;
+
+    case PK_CorrectionsMemoryDataID :
+      PK_Copy(&PK_CorrectionsMemoryData, msgBuf);
+      PK_CorrectionsMemoryAcknowledge.Destination = xChaSrc;
+      offset = PK_CorrectionsMemoryAcknowledge.offset = PK_CorrectionsMemoryData.offset;
+      size = PK_CorrectionsMemoryAcknowledge.size = PK_CorrectionsMemoryData.size;
+      configsize = PK_CorrectionsMemoryAcknowledge.configsize = PK_CorrectionsMemoryData.configsize;
+      PK_CorrectionsMemoryAcknowledge.ErrorCode = 0;
+
+      if(configsize != sizeof(gEcuCorrections))
+        PK_CorrectionsMemoryData.ErrorCode = 1;
+
+      if(size + offset > sizeof(gEcuCorrections))
+        PK_CorrectionsMemoryData.ErrorCode = 2;
+
+      if(size > sizeof(gEcuCorrections) || size > PACKET_CONFIG_MAX_SIZE)
+        PK_CorrectionsMemoryData.ErrorCode = 3;
+
+      if(PK_CorrectionsMemoryAcknowledge.ErrorCode == 0)
+      {
+        memcpy(&((uint8_t*)&gEcuCorrections)[offset], &PK_CorrectionsMemoryData.data[0], size);
+      }
+
+      PK_SendCommand(xChaSrc, &PK_CorrectionsMemoryAcknowledge, sizeof(PK_CorrectionsMemoryAcknowledge));
+      break;
+
+    case PK_SaveConfigID :
+      if(!Mem.savereq)
+      {
+        Mem.savereqsrc = xChaSrc;
+        Mem.savereq = 1;
+        //CanDeinit = 0;
+      }
+      else if(Mem.loadreq)
+      {
+        PK_SaveConfigAcknowledge.Destination = xChaSrc;
+        PK_SaveConfigAcknowledge.ErrorCode = 3;
+        PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
+      }
+      else
+      {
+        PK_SaveConfigAcknowledge.Destination = xChaSrc;
+        PK_SaveConfigAcknowledge.ErrorCode = 2;
+        PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
+      }
+      break;
+
+
+    case PK_RestoreConfigID :
+      if(!Mem.loadreq)
+      {
+        Mem.loadreqsrc = xChaSrc;
+        Mem.loadreq = 1;
+      }
+      else if(Mem.savereq)
+      {
+        PK_RestoreConfigAcknowledge.Destination = xChaSrc;
+        PK_RestoreConfigAcknowledge.ErrorCode = 3;
+        PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
+      }
+      else
+      {
+        PK_RestoreConfigAcknowledge.Destination = xChaSrc;
+        PK_RestoreConfigAcknowledge.ErrorCode = 2;
+        PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
+      }
+      break;
+
+    case PK_DragStartID :
+      PK_Copy(&PK_DragStart, msgBuf);
+      PK_DragStartAcknowledge.Destination = xChaSrc;
+      Drag.FromSpeed = PK_DragStartAcknowledge.FromSpeed = PK_DragStart.FromSpeed;
+      Drag.ToSpeed = PK_DragStartAcknowledge.ToSpeed = PK_DragStart.ToSpeed;
+      Drag.Started = 0;
+      Drag.Ready = 0;
+      Drag.Completed = 0;
+      Drag.PointsCount = 0;
+      Drag.StartTime = 0;
+      Drag.TimeLast = 0;
+      if(fabsf(Drag.FromSpeed - Drag.ToSpeed) > 5.0f)
+      {
+        Drag.Status = PK_DragStartAcknowledge.ErrorCode = 0;
+        Drag.Ready = 1;
+      }
+      else Drag.Status = PK_DragStartAcknowledge.ErrorCode = 1;
+      PK_SendCommand(xChaSrc, &PK_DragStartAcknowledge, sizeof(PK_DragStartAcknowledge));
+      break;
+
+    case PK_DragStopID :
+      PK_Copy(&PK_DragStop, msgBuf);
+      PK_DragStopAcknowledge.Destination = xChaSrc;
+      PK_DragStopAcknowledge.FromSpeed = PK_DragStop.FromSpeed;
+      PK_DragStopAcknowledge.ToSpeed = PK_DragStop.ToSpeed;
+      Drag.Status = PK_DragStopAcknowledge.ErrorCode = 0;
+      Drag.Started = 0;
+      Drag.Ready = 0;
+      Drag.Completed = 0;
+      Drag.PointsCount = 0;
+      Drag.StartTime = 0;
+      if(Drag.FromSpeed != PK_DragStop.FromSpeed || Drag.ToSpeed != PK_DragStop.ToSpeed)
+      {
+        PK_DragStopAcknowledge.ErrorCode = 2;
+      }
+      PK_SendCommand(xChaSrc, &PK_DragStopAcknowledge, sizeof(PK_DragStopAcknowledge));
+      break;
+
+    case PK_DragUpdateRequestID :
+      PK_Copy(&PK_DragUpdateRequest, msgBuf);
+      PK_DragUpdateResponse.Destination = xChaSrc;
+      PK_DragUpdateResponse.ErrorCode = 0;
+      PK_DragUpdateResponse.FromSpeed = Drag.FromSpeed;
+      PK_DragUpdateResponse.ToSpeed = Drag.ToSpeed;
+      PK_DragUpdateResponse.Data.Pressure = gParameters.ManifoldAirPressure;
+      PK_DragUpdateResponse.Data.RPM = gParameters.RPM;
+      PK_DragUpdateResponse.Data.Mixture = gParameters.FuelRatio;
+      PK_DragUpdateResponse.Data.Acceleration = gParameters.Acceleration;
+      PK_DragUpdateResponse.Data.Ignition = gParameters.IgnitionAngle;
+      PK_DragUpdateResponse.TotalPoints = Drag.PointsCount;
+      PK_DragUpdateResponse.Started = Drag.Started;
+      PK_DragUpdateResponse.Completed = Drag.Completed;
+      PK_DragUpdateResponse.Data.Time = Drag.StartTime > 0 ? DelayDiff(Drag.StopTime, Drag.StartTime) : 0;
+      if(Drag.Status > 0) PK_DragUpdateResponse.ErrorCode = Drag.Status + 10;
+      PK_SendCommand(xChaSrc, &PK_DragUpdateResponse, sizeof(PK_DragUpdateResponse));
+      break;
+
+    case PK_DragPointRequestID :
+      PK_Copy(&PK_DragPointRequest, msgBuf);
+      PK_DragPointResponse.Destination = xChaSrc;
+      PK_DragPointResponse.FromSpeed = PK_DragStop.FromSpeed;
+      PK_DragPointResponse.ToSpeed = PK_DragStop.ToSpeed;
+      PK_DragPointResponse.ErrorCode = 0;
+      dragpoint = PK_DragPointResponse.PointNumber = PK_DragPointRequest.PointNumber;
+      if(dragpoint >= Drag.PointsCount)
+      {
+        PK_DragPointResponse.Point.Pressure = 0;
+        PK_DragPointResponse.Point.RPM = 0;
+        PK_DragPointResponse.Point.Mixture = 0;
+        PK_DragPointResponse.Point.Acceleration = 0;
+        PK_DragPointResponse.Point.Ignition = 0;
+        PK_DragPointResponse.Point.Time = 0;
+        PK_DragPointResponse.ErrorCode = 3;
+      }
+      else
+      {
+        PK_DragPointResponse.Point = Drag.Points[dragpoint];
+        if(Drag.FromSpeed != PK_DragPointRequest.FromSpeed || Drag.ToSpeed != PK_DragPointRequest.ToSpeed)
+        {
+          PK_DragPointResponse.ErrorCode = 2;
+        }
+      }
+
+      PK_SendCommand(xChaSrc, &PK_DragPointResponse, sizeof(PK_DragPointResponse));
+      break;
+
+    case PK_ConfigMemoryAcknowledgeID :
+      PK_Copy(&PK_ConfigMemoryAcknowledge, msgBuf);
+      if(PK_ConfigMemoryAcknowledge.ErrorCode != 0)
+      {
+
+      }
+      break;
+
+    case PK_TableMemoryAcknowledgeID :
+      PK_Copy(&PK_TableMemoryAcknowledge, msgBuf);
+      if(PK_TableMemoryAcknowledge.ErrorCode != 0)
+      {
+
+      }
+      break;
+
+    case PK_CriticalMemoryAcknowledgeID :
+      PK_Copy(&PK_CriticalMemoryAcknowledge, msgBuf);
+      if(PK_TableMemoryAcknowledge.ErrorCode != 0)
+      {
+
+      }
+      break;
+
+    case PK_CorrectionsMemoryAcknowledgeID :
+      PK_Copy(&PK_CorrectionsMemoryAcknowledge, msgBuf);
+      if(PK_TableMemoryAcknowledge.ErrorCode != 0)
+      {
+
+      }
+      break;
+
+    case PK_FuelSwitchID :
+      PK_Copy(&PK_FuelSwitch, msgBuf);
+      if(PK_FuelSwitch.FuelSwitchPos < 3)
+        ecu_set_table(PK_FuelSwitch.FuelSwitchPos);
+      break;
+
+    default:
+      break;
+  }
 }

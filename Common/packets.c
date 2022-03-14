@@ -28,6 +28,12 @@ PACKET_C(PK_DragStartAcknowledge);
 PACKET_C(PK_DragStopAcknowledge);
 PACKET_C(PK_PcConnected);
 PACKET_C(PK_FuelSwitch);
+PACKET_C(PK_CorrectionsMemoryRequest);
+PACKET_C(PK_CorrectionsMemoryData);
+PACKET_C(PK_CorrectionsMemoryAcknowledge);
+PACKET_C(PK_CriticalMemoryRequest);
+PACKET_C(PK_CriticalMemoryData);
+PACKET_C(PK_CriticalMemoryAcknowledge);
 
 
 #define SENDING_QUEUE_SIZE (MAX_PACK_LEN*4)
@@ -95,8 +101,8 @@ void PK_SenderLoop(void)
   } while(0);
 }
 
-void PK_SendCommand(eTransChannels xDest, uint8_t *buffer, uint32_t size)
+void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size)
 {
   ((sDummyPacketStruct *)buffer)->Destination = xDest;
-  protPushSequence(&fifoSendingQueue, buffer, size);
+  protPushSequence(&fifoSendingQueue, (uint8_t *)buffer, size);
 }

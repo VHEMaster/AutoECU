@@ -3,9 +3,12 @@
 #include "delay.h"
 #include "arm_math.h"
 
-void DelayInit(void)
-{
+static TIM_HandleTypeDef *htim;
 
+void DelayInit(TIM_HandleTypeDef *_htim)
+{
+  htim = _htim;
+  HAL_TIM_Base_Start(htim);
 }
 
 CMSIS_INLINE __INLINE void DelayUs(uint32_t val)

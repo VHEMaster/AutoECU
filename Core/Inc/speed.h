@@ -16,6 +16,7 @@ void speed_exti(uint32_t timestamp);
 
 uint8_t speed_isrotates(void);
 float speed_getspeed(void);
+float speed_getacceleration(void);
 void speed_setcorrective(float corrective);
 
 #endif /* INC_SPEED_H_ */

@@ -46,17 +46,14 @@ typedef struct
 {
   PACKET_HEADER;
   uint8_t tablenum;
-  uint8_t valvenum;
   uint8_t check;
   char tablename[TABLE_STRING_MAX];
-  float RealRPM;
   float RPM;
   float Pressure;
-  float Load;
   float IgnitionAngle;
-  float IgnitionTime;
+  float Injectiontime;
   float Voltage;
-  float Temperature;
+  float EngineTemp;
   float FuelUsage;
 }PACKET_DEFINE(PK_GeneralStatusResponse, 4);
 
@@ -77,7 +74,6 @@ typedef struct
   uint32_t tablesize;
   uint32_t offset;
   uint32_t size;
-  uint16_t crc;
   uint8_t data[PACKET_TABLE_MAX_SIZE];
 }PACKET_DEFINE(PK_TableMemoryData, 6);
 
@@ -106,7 +102,6 @@ typedef struct
   uint32_t configsize;
   uint32_t offset;
   uint32_t size;
-  uint16_t crc;
   uint8_t data[PACKET_CONFIG_MAX_SIZE];
 }PACKET_DEFINE(PK_ConfigMemoryData, 9);
 
@@ -218,6 +213,60 @@ typedef struct
 
 }PACKET_DEFINE(PK_FuelSwitch, 24);
 
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+}PACKET_DEFINE(PK_CorrectionsMemoryRequest, 25);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+  uint8_t data[PACKET_TABLE_MAX_SIZE];
+}PACKET_DEFINE(PK_CorrectionsMemoryData, 26);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+}PACKET_DEFINE(PK_CorrectionsMemoryAcknowledge, 27);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+}PACKET_DEFINE(PK_CriticalMemoryRequest, 28);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+  uint8_t data[PACKET_TABLE_MAX_SIZE];
+}PACKET_DEFINE(PK_CriticalMemoryData, 29);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+  uint32_t configsize;
+  uint32_t offset;
+  uint32_t size;
+}PACKET_DEFINE(PK_CriticalMemoryAcknowledge, 30);
+
 extern int16_t PK_Copy(void * dest, void * source);
 
 #undef PACKET_C
@@ -226,6 +275,6 @@ extern int16_t PK_Copy(void * dest, void * source);
 
 void PK_SenderInit(void);
 void PK_SenderLoop(void);
-void PK_SendCommand(eTransChannels xDest, uint8_t *buffer, uint32_t size);
+void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size);
 
 #endif /* PACKETS_H_ */
