@@ -396,3 +396,93 @@ int8_t config_save_critical_backup(const sEcuCriticalBackup *table)
   return flash_bkpsram_save(table, sizeof(sEcuCriticalBackup), CONFIG_OFFSET_CRITICALS);
 }
 
+
+int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_count)
+{
+  static uint8_t state = 0;
+  static int8_t current_table = 0;
+  int8_t status;
+  switch(state) {
+    case 0 :
+      status = config_load_params(params);
+      if(status) {
+        if(status > 0) {
+          current_table = 0;
+          state++;
+        } else {
+          state = 0;
+          return -1;
+        }
+      }
+      break;
+    case 1 :
+      status = config_load_table(tables, current_table);
+      if(status) {
+        if(status > 0) {
+          if(tables_count) {
+            current_table++;
+            tables_count--;
+            tables++;
+          } else {
+            current_table = 0;
+            state = 0;
+            return 1;
+          }
+        } else {
+          state = 0;
+          current_table = 0;
+          return -1;
+        }
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
+  return 0;
+}
+
+int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32_t tables_count)
+{
+  static uint8_t state = 0;
+  static int8_t current_table = 0;
+  int8_t status;
+  switch(state) {
+    case 0 :
+      status = config_save_params(params);
+      if(status) {
+        if(status > 0) {
+          current_table = 0;
+          state++;
+        } else {
+          state = 0;
+          return -1;
+        }
+      }
+      break;
+    case 1 :
+      status = config_save_table(tables, current_table);
+      if(status) {
+        if(status > 0) {
+          if(tables_count) {
+            current_table++;
+            tables_count--;
+            tables++;
+          } else {
+            current_table = 0;
+            state = 0;
+            return 1;
+          }
+        } else {
+          state = 0;
+          current_table = 0;
+          return -1;
+        }
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
+  return 0;
+}

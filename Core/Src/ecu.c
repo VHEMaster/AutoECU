@@ -45,9 +45,10 @@ typedef struct {
 }sDrag;
 
 typedef volatile struct {
-    uint8_t savepartreq;
     uint8_t savereq;
     uint8_t loadreq;
+    uint8_t issaving;
+    uint8_t isloading;
 
     eTransChannels savereqsrc;
     eTransChannels loadreqsrc;
@@ -1158,6 +1159,49 @@ static void ecu_drag_loop(void)
           }
         }
       }
+    }
+  }
+}
+
+static void ecu_mem_loop(void)
+{
+  int8_t flashstatus = 0;
+  if(!Mem.issaving && !Mem.isloading)
+  {
+    if(Mem.savereq && !Mem.isloading) {
+      Mem.issaving = 1;
+      //CanDeinit = 0;
+    }
+    else if(Mem.loadreq && !Mem.issaving)
+      Mem.isloading = 1;
+  }
+
+  if(Mem.issaving)
+  {
+    //CanDeinit = 0;
+    flashstatus = config_save_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
+    if(flashstatus)
+    {
+      PK_SaveConfigAcknowledge.Destination = Mem.savereqsrc;
+      PK_SaveConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
+      PK_SendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
+      gStatus.Flash.Struct.Save = flashstatus;
+      Mem.issaving = 0;
+      //CanDeinit = 1;
+      Mem.savereq = 0;
+    }
+  }
+  else if(Mem.isloading)
+  {
+    flashstatus = config_load_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
+    if(flashstatus)
+    {
+      PK_RestoreConfigAcknowledge.Destination = Mem.loadreqsrc;
+      PK_RestoreConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
+      PK_SendCommand(Mem.loadreqsrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
+      gStatus.Flash.Struct.Load = flashstatus;
+      Mem.isloading = 0;
+      Mem.loadreq = 0;
     }
   }
 }
