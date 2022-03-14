@@ -255,6 +255,10 @@ int main(void)
   MX_CRC_Init();
   MX_RNG_Init();
 
+  //Freeze peripherial during debug
+  DBGMCU->APB1FZ = 0x7E01BFF;
+  DBGMCU->APB2FZ = 0x70003;
+
   __HAL_DBGMCU_FREEZE_TIM5();
   __HAL_DBGMCU_FREEZE_IWDG();
 
