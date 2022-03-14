@@ -170,7 +170,7 @@ int8_t flash_bkpsram_load(void *buffer, uint32_t size, uint32_t offset)
   {
     memcpy(backup_buffer, (uint8_t *)backup_pointer + BACKUP_REGION_SIZE * region + offset, size + 6);
 
-    crc16 = XOR_Generate(backup_buffer, size + 4);
+    crc16 = CRC16_Generate(backup_buffer, size + 4);
     version = ((uint32_t *)&backup_buffer[0])[0];
     crc_read = backup_buffer[size + 4] | (backup_buffer[size + 5] << 8);
     if(crc16 == crc_read && version == BACKUP_VERSION) {
@@ -184,26 +184,19 @@ int8_t flash_bkpsram_load(void *buffer, uint32_t size, uint32_t offset)
 
 int8_t flash_bkpsram_save(const void *buffer, uint32_t size, uint32_t offset)
 {
-  uint16_t crc16, crc16_save, crc16_check;
+  uint16_t crc16;
   if(size + offset >= BACKUP_REGION_SIZE - 6)
     return -1;
 
   ((uint32_t *)&backup_buffer[0])[0] = BACKUP_VERSION;
   memcpy(&backup_buffer[4], (uint8_t *)buffer, size);
   size += 4;
-  crc16 = XOR_Generate(backup_buffer, size);
+  crc16 = CRC16_Generate(backup_buffer, size);
   backup_buffer[size++] = crc16 & 0xFF;
   backup_buffer[size++] = crc16 >> 8;
-  crc16_save = crc16;
 
   for(int region = 0; region < 2; region++) {
     memcpy((uint8_t *)&backup_pointer[BACKUP_REGION_SIZE * region + offset], backup_buffer, size);
-
-    //TODO: check if it won't take much time. Verify write to BKPSRAM
-    crc16 = backup_pointer[BACKUP_REGION_SIZE * region + offset + size - 2] | (backup_pointer[BACKUP_REGION_SIZE * region + offset + size - 1] << 8);
-    crc16_check = XOR_Generate((uint8_t *)&backup_pointer[BACKUP_REGION_SIZE * region], size - 2);
-    if(crc16_check != crc16 || crc16 != crc16_save)
-      return -1;
   }
 
   return 1;
