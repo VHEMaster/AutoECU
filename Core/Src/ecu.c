@@ -1437,6 +1437,28 @@ static void ecu_bluetooth_loop(void)
   }
 }
 
+static void ecu_diagnostic_loop(void)
+{
+  sOutputDiagnostic output_diagnostic;
+  sO2Diagnostic o2_diagnostic;
+
+  if(outputs_get_diagnostic(&output_diagnostic) == HAL_OK) {
+    gStatus.OutputStatus = HAL_OK;
+    gStatus.OutputDiagnostic = output_diagnostic;
+  } else {
+    gStatus.OutputStatus = HAL_ERROR;
+  }
+
+  if(sens_get_o2_diagnostic(&o2_diagnostic) == HAL_OK) {
+    gStatus.O2Status = HAL_OK;
+    gStatus.O2Diagnostic = o2_diagnostic;
+  } else {
+    gStatus.O2Status = HAL_ERROR;
+  }
+
+  ;
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -1482,6 +1504,7 @@ void ecu_loop(void)
   ecu_drag_loop();
   ecu_mem_loop();
   ecu_bluetooth_loop();
+  ecu_diagnostic_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)

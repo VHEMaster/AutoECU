@@ -401,7 +401,7 @@ static int8_t O2_Loop(void)
     case 2 :
       status = O2_GetDiag(&diag);
       if(status) {
-        O2Status.Diag.Byte = diag;
+        O2Status.Diag.Byte = diag ^ 0xFF;
         if(is_engine_running) {
           O2Status.Working = 1;
           if(O2Status.Valid) {
@@ -927,7 +927,7 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
 HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte)
 {
   HAL_StatusTypeDef result = OutputsAvailability[channel];
-  *byte = OutputsDiagBytes[channel];
+  *byte = OutputsDiagBytes[channel] ^ 0xFF;
   OutputsDiagnosticStored[channel] = 0;
   return result;
 }

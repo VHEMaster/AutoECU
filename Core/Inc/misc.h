@@ -9,20 +9,7 @@
 #define INC_MISC_H_
 
 #include "main.h"
-
-typedef enum {
-  O2DiagShortToGnd = 0,
-  O2DiagNoPower,
-  O2DiagShortToBat,
-  O2DiagOK
-}eO2DiagCode;
-
-typedef struct {
-    eO2DiagCode VM : 2;
-    eO2DiagCode UN : 2;
-    eO2DiagCode IAIP : 2;
-    eO2DiagCode DIAHGD : 2;
-}sO2Diagnostic;
+#include "structs.h"
 
 typedef struct {
     volatile float ReferenceVoltage;
