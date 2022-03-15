@@ -312,6 +312,11 @@ void config_default_params(sEcuParams *table)
 
   table->fanHighTemperature = 101;
   table->fanLowTemperature = 97;
+
+  table->isBluetoothEnabled = 1;
+  table->bluetoothPin = 1902;
+  strcpy(table->bluetoothName, "BT_ECU");
+
 }
 
 void config_default_corrections(sEcuCorrections *table)

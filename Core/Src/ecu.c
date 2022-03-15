@@ -16,6 +16,7 @@
 #include "adc.h"
 #include "speed.h"
 #include "sensors.h"
+#include "bluetooth.h"
 #include "outputs.h"
 #include "injector.h"
 #include "sst25vf032b.h"
@@ -1419,6 +1420,23 @@ static void ecu_mem_loop(void)
   }
 }
 
+static void ecu_bluetooth_loop(void)
+{
+  static uint8_t bt_was_enabled = 0;
+  uint8_t enabled = gEcuParams.isBluetoothEnabled;
+  uint16_t pin = gEcuParams.bluetoothPin;
+  const char *name = gEcuParams.bluetoothName;
+
+  if(bt_was_enabled != enabled) {
+    bt_was_enabled = enabled;
+    if(enabled) {
+      bluetooth_enable(name, pin);
+    } else {
+      bluetooth_disable();
+    }
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -1463,6 +1481,7 @@ void ecu_loop(void)
 {
   ecu_drag_loop();
   ecu_mem_loop();
+  ecu_bluetooth_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)

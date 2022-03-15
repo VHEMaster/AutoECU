@@ -69,6 +69,7 @@ typedef struct
     volatile uint16_t NeededAckPacketId;
     volatile uint32_t LastNotAckedTime;
     volatile uint8_t TxBusy;
+    volatile eTransChannels TxDest;
 
     uint16_t ReceivedPackets[etrCount][10];
     uint16_t ReceivedPacketId[etrCount];
@@ -85,9 +86,9 @@ extern UART_HandleTypeDef huart5;
 extern UART_HandleTypeDef huart8;;
 
 static sGetterHandle xHandles[] = {
-    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone}, 1,0,0,0,0,0 },
-    {{0},{0},{0},{0},{0},{0}, &huart4, {etrIMMO,etrNone}, 1,0,0,0,0,0 },
-    {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0 },
+    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
+    {{0},{0},{0},{0},{0},{0}, &huart4, {etrIMMO,etrNone}, 1,0,0,0,0,0, etrNone },
+    {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
 };
 
 STATIC_INLINE int Msg_GetSrc(uint8_t xValue) { return (xValue & 7); }
@@ -294,12 +295,18 @@ int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen
     return -2;
 
   taskENTER_CRITICAL();
+  if(handle->TxDest != etrNone && xChaDest != handle->TxDest) {
+    taskEXIT_CRITICAL();
+    return 0;
+  }
+
   if(handle->NeedAckPacket)
   {
     if(handle->ReceivedAckPacket)
     {
       handle->NeedAckPacket = 0;
       handle->NeededAckPacketId = 0;
+      handle->TxDest = etrNone;
       taskEXIT_CRITICAL();
       return 1;
     }
@@ -311,11 +318,13 @@ int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen
         {
           handle->NeedAckPacket = 0;
           handle->NeededAckPacketId = 0;
+          handle->TxDest = etrNone;
           taskEXIT_CRITICAL();
           return -1;
         }
         handle->LastNotAckedTime = now;
         handle->RetriesPacket++;
+        handle->TxDest = xChaDest;
         taskEXIT_CRITICAL();
         packager(handle, xMsgPtr, xMsgLen, xChaDest, handle->NeededAckPacketId);
       }
@@ -328,6 +337,7 @@ int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen
     handle->NeedAckPacket = 1;
     handle->LastNotAckedTime = now;
     handle->RetriesPacket = 0;
+    handle->TxDest = xChaDest;
     taskEXIT_CRITICAL();
     handle->NeededAckPacketId = calculatePacketId();
     packager(handle, xMsgPtr, xMsgLen, xChaDest, handle->NeededAckPacketId);

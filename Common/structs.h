@@ -139,7 +139,11 @@ typedef struct {
     float fanHighTemperature;
     float fanLowTemperature;
 
-    int32_t Reserved32[1003];
+    int32_t isBluetoothEnabled;
+    int32_t bluetoothPin;
+    char bluetoothName[TABLE_STRING_MAX];
+
+    int32_t Reserved32[987];
 }sEcuParams;
 
 typedef struct {

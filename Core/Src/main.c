@@ -14,6 +14,7 @@
 #include "outputs.h"
 #include "injector.h"
 #include "sst25vf032b.h"
+#include "bluetooth.h"
 
 ADC_HandleTypeDef hadc1;
 
@@ -318,6 +319,13 @@ int main(void)
 
   HAL_ADC_Start_IT(&hadc1);
 
+  bluetooth_init(etrBT);
+  bluetooth_register_pwr_pin(BT_PWR_GPIO_Port, BT_PWR_Pin);
+  bluetooth_register_rst_pin(BT_NRST_GPIO_Port, BT_NRST_Pin);
+  bluetooth_register_key_pin(BT_KEY_GPIO_Port, BT_KEY_Pin);
+  bluetooth_register_led_pin(BT_LED_GPIO_Port, BT_LED_Pin);
+  bluetooth_disable();
+
   ecu_init();
 
   while (1) {
@@ -326,6 +334,7 @@ int main(void)
     ecu_loop();
     xGetterLoop();
     PK_SenderLoop();
+    bluetooth_loop();
 
     HAL_IWDG_Refresh(&hiwdg);
   }
@@ -1403,7 +1412,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : BT_KEY_Pin BT_PWR_Pin BT_NRST_Pin */
   GPIO_InitStruct.Pin = BT_KEY_Pin | BT_PWR_Pin | BT_NRST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
