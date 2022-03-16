@@ -11,9 +11,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #define CONFIG_OFFSET_CORRECTIONS 0
 #define CONFIG_OFFSET_CRITICALS 1920
+
+#define CLAMP(val,min,max) ((val) < (min) ? (min) : (val) > (max) ? (max) : (val))
+static sEcuCorrectionsBackup tableBackupCorrections = {0};
 
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
     0, 7300, 14700, 22000, 29300, 36700, 44000, 51300,
@@ -179,9 +183,8 @@ static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
     1150, 1100, 1100, 1100, 1100, 1150, 1300, 1350
 };
 
-static const float default_idle_valve_to_rpm[TABLE_ROTATES_MAX] = {
-    60.0f, 60.0f, 55.0f, 50.0f, 47.0, 42.0f, 40.0f, 43.0f,
-    45.0f, 45.0f, 45.0f, 45.0f, 45.0f, 47.0f, 49.0f, 50.0f
+static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX] = {
+    { 60.0f, 60.0f, 55.0f, 50.0f, 47.0, 42.0f, 40.0f, 43.0f, 45.0f, 45.0f, 45.0f, 45.0f, 45.0f, 47.0f, 49.0f, 50.0f },
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
@@ -327,14 +330,15 @@ void config_default_corrections(sEcuCorrections *table)
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->fill_by_map[i][j] = 0;
+      table->fill_by_map[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->fill_by_thr[i][j] = 0;
+      table->fill_by_thr[i][j] = 0.0f;
 
-  for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-    table->idle_valve_to_rpm[j] = 0;
+  for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->idle_valve_to_rpm[i][j] = 0.0f;
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)
@@ -378,15 +382,130 @@ int8_t config_save_params(const sEcuParams *params)
   return flash_page_save(params, sizeof(sEcuParams), TABLE_SETUPS_MAX);
 }
 
+static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrections *corr)
+{
+  static uint8_t state = 0;
+
+  if(state == 0) {
+    for(int i = 0; i < TABLE_FILLING_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->ignitions[i][j] = CLAMP(roundf(corr->ignitions[i][j] * 5.0f), -128, 127);
+      }
+    }
+    state++;
+  } else if(state == 1) {
+    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->fill_by_map[i][j] = CLAMP(roundf(corr->fill_by_map[i][j] * 125.0f), -128, 127);
+      }
+    }
+    state++;
+  } else if(state == 2) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->fill_by_thr[i][j] = CLAMP(roundf(corr->fill_by_thr[i][j] * 125.0f), -128, 127);
+      }
+    }
+    state++;
+  } else if(state == 3) {
+    for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->idle_valve_to_rpm[i][j] = CLAMP(roundf(corr->idle_valve_to_rpm[i][j] * 125.0f), -128, 127);
+      }
+    }
+    state = 0;
+    return 1;
+  } else state = 0;
+
+  return 0;
+}
+
+static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup *backup)
+{
+  static uint8_t state = 0;
+
+  if(state == 0) {
+    for(int i = 0; i < TABLE_FILLING_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->ignitions[i][j] = (float)backup->ignitions[i][j] * 0.2f;
+      }
+    }
+    state++;
+  } else if(state == 1) {
+    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->fill_by_map[i][j] = (float)backup->fill_by_map[i][j] * 0.008f;
+      }
+    }
+    state++;
+  } else if(state == 2) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->fill_by_thr[i][j] = (float)backup->fill_by_thr[i][j] * 0.008f;
+      }
+    }
+    state++;
+  } else if(state == 3) {
+    for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->idle_valve_to_rpm[i][j] = (float)backup->idle_valve_to_rpm[i][j] * 0.008f;
+      }
+    }
+    state = 0;
+    return 1;
+  } else state = 0;
+
+  return 0;
+}
 
 int8_t config_load_corrections(sEcuCorrections *table)
 {
-  return flash_bkpsram_load(table, sizeof(sEcuCorrections), CONFIG_OFFSET_CORRECTIONS);
+  static uint8_t state = 0;
+  int8_t status;
+
+  if(state == 0) {
+    status = flash_bkpsram_load(&tableBackupCorrections, sizeof(sEcuCorrectionsBackup), CONFIG_OFFSET_CORRECTIONS);
+    if(status) {
+      if(status > 0) {
+        state++;
+      } else {
+        state = 0;
+        return -1;
+      }
+    }
+  } else if(state == 1) {
+    status = backup_to_corr(table, &tableBackupCorrections);
+    if(status) {
+      state = 0;
+      return 1;
+    }
+  }
+  return 0;
 }
 
 int8_t config_save_corrections(const sEcuCorrections *table)
 {
-  return flash_bkpsram_save(table, sizeof(sEcuCorrections), CONFIG_OFFSET_CORRECTIONS);
+  static uint8_t state = 0;
+  int8_t status;
+
+  if(state == 0) {
+    status = corr_to_backup(&tableBackupCorrections, table);
+    if(status) {
+      state++;
+    }
+  } else if(state == 1) {
+    status = flash_bkpsram_save(&tableBackupCorrections, sizeof(sEcuCorrectionsBackup), CONFIG_OFFSET_CORRECTIONS);
+    if(status) {
+      state = 0;
+      if(status > 0) {
+        return 1;
+      } else {
+        return -1;
+      }
+    }
+  }
+  return 0;
+
 }
 
 

@@ -105,39 +105,7 @@ INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolate
   return result;
 }
 
-INLINE float math_interpolate_1d_int16(sMathInterpolateInput input, const int16_t *table)
-{
-  float result;
-  float output[2];
-
-  output[0] = table[input.indexes[0]];
-  output[1] = table[input.indexes[1]];
-
-  result = (output[1] - output[0]) * input.mult + output[0];
-
-  return result;
-}
-
-INLINE float math_interpolate_2d_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, const int16_t (*table)[y_size])
-{
-  float result = 0.0f;
-  float output_1d[2];
-  float input_2d[2][2];
-
-  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]];
-  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]];
-  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]];
-  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]];
-
-  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
-  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
-  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
-
-  return result;
-}
-
-INLINE float math_interpolate_1d_set_int16(sMathInterpolateInput input, int16_t *table, float new_value)
+INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, float new_value)
 {
   float previous;
   float diff;
@@ -156,8 +124,8 @@ INLINE float math_interpolate_1d_set_int16(sMathInterpolateInput input, int16_t 
   return diff;
 }
 
-INLINE float math_interpolate_2d_set_int16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, int16_t (*table)[y_size], float new_value)
+INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, float (*table)[y_size], float new_value)
 {
   float previous;
   float diff;

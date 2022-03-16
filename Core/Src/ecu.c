@@ -74,7 +74,6 @@ static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 
-static volatile uint8_t gEcuCriticalBackupWriteAccess = 0;
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
 static volatile uint8_t gEcuInitialized = 0;
@@ -375,8 +374,8 @@ static void ecu_update(void)
   filling_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
   filling_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->fill_by_thr);
 
-  fill_correction_map = math_interpolate_2d_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map) * 0.00006103515625f;
-  fill_correction_thr = math_interpolate_2d_int16(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr) * 0.00006103515625f;
+  fill_correction_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
+  fill_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr);
 
   filling_map *= fill_correction_map + 1.0f;
   filling_thr *= fill_correction_thr + 1.0f;
@@ -427,7 +426,7 @@ static void ecu_update(void)
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  ignition_angle += math_interpolate_2d_int16(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions) * 0.001220703125f;
+  ignition_angle += math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
@@ -485,9 +484,9 @@ static void ecu_update(void)
   if(gForceParameters.Enable.params.WishIdleRPM)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
 
-  idle_valve_pos_adaptation = math_interpolate_1d_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm) * 0.015625f;
+  idle_table_valve_pos = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
+  idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
 
-  idle_table_valve_pos = math_interpolate_1d(ipRpm, table->idle_valve_to_rpm);
   idle_wish_valve_pos = idle_table_valve_pos;
   idle_wish_valve_pos *= idle_valve_pos_adaptation + 1.0f;
 
@@ -496,8 +495,13 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
-  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+  if(idle_flag) {
+    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+  } else {
+    idle_valve_pos_correction = 0;
+    idle_angle_correction = 0;
+  }
 
   if(idle_flag && !cutoff_processing) {
     ignition_angle += idle_angle_correction;
@@ -556,45 +560,42 @@ static void ecu_update(void)
 
   if(gEcuParams.performAdaptation) {
     if(running) {
-      if(!gEcuCriticalBackupWriteAccess) {
-        if(adapt_diff >= 100000) {
-          adaptation_last = now;
-          lpf_calculation = adapt_diff * 0.000001f * 0.1f;
+      if(adapt_diff >= 100000) {
+        adaptation_last = now;
+        lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-          if(gEcuParams.useLambdaSensor && !gForceParameters.Enable.params.InjectionTime) {
-            filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
+        if(gEcuParams.useLambdaSensor && !gForceParameters.Enable.params.InjectionTime) {
+          filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
 
-            filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
-            fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
+          filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
+          fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
 
-            filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
-            fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
+          filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
+          fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
 
-            math_interpolate_2d_set_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
-            math_interpolate_2d_set_int16(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
-          }
-
-          if(!gForceParameters.Enable.params.WishIdleValvePosition) {
-            idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
-            idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
-
-            math_interpolate_1d_set_int16(ipRpm, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
-          }
-
+          math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
+          math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
         }
+
+        if(idle_flag && !gForceParameters.Enable.params.WishIdleValvePosition) {
+          idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
+          idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
+
+          math_interpolate_2d_set(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+        }
+
+
       }
     }
   }
 
   idle_valve_position = out_get_idle_valve();
 
-  if(!gEcuCriticalBackupWriteAccess) {
-    gEcuCriticalBackup.idle_valve_position = idle_valve_position;
-    gEcuCriticalBackup.km_driven += km_driven;
-    gEcuCriticalBackup.fuel_consumed += fuel_consumed;
-    km_driven = 0;
-    fuel_consumed = 0;
-  }
+  gEcuCriticalBackup.idle_valve_position = idle_valve_position;
+  gEcuCriticalBackup.km_driven += km_driven;
+  gEcuCriticalBackup.fuel_consumed += fuel_consumed;
+  km_driven = 0;
+  fuel_consumed = 0;
 
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
@@ -693,16 +694,13 @@ static void ecu_backup_save_process(void)
   static uint8_t state = 0;
   static uint32_t save_corecction_last = 0;
   uint32_t now = Delay_Tick;
-  int8_t status = 0;
+  int8_t critical_status = 0;
+  int8_t backup_status = 0;
 
+  critical_status = config_save_critical_backup(&gEcuCriticalBackup);
 
   switch(state) {
     case 0:
-      gEcuCriticalBackupWriteAccess = 1;
-      status = config_save_critical_backup(&gEcuCriticalBackup);
-      if(status) {
-        state++;
-      }
       break;
     case 1:
       if(DelayDiff(now, save_corecction_last) > 1000000) {
@@ -713,9 +711,8 @@ static void ecu_backup_save_process(void)
       }
       break;
     case 2:
-      gEcuCriticalBackupWriteAccess = 1;
-      status = config_save_corrections(&gEcuCorrections);
-      if(status) {
+      backup_status = config_save_corrections(&gEcuCorrections);
+      if(backup_status) {
         state = 0;
       }
       break;
@@ -725,12 +722,10 @@ static void ecu_backup_save_process(void)
       break;
   }
 
-  if(status) {
-    gEcuCriticalBackupWriteAccess = 0;
-    if(status < 0 && gStatus.Bkpsram.Struct.Save == HAL_OK)
+  if(critical_status || backup_status) {
+    if((critical_status < 0 || backup_status < 0) && gStatus.Bkpsram.Struct.Save == HAL_OK)
       gStatus.Bkpsram.Struct.Save = HAL_ERROR;
   }
-
 }
 
 STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
@@ -1496,8 +1491,6 @@ void ecu_irq_slow_loop(void)
   ecu_checkengine_process();
 
 }
-
-volatile float debug_time = 0;
 
 void ecu_loop(void)
 {

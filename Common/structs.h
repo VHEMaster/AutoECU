@@ -142,7 +142,7 @@ typedef struct {
     float idle_wish_rotates[TABLE_TEMPERATURES_MAX];
     float idle_wish_massair[TABLE_TEMPERATURES_MAX];
     float idle_wish_ignition[TABLE_ROTATES_MAX];
-    float idle_valve_to_rpm[TABLE_ROTATES_MAX];
+    float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
 
     float idle_valve_to_massair_pid_p;
     float idle_valve_to_massair_pid_i;
@@ -167,10 +167,17 @@ typedef struct {
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
-    int16_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
-    int16_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    int16_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
-    int16_t idle_valve_to_rpm[TABLE_ROTATES_MAX];
+    int8_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    int8_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    int8_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    int8_t idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+}sEcuCorrectionsBackup;
+
+typedef struct {
+    float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
 }sEcuCorrections;
 
 typedef struct {
