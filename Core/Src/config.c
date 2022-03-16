@@ -15,10 +15,6 @@
 #define CONFIG_OFFSET_CORRECTIONS 0
 #define CONFIG_OFFSET_CRITICALS 1920
 
-static const float default_voltages[8] = {
-    0.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 25.0f
-};
-
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
     0, 7300, 14700, 22000, 29300, 36700, 44000, 51300,
     58600, 66000, 73300, 80600, 88000, 95300, 102700, 110000
@@ -161,6 +157,10 @@ static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
+static const float default_voltages[8] = {
+    0.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 25.0f
+};
+
 static const float default_ignition_time[TABLE_VOLTAGES_MAX] = {
     5.7f, 4.5f, 3.2f, 2.5f, 2.1f, 1.8f, 1.6f, 1.0f
 };
@@ -217,9 +217,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->inj_channel = InjectorChannel1;
 
-  //For BOSCH 0280150762 injectors
+  //For Bosch 62415 / BMW 1731357 injectors
   table->ignition_initial = 10.0f;
-  table->injector_performance = 214.2f;
+  table->injector_performance = 162.0f;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
 
