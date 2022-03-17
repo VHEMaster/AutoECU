@@ -580,7 +580,7 @@ static void ecu_update(void)
 
   if(!running) {
     ignition_angle = table->ignition_initial;
-    if(throttle >= 90.0f)
+    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && throttle >= 80.0f)
       injection_time = 0;
   }
 
@@ -1588,7 +1588,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     case PK_PingID :
       PK_Copy(&PK_Ping, msgBuf);
       PK_Pong.RandomPong = PK_Ping.RandomPing;
-      PK_Pong.Destination = xChaSrc;
       PK_SendCommand(xChaSrc, &PK_Pong, sizeof(PK_Pong));
       break;
 
@@ -1599,7 +1598,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_GeneralStatusRequestID :
       //PK_Copy(&PK_GeneralStatusRequest, msgBuf);
-      PK_GeneralStatusResponse.Destination = xChaSrc;
       PK_GeneralStatusResponse.RPM = gParameters.RPM;
       PK_GeneralStatusResponse.Pressure = gParameters.ManifoldAirPressure;
       PK_GeneralStatusResponse.IgnitionAngle = gParameters.IgnitionAngle;
@@ -1615,7 +1613,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_TableMemoryRequestID :
       PK_Copy(&PK_TableMemoryRequest, msgBuf);
-      PK_TableMemoryData.Destination = xChaSrc;
       offset = PK_TableMemoryData.offset = PK_TableMemoryRequest.offset;
       size = PK_TableMemoryData.size = PK_TableMemoryRequest.size;
       table = PK_TableMemoryData.table = PK_TableMemoryRequest.table;
@@ -1648,7 +1645,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_TableMemoryDataID :
       PK_Copy(&PK_TableMemoryData, msgBuf);
-      PK_TableMemoryAcknowledge.Destination = xChaSrc;
       offset = PK_TableMemoryAcknowledge.offset = PK_TableMemoryData.offset;
       size = PK_TableMemoryAcknowledge.size = PK_TableMemoryData.size;
       table = PK_TableMemoryAcknowledge.table = PK_TableMemoryData.table;
@@ -1677,7 +1673,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_ConfigMemoryRequestID :
       PK_Copy(&PK_ConfigMemoryRequest, msgBuf);
-      PK_ConfigMemoryData.Destination = xChaSrc;
       offset = PK_ConfigMemoryData.offset = PK_ConfigMemoryRequest.offset;
       size = PK_ConfigMemoryData.size = PK_ConfigMemoryRequest.size;
       configsize = PK_ConfigMemoryData.configsize = PK_ConfigMemoryRequest.configsize;
@@ -1706,7 +1701,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_ConfigMemoryDataID :
       PK_Copy(&PK_ConfigMemoryData, msgBuf);
-      PK_ConfigMemoryAcknowledge.Destination = xChaSrc;
       offset = PK_ConfigMemoryAcknowledge.offset = PK_ConfigMemoryData.offset;
       size = PK_ConfigMemoryAcknowledge.size = PK_ConfigMemoryData.size;
       configsize = PK_ConfigMemoryAcknowledge.configsize = PK_ConfigMemoryData.configsize;
@@ -1731,7 +1725,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CriticalMemoryRequestID :
       PK_Copy(&PK_CriticalMemoryRequest, msgBuf);
-      PK_CriticalMemoryData.Destination = xChaSrc;
       offset = PK_CriticalMemoryData.offset = PK_CriticalMemoryRequest.offset;
       size = PK_CriticalMemoryData.size = PK_CriticalMemoryRequest.size;
       configsize = PK_CriticalMemoryData.configsize = PK_CriticalMemoryRequest.configsize;
@@ -1760,7 +1753,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CriticalMemoryDataID :
       PK_Copy(&PK_CriticalMemoryData, msgBuf);
-      PK_CriticalMemoryAcknowledge.Destination = xChaSrc;
       offset = PK_CriticalMemoryAcknowledge.offset = PK_CriticalMemoryData.offset;
       size = PK_CriticalMemoryAcknowledge.size = PK_CriticalMemoryData.size;
       configsize = PK_CriticalMemoryAcknowledge.configsize = PK_CriticalMemoryData.configsize;
@@ -1785,7 +1777,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CorrectionsMemoryRequestID :
       PK_Copy(&PK_CorrectionsMemoryRequest, msgBuf);
-      PK_CorrectionsMemoryData.Destination = xChaSrc;
       offset = PK_CorrectionsMemoryData.offset = PK_CorrectionsMemoryRequest.offset;
       size = PK_CorrectionsMemoryData.size = PK_CorrectionsMemoryRequest.size;
       configsize = PK_CorrectionsMemoryData.configsize = PK_CorrectionsMemoryRequest.configsize;
@@ -1814,7 +1805,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CorrectionsMemoryDataID :
       PK_Copy(&PK_CorrectionsMemoryData, msgBuf);
-      PK_CorrectionsMemoryAcknowledge.Destination = xChaSrc;
       offset = PK_CorrectionsMemoryAcknowledge.offset = PK_CorrectionsMemoryData.offset;
       size = PK_CorrectionsMemoryAcknowledge.size = PK_CorrectionsMemoryData.size;
       configsize = PK_CorrectionsMemoryAcknowledge.configsize = PK_CorrectionsMemoryData.configsize;
@@ -1846,13 +1836,11 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       }
       else if(Mem.loadreq)
       {
-        PK_SaveConfigAcknowledge.Destination = xChaSrc;
         PK_SaveConfigAcknowledge.ErrorCode = 3;
         PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       }
       else
       {
-        PK_SaveConfigAcknowledge.Destination = xChaSrc;
         PK_SaveConfigAcknowledge.ErrorCode = 2;
         PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       }
@@ -1867,13 +1855,11 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       }
       else if(Mem.savereq)
       {
-        PK_RestoreConfigAcknowledge.Destination = xChaSrc;
         PK_RestoreConfigAcknowledge.ErrorCode = 3;
         PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
       }
       else
       {
-        PK_RestoreConfigAcknowledge.Destination = xChaSrc;
         PK_RestoreConfigAcknowledge.ErrorCode = 2;
         PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
       }
@@ -1881,7 +1867,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_DragStartID :
       PK_Copy(&PK_DragStart, msgBuf);
-      PK_DragStartAcknowledge.Destination = xChaSrc;
       Drag.FromSpeed = PK_DragStartAcknowledge.FromSpeed = PK_DragStart.FromSpeed;
       Drag.ToSpeed = PK_DragStartAcknowledge.ToSpeed = PK_DragStart.ToSpeed;
       Drag.Started = 0;
@@ -1901,7 +1886,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_DragStopID :
       PK_Copy(&PK_DragStop, msgBuf);
-      PK_DragStopAcknowledge.Destination = xChaSrc;
       PK_DragStopAcknowledge.FromSpeed = PK_DragStop.FromSpeed;
       PK_DragStopAcknowledge.ToSpeed = PK_DragStop.ToSpeed;
       Drag.Status = PK_DragStopAcknowledge.ErrorCode = 0;
@@ -1919,7 +1903,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_DragUpdateRequestID :
       PK_Copy(&PK_DragUpdateRequest, msgBuf);
-      PK_DragUpdateResponse.Destination = xChaSrc;
       PK_DragUpdateResponse.ErrorCode = 0;
       PK_DragUpdateResponse.FromSpeed = Drag.FromSpeed;
       PK_DragUpdateResponse.ToSpeed = Drag.ToSpeed;
@@ -1941,7 +1924,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_DragPointRequestID :
       PK_Copy(&PK_DragPointRequest, msgBuf);
-      PK_DragPointResponse.Destination = xChaSrc;
       PK_DragPointResponse.FromSpeed = PK_DragStop.FromSpeed;
       PK_DragPointResponse.ToSpeed = PK_DragStop.ToSpeed;
       PK_DragPointResponse.ErrorCode = 0;
@@ -2004,6 +1986,12 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_Copy(&PK_FuelSwitch, msgBuf);
       if(PK_FuelSwitch.FuelSwitchPos < 3)
         ecu_set_table(PK_FuelSwitch.FuelSwitchPos);
+      break;
+
+    case PK_ParametersRequestID :
+      //PK_Copy(&PK_ParametersRequest, msgBuf);
+      PK_ParametersResponse.Parameters = gParameters;
+      PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
       break;
 
     default:

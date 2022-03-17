@@ -14,7 +14,7 @@
 #define HEADER_ACK_BIT (1<<7)
 #define HEADER_ALARM_BITS ((1<<7)|(1<<6))
 #define TASK_SLEEP  { osDelay(1); } // Task must give it's time to another process or just skip some time
-#define MAX_PACK_LEN (256)
+#define MAX_PACK_LEN (1024)
 
 typedef enum {
     etrNone,

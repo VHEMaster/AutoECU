@@ -2,7 +2,7 @@
 #include "xProFIFO.h"
 #include "xCommand.h"
 
-#define PACKET_C(x) x##_t x __attribute__((aligned(32))) = {x##ID,sizeof(x##_t),0,0}
+#define PACKET_C(x) x##_t x __attribute__((aligned(32))) = {x##ID,0,sizeof(x##_t)}
 
 PACKET_C(PK_Ping);
 PACKET_C(PK_Pong);
@@ -34,6 +34,8 @@ PACKET_C(PK_CorrectionsMemoryAcknowledge);
 PACKET_C(PK_CriticalMemoryRequest);
 PACKET_C(PK_CriticalMemoryData);
 PACKET_C(PK_CriticalMemoryAcknowledge);
+PACKET_C(PK_ParametersRequest);
+PACKET_C(PK_ParametersResponse);
 
 static eTransChannels txDests[] = { etrPC, etrIMMO, etrCTRL, etrBT };
 #define TX_COUNT ITEMSOF(txDests)
@@ -68,8 +70,8 @@ void PK_SenderLoop(void)
 {
   static uint8_t sending[TX_COUNT] = {0};
   static uint8_t destination[TX_COUNT] = {0};
-  static uint8_t dummy[TX_COUNT] = {0};
-  static uint8_t size[TX_COUNT] = {0};
+  static uint16_t size[TX_COUNT] = {0};
+  uint8_t byte;
   uint8_t * pnt;
   int8_t status;
 
@@ -80,10 +82,12 @@ void PK_SenderLoop(void)
       if(!sending[i])
       {
         if(protGetSize(&fifoSendingQueue[i]) > 8) {
-          protLook(&fifoSendingQueue[i],1,&size[i]);
-          protLook(&fifoSendingQueue[i],2,&destination[i]);
-          protLook(&fifoSendingQueue[i],3,&dummy[i]);
-          if(destination[i] > etrNone && destination[i] < etrCount && dummy[i] == 0)
+          protLook(&fifoSendingQueue[i],1,&destination[i]);
+          protLook(&fifoSendingQueue[i],2,&byte);
+          size[i] = byte;
+          protLook(&fifoSendingQueue[i],3,&byte);
+          size[i] |= byte << 8;
+          if(destination[i] > etrNone && destination[i] < etrCount)
           {
             if(protGetSize(&fifoSendingQueue[i]) >= size[i])
             {

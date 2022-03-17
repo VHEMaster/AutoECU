@@ -14,7 +14,7 @@
 #include "xCommand.h"
 
 #define PACKET_C(x) extern x##_t x;
-#define PACKET_HEADER uint8_t PacketID; uint8_t PacketLength; uint8_t Destination; uint8_t Dummy
+#define PACKET_HEADER uint8_t PacketID; uint8_t Destination; uint16_t PacketLength;
 #define PACKET_DEFINE(x,n) x##_t; static const uint8_t x##ID = n; PACKET_C(x)
 
 typedef struct
@@ -228,7 +228,7 @@ typedef struct
   uint32_t configsize;
   uint32_t offset;
   uint32_t size;
-  uint8_t data[PACKET_TABLE_MAX_SIZE];
+  uint8_t data[PACKET_CORRECTION_MAX_SIZE];
 }PACKET_DEFINE(PK_CorrectionsMemoryData, 26);
 
 typedef struct
@@ -255,7 +255,7 @@ typedef struct
   uint32_t configsize;
   uint32_t offset;
   uint32_t size;
-  uint8_t data[PACKET_TABLE_MAX_SIZE];
+  uint8_t data[PACKET_CRITICAL_MAX_SIZE];
 }PACKET_DEFINE(PK_CriticalMemoryData, 29);
 
 typedef struct
@@ -266,6 +266,17 @@ typedef struct
   uint32_t offset;
   uint32_t size;
 }PACKET_DEFINE(PK_CriticalMemoryAcknowledge, 30);
+
+typedef struct
+{
+  PACKET_HEADER;
+}PACKET_DEFINE(PK_ParametersRequest, 31);
+
+typedef struct
+{
+  PACKET_HEADER;
+  sParameters Parameters;
+}PACKET_DEFINE(PK_ParametersResponse, 32);
 
 extern int16_t PK_Copy(void * dest, void * source);
 
