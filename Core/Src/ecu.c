@@ -62,6 +62,7 @@ static sForceParameters gForceParameters = {0};
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
 static volatile uint8_t gEcuInitialized = 0;
+static volatile uint8_t gEcuIsError = 0;
 
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
@@ -1253,31 +1254,35 @@ static void ecu_checkengine_process(void)
   uint8_t *ptr_recorded = (uint8_t *)&gEcuCriticalBackup.status_recorded;
   uint32_t size = sizeof(sStatus);
 
+
+  while(size--) {
+    byte = *ptr_status++;
+    iserror |= byte;
+    *ptr_recorded++ |= byte;
+  }
+
+  if(iserror) {
+    was_error = 1;
+    error_last = now;
+  }
+
+  if(was_error) {
+    if(DelayDiff(now, error_last) < 5000000) {
+      iserror = 1;
+    } else {
+      was_error = 0;
+    }
+  }
+
+  gEcuIsError = iserror;
+
   if(gForceParameters.Enable.params.CheckEngine) {
     out_set_checkengine(gForceParameters.CheckEngine > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
     was_error = 0;
     iserror = 0;
   } else {
-    while(size--) {
-      byte = *ptr_status++;
-      iserror |= byte;
-      *ptr_recorded++ |= byte;
-    }
 
-    if(iserror) {
-      was_error = 1;
-      error_last = now;
-    }
-
-    if(was_error) {
-      if(DelayDiff(now, error_last) < 5000000) {
-        iserror = 1;
-      } else {
-        was_error = 0;
-      }
-    }
-
-    if(!running || iserror) {
+    if(!running || was_error) {
       out_set_checkengine(GPIO_PIN_SET);
     } else {
       out_set_checkengine(GPIO_PIN_RESET);
@@ -1603,7 +1608,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_GeneralStatusResponse.Voltage = gParameters.PowerVoltage;
       PK_GeneralStatusResponse.EngineTemp = gParameters.EngineTemp;
       PK_GeneralStatusResponse.FuelUsage = gParameters.FuelConsumption;
-      PK_GeneralStatusResponse.check = out_get_checkengine(NULL);
+      PK_GeneralStatusResponse.check = gEcuIsError;
       PK_GeneralStatusResponse.tablenum = ecu_get_table();
       strcpy(PK_GeneralStatusResponse.tablename, gEcuTable[ecu_get_table()].name);
       PK_SendCommand(xChaSrc, &PK_GeneralStatusResponse, sizeof(PK_GeneralStatusResponse));
