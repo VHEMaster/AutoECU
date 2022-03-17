@@ -30,21 +30,6 @@
 
 #define ENRICHMENT_STATES_COUNT 3
 
-
-typedef struct {
-    sDragPoint Points[DRAG_MAX_POINTS];
-    uint32_t PointsCount;
-    float FromSpeed;
-    float ToSpeed;
-    uint8_t Ready;
-    uint8_t Started;
-    uint8_t Completed;
-    uint8_t Status;
-    uint32_t TimeLast;
-    uint32_t StartTime;
-    uint32_t StopTime;
-}sDrag;
-
 typedef volatile struct {
     uint8_t savereq;
     uint8_t loadreq;
@@ -285,6 +270,9 @@ static void ecu_update(void)
   float enrichment_proportion;
   float fuel_amount_per_cycle;
 
+  float warmup_mixture;
+  float warmup_mix_koff;
+
   float fill_proportion;
   float fuel_pressure;
   float fuel_abs_pressure;
@@ -307,6 +295,9 @@ static void ecu_update(void)
   float fill_correction_thr;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
+  float ignition_correction;
+  float wish_fault_rpm;
+  float start_mixture;
 
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
@@ -337,6 +328,11 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
   gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
+
+  if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
+    engine_temp = 20.0f;
+  if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
+    air_temp = 20.0f;
 
   if(gEcuParams.useLambdaSensor) {
     gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, NULL);
@@ -380,10 +376,30 @@ static void ecu_update(void)
   filling_map *= fill_correction_map + 1.0f;
   filling_thr *= fill_correction_thr + 1.0f;
 
-  effective_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
+  if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
+    effective_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
+  } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    effective_volume = filling_thr;
+  } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
+    effective_volume = filling_map;
+  } else effective_volume = 0;
+
   effective_volume *= gEcuParams.engineVolume;
 
+
+  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+    wish_fault_rpm = 1400.0f;
+  } else if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    wish_fault_rpm = 1700.0f;
+    //TODO: check how will it work?
+    map = throttle * 913.25f + 10000.0f; //throttle / 100 * (101325-10000) + 10000
+  } else {
+    wish_fault_rpm = 0.0f;
+    map = 0;
+  }
+
   air_destiny = ecu_get_air_destiny(map, air_temp);
+
   cycle_air_flow = effective_volume * 0.25f * air_destiny * 1000.0f;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
@@ -395,41 +411,58 @@ static void ecu_update(void)
       enrichment_step = 0;
 
     if(running) {
-      math_minmax(enrichment_map_states, ENRICHMENT_STATES_COUNT, &min, &max);
-      if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
-      math_minmax(enrichment_thr_states, ENRICHMENT_STATES_COUNT, &min, &max);
-      if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
 
-      ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
-      enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+      if(gStatus.Sensors.Struct.Map == HAL_OK) {
+        math_minmax(enrichment_map_states, ENRICHMENT_STATES_COUNT, &min, &max);
+        if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
+        ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
+        enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+        enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_sens);
+        enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
+        if(enrichment_map_value > enrichment_status_map)
+          enrichment_status_map = enrichment_map_value;
+      } else {
+        enrichment_status_map = 0.0f;
+      }
 
-      ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
-      enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_map_sens);
+      if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+        math_minmax(enrichment_thr_states, ENRICHMENT_STATES_COUNT, &min, &max);
+        if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
+        ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
+        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_map_sens);
+        enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_sens);
+        enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
+        if(enrichment_thr_value > enrichment_status_thr)
+          enrichment_status_thr = enrichment_thr_value;
+      } else {
+        enrichment_status_thr = 0.0f;
+      }
 
-      enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_sens);
-      enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_sens);
-
-      enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
-      enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
-
-      if(enrichment_map_value > enrichment_status_map)
-        enrichment_status_map = enrichment_map_value;
-      if(enrichment_thr_value > enrichment_status_thr)
-        enrichment_status_thr = enrichment_thr_value;
     } else {
       enrichment_status_map = 0.0f;
       enrichment_status_thr = 0.0f;
     }
-    enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
+
+    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
+      enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
+    } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+      enrichment = enrichment_status_thr;
+    } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
+      enrichment = enrichment_status_map;
+    } else enrichment = 0;
   }
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  ignition_angle += math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
+  ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
+
+  ignition_angle += ignition_correction;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+
+  start_mixture = math_interpolate_1d(ipTemp, table->start_mixtures);
 
   if(gForceParameters.Enable.params.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
@@ -445,6 +478,16 @@ static void ecu_update(void)
     ignition_angle = gForceParameters.IgnitionAngle;
   if(gForceParameters.Enable.params.IgnitionOctane)
     ignition_angle += gForceParameters.IgnitionOctane;
+
+  if(running) {
+    warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
+    if(warmup_mix_koff != 0.0f) {
+      warmup_mixture = math_interpolate_1d(ipTemp, table->warmup_mixtures);
+      wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
+    }
+  } else {
+    wish_fuel_ratio = start_mixture;
+  }
 
   if(cutoff_processing) {
     ignition_angle = gEcuParams.cutoffAngle;
@@ -483,6 +526,14 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.params.WishIdleRPM)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
+
+  if(idle_wish_rpm < wish_fault_rpm) {
+    idle_wish_rpm = wish_fault_rpm;
+    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
+  }
+
+  if(gForceParameters.Enable.params.WishIdleMassAirFlow)
+    idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
   idle_table_valve_pos = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
   idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
@@ -554,7 +605,7 @@ static void ecu_update(void)
   }
 
   //TODO: handle knock sensor adaptation
-  if(gEcuParams.useKnockSensor && !gForceParameters.Enable.params.IgnitionAngle) {
+  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.params.IgnitionAngle) {
 
   }
 
@@ -564,20 +615,24 @@ static void ecu_update(void)
         adaptation_last = now;
         lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-        if(gEcuParams.useLambdaSensor && !gForceParameters.Enable.params.InjectionTime) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.params.InjectionTime) {
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
 
-          filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
-          fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
+          if(gStatus.Sensors.Struct.Map == HAL_OK) {
+            filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
+            fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
+            math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
+          }
 
-          filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
-          fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
+          if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+            filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
+            fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
+            math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
+          }
 
-          math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
-          math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
         }
 
-        if(idle_flag && !gForceParameters.Enable.params.WishIdleValvePosition) {
+        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.params.WishIdleValvePosition) {
           idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
           idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
 
@@ -1260,6 +1315,9 @@ static void ecu_drag_loop(void)
             Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
             Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
             Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+            Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
+            Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
+            Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
             Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
             Drag.PointsCount++;
 
@@ -1332,6 +1390,9 @@ static void ecu_drag_loop(void)
               Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
               Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
               Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
+              Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
+              Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
               Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
               Drag.PointsCount++;
             }
@@ -1358,6 +1419,9 @@ static void ecu_drag_loop(void)
               Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
               Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
               Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
+              Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
+              Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
               Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
               Drag.PointsCount++;
             }
@@ -1864,6 +1928,9 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_DragUpdateResponse.Data.Mixture = gParameters.FuelRatio;
       PK_DragUpdateResponse.Data.Acceleration = gParameters.Acceleration;
       PK_DragUpdateResponse.Data.Ignition = gParameters.IgnitionAngle;
+      PK_DragUpdateResponse.Data.CycleAirFlow = gParameters.CyclicAirFlow;
+      PK_DragUpdateResponse.Data.MassAirFlow = gParameters.MassAirFlow;
+      PK_DragUpdateResponse.Data.Throttle = gParameters.ThrottlePosition;
       PK_DragUpdateResponse.TotalPoints = Drag.PointsCount;
       PK_DragUpdateResponse.Started = Drag.Started;
       PK_DragUpdateResponse.Completed = Drag.Completed;

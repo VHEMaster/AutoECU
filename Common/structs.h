@@ -16,10 +16,27 @@ typedef struct {
     float Speed;
     float Acceleration;
     float Pressure;
+    float MassAirFlow;
+    float CycleAirFlow;
+    float Throttle;
     float Ignition;
     float Mixture;
     uint32_t Time;
 }sDragPoint;
+
+typedef struct {
+    sDragPoint Points[DRAG_MAX_POINTS];
+    uint32_t PointsCount;
+    float FromSpeed;
+    float ToSpeed;
+    uint8_t Ready;
+    uint8_t Started;
+    uint8_t Completed;
+    uint8_t Status;
+    uint32_t TimeLast;
+    uint32_t StartTime;
+    uint32_t StopTime;
+}sDrag;
 
 typedef enum {
   O2DiagOK = 0,
@@ -156,6 +173,11 @@ typedef struct {
     float idle_ign_deviation_min;
 
     float idle_ign_fan_corr;
+
+    float warmup_mixtures[TABLE_TEMPERATURES_MAX];
+    float warmup_mix_koffs[TABLE_TEMPERATURES_MAX];
+
+    float start_mixtures[TABLE_TEMPERATURES_MAX];
 
     int32_t idle_speeds_shift_count;
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
@@ -297,6 +319,7 @@ typedef struct {
         uint8_t WishIdleRPM : 1;
         uint8_t WishIdleValvePosition : 1;
         uint8_t WishIdleIgnitionAngle : 1;
+        uint8_t WishIdleMassAirFlow : 1;
         uint8_t FanRelay : 1;
         uint8_t FuelPumpRelay : 1;
         uint8_t CheckEngine : 1;
@@ -312,6 +335,7 @@ typedef struct {
     float WishIdleRPM;
     float WishIdleValvePosition;
     float WishIdleIgnitionAngle;
+    float WishIdleMassAirFlow;
     uint32_t FanRelay;
     uint32_t FuelPumpRelay;
     uint32_t CheckEngine;
