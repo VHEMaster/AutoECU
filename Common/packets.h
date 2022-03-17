@@ -50,8 +50,6 @@ typedef struct
   char tablename[TABLE_STRING_MAX];
   float RPM;
   float Pressure;
-  float IgnitionAngle;
-  float Injectiontime;
   float Voltage;
   float EngineTemp;
   float FuelUsage;

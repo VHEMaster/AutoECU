@@ -1600,8 +1600,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       //PK_Copy(&PK_GeneralStatusRequest, msgBuf);
       PK_GeneralStatusResponse.RPM = gParameters.RPM;
       PK_GeneralStatusResponse.Pressure = gParameters.ManifoldAirPressure;
-      PK_GeneralStatusResponse.IgnitionAngle = gParameters.IgnitionAngle;
-      PK_GeneralStatusResponse.Injectiontime = gParameters.InjectionPulse;
       PK_GeneralStatusResponse.Voltage = gParameters.PowerVoltage;
       PK_GeneralStatusResponse.EngineTemp = gParameters.EngineTemp;
       PK_GeneralStatusResponse.FuelUsage = gParameters.FuelConsumption;
