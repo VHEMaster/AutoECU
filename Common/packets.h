@@ -276,6 +276,18 @@ typedef struct
   sParameters Parameters;
 }PACKET_DEFINE(PK_ParametersResponse, 32);
 
+typedef struct
+{
+  PACKET_HEADER;
+  sForceParameters Parameters;
+}PACKET_DEFINE(PK_ForceParametersData, 33);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+}PACKET_DEFINE(PK_ForceParametersDataAcknowledge, 34);
+
 extern int16_t PK_Copy(void * dest, void * source);
 
 #undef PACKET_C

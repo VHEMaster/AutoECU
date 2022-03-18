@@ -237,8 +237,10 @@ typedef struct {
 }sEcuParams;
 
 typedef struct {
+    char CurrentTableName[TABLE_STRING_MAX];
     int32_t SwitchPosition;
     int32_t CurrentTable;
+    int32_t InjectorChannel;
 
     float AdcKnockVoltage;
     float AdcAirTemp;
@@ -303,27 +305,10 @@ typedef struct {
 
     int32_t StartAllowed;
     int32_t IsRunning;
+    int32_t IsCheckEngine;
 }sParameters;
 
 typedef struct {
-    union {
-      struct {
-        uint8_t IgnitionAngle : 1;
-        uint8_t InjectionPhase : 1;
-        uint8_t IgnitionOctane : 1;
-        uint8_t IgnitionTime : 1;
-        uint8_t InjectionTime : 1;
-        uint8_t WishFuelRatio : 1;
-        uint8_t WishIdleRPM : 1;
-        uint8_t WishIdleValvePosition : 1;
-        uint8_t WishIdleIgnitionAngle : 1;
-        uint8_t WishIdleMassAirFlow : 1;
-        uint8_t FanRelay : 1;
-        uint8_t FuelPumpRelay : 1;
-        uint8_t CheckEngine : 1;
-      } params;
-      uint32_t dword;
-    } Enable;
     float IgnitionAngle;
     float InjectionPhase;
     float IgnitionOctane;
@@ -334,9 +319,24 @@ typedef struct {
     float WishIdleValvePosition;
     float WishIdleIgnitionAngle;
     float WishIdleMassAirFlow;
-    uint32_t FanRelay;
-    uint32_t FuelPumpRelay;
-    uint32_t CheckEngine;
+    int32_t FanRelay;
+    int32_t FuelPumpRelay;
+    int32_t CheckEngine;
+    struct {
+      uint8_t IgnitionAngle;
+      uint8_t InjectionPhase;
+      uint8_t IgnitionOctane;
+      uint8_t IgnitionTime;
+      uint8_t InjectionTime;
+      uint8_t WishFuelRatio;
+      uint8_t WishIdleRPM;
+      uint8_t WishIdleValvePosition;
+      uint8_t WishIdleIgnitionAngle;
+      uint8_t WishIdleMassAirFlow;
+      uint8_t FanRelay;
+      uint8_t FuelPumpRelay;
+      uint8_t CheckEngine;
+    } Enable;
 }sForceParameters;
 
 typedef struct {

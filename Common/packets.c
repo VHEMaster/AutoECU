@@ -37,6 +37,8 @@ PACKET_C(PK_CriticalMemoryData);
 PACKET_C(PK_CriticalMemoryAcknowledge);
 PACKET_C(PK_ParametersRequest);
 PACKET_C(PK_ParametersResponse);
+PACKET_C(PK_ForceParametersData);
+PACKET_C(PK_ForceParametersDataAcknowledge);
 
 #define SENDERS_MAX_COUNT 4
 

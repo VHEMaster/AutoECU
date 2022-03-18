@@ -476,13 +476,13 @@ static void ecu_update(void)
 
   start_mixture = math_interpolate_1d(ipTemp, table->start_mixtures);
 
-  if(gForceParameters.Enable.params.InjectionPhase)
+  if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
 
 
-  if(gForceParameters.Enable.params.IgnitionAngle)
+  if(gForceParameters.Enable.IgnitionAngle)
     ignition_angle = gForceParameters.IgnitionAngle;
-  if(gForceParameters.Enable.params.IgnitionOctane)
+  if(gForceParameters.Enable.IgnitionOctane)
     ignition_angle += gForceParameters.IgnitionOctane;
 
   if(running) {
@@ -500,7 +500,7 @@ static void ecu_update(void)
     wish_fuel_ratio = gEcuParams.cutoffMixture;
   }
 
-  if(gForceParameters.Enable.params.WishFuelRatio)
+  if(gForceParameters.Enable.WishFuelRatio)
     wish_fuel_ratio = gForceParameters.WishFuelRatio;
 
   if(!gEcuParams.useLambdaSensor)
@@ -510,7 +510,7 @@ static void ecu_update(void)
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
 
-  if(gForceParameters.Enable.params.IgnitionTime)
+  if(gForceParameters.Enable.IgnitionTime)
     ignition_time = gForceParameters.IgnitionTime;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
@@ -518,7 +518,7 @@ static void ecu_update(void)
   injection_time *= enrichment + 1.0f;
   injection_time += injector_lag;
 
-  if(gForceParameters.Enable.params.InjectionTime)
+  if(gForceParameters.Enable.InjectionTime)
     injection_time = gForceParameters.InjectionTime;
 
   idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
@@ -530,7 +530,7 @@ static void ecu_update(void)
 
   idle_wish_rpm += idle_rpm_shift;
 
-  if(gForceParameters.Enable.params.WishIdleRPM)
+  if(gForceParameters.Enable.WishIdleRPM)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
 
   if(idle_wish_rpm < wish_fault_rpm) {
@@ -538,7 +538,7 @@ static void ecu_update(void)
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
 
-  if(gForceParameters.Enable.params.WishIdleMassAirFlow)
+  if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
   idle_table_valve_pos = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
@@ -563,7 +563,7 @@ static void ecu_update(void)
   if(idle_flag && !cutoff_processing) {
     ignition_angle += idle_angle_correction;
 
-    if(gForceParameters.Enable.params.WishIdleIgnitionAngle) {
+    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
       math_pid_reset(&gPidIdleIgnition);
       ignition_angle = gForceParameters.WishIdleIgnitionAngle;
     }
@@ -571,7 +571,7 @@ static void ecu_update(void)
 
   idle_wish_valve_pos += idle_valve_pos_correction;
 
-  if(gForceParameters.Enable.params.WishIdleValvePosition) {
+  if(gForceParameters.Enable.WishIdleValvePosition) {
     math_pid_reset(&gPidIdleAirFlow);
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
@@ -611,7 +611,7 @@ static void ecu_update(void)
   }
 
   //TODO: handle knock sensor adaptation
-  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.params.IgnitionAngle) {
+  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
 
   }
 
@@ -621,7 +621,7 @@ static void ecu_update(void)
         adaptation_last = now;
         lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.params.InjectionTime) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionTime) {
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
 
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
@@ -638,7 +638,7 @@ static void ecu_update(void)
 
         }
 
-        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.params.WishIdleValvePosition) {
+        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.WishIdleValvePosition) {
           idle_valve_pos_dif = idle_wish_valve_pos / idle_table_valve_pos - 1.0f;
           idle_valve_pos_adaptation *= idle_valve_pos_dif * lpf_calculation + 1.0f;
 
@@ -720,6 +720,10 @@ static void ecu_update(void)
   gParameters.Rsvd2Output = out_get_rsvd2(NULL) != GPIO_PIN_RESET;
 
   gParameters.IsRunning = running;
+  gParameters.IsCheckEngine = gEcuIsError;
+  gParameters.InjectorChannel = table->inj_channel;
+
+  strcpy(gParameters.CurrentTableName, table->name);
 
   updated_last = now;
 }
@@ -1202,7 +1206,7 @@ static void ecu_fuelpump_process(void)
   uint32_t now = Delay_Tick;
   uint8_t rotates = csps_isrotates();
 
-  if(gForceParameters.Enable.params.FuelPumpRelay) {
+  if(gForceParameters.Enable.FuelPumpRelay) {
     active = gForceParameters.FuelPumpRelay > 0;
     active_last = now;
   } else {
@@ -1233,7 +1237,7 @@ static void ecu_fan_process(void)
   fan_state = out_get_fan(NULL);
   status = sens_get_engine_temperature(&engine_temp);
 
-  if(gForceParameters.Enable.params.FanRelay) {
+  if(gForceParameters.Enable.FanRelay) {
     out_set_fan(gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
   } else if(status != HAL_OK) {
     out_set_fan(GPIO_PIN_SET);
@@ -1281,7 +1285,7 @@ static void ecu_checkengine_process(void)
 
   gEcuIsError = iserror;
 
-  if(gForceParameters.Enable.params.CheckEngine) {
+  if(gForceParameters.Enable.CheckEngine) {
     out_set_checkengine(gForceParameters.CheckEngine > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
     was_error = 0;
     iserror = 0;
@@ -1997,6 +2001,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       //PK_Copy(&PK_ParametersRequest, msgBuf);
       PK_ParametersResponse.Parameters = gParameters;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
+      break;
+
+    case PK_ForceParametersDataID :
+      PK_Copy(&PK_ForceParametersData, msgBuf);
+      gForceParameters = PK_ForceParametersData.Parameters;
+      PK_ForceParametersDataAcknowledge.ErrorCode = 0;
+      PK_SendCommand(xChaSrc, &PK_ForceParametersDataAcknowledge, sizeof(PK_ForceParametersDataAcknowledge));
       break;
 
     default:
