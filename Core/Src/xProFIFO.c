@@ -9,7 +9,7 @@
 #include "xProFIFO.h"
 #include <string.h>
 
-static inline int infoGetSize(sProInfo* info) {
+STATIC_INLINE int infoGetSize(sProInfo* info) {
     if(info->write >= info->read) return (info->write - info->read);
     else return (info->capacity - info->read + info->write);
 }
@@ -24,13 +24,13 @@ STATIC_INLINE void protMovePar(sProInfo* info, uint32_t* param, uint32_t move) {
 }
 
 
-uint32_t protGetSize(sProFIFO* fifo) {
+INLINE uint32_t protGetSize(sProFIFO* fifo) {
     uint32_t value;
         value = infoGetSize(&fifo->info);
     return value;
 }
 
-uint32_t protGetAvail(sProFIFO* fifo) {
+INLINE uint32_t protGetAvail(sProFIFO* fifo) {
     uint32_t value;
         value = infoGetAvail(&fifo->info);
     return value;
@@ -89,30 +89,30 @@ STATIC_INLINE uint32_t interPushSequence(sProFIFO* fifo, const void* xData, uint
     return retval;
 }
 
-uint32_t protPushSequence(sProFIFO* fifo, const void* xData, uint32_t xCount) {
+INLINE uint32_t protPushSequence(sProFIFO* fifo, const void* xData, uint32_t xCount) {
     uint32_t retval;
         retval=interPushSequence(fifo,xData,xCount);
     return retval;
 }
 
-uint32_t protPush(sProFIFO* fifo, const void* xData) {
+INLINE uint32_t protPush(sProFIFO* fifo, const void* xData) {
     uint32_t retval;
         retval=interPush(fifo,xData);
     return retval;
 }
 
-uint32_t protPull(sProFIFO* fifo, void* xDest) {
+INLINE uint32_t protPull(sProFIFO* fifo, void* xDest) {
     uint32_t retval;
         retval=interPull(fifo,xDest);
     return retval;
 }
 
-void protLook(sProFIFO* fifo, uint32_t xOffset, void* xDest) {
+INLINE void protLook(sProFIFO* fifo, uint32_t xOffset, void* xDest) {
         uint32_t aIndex = infoCorrect(&fifo->info, &fifo->info.read, xOffset);
         interLook(fifo,aIndex,xDest);
 }
 
-void protMoveWrite(sProFIFO* fifo, uint32_t amove) { protMovePar(&fifo->info, &fifo->info.write, amove); }
-void protMoveRead(sProFIFO* fifo, uint32_t amove) { protMovePar(&fifo->info, &fifo->info.read, amove); }
+INLINE void protMoveWrite(sProFIFO* fifo, uint32_t amove) { protMovePar(&fifo->info, &fifo->info.write, amove); }
+INLINE void protMoveRead(sProFIFO* fifo, uint32_t amove) { protMovePar(&fifo->info, &fifo->info.read, amove); }
 
-uint8_t protIsSome(sProFIFO* fifo) { return fifo->info.read != fifo->info.write; }
+INLINE uint8_t protIsSome(sProFIFO* fifo) { return fifo->info.read != fifo->info.write; }

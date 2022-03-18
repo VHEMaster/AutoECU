@@ -14,7 +14,7 @@
 #include "xCommand.h"
 
 #define PACKET_C(x) extern x##_t x;
-#define PACKET_HEADER uint8_t PacketID; uint8_t Destination; uint16_t PacketLength;
+#define PACKET_HEADER uint16_t PacketID; uint16_t PacketLength;
 #define PACKET_DEFINE(x,n) x##_t; static const uint8_t x##ID = n; PACKET_C(x)
 
 typedef struct
@@ -285,5 +285,8 @@ extern int16_t PK_Copy(void * dest, void * source);
 void PK_SenderInit(void);
 void PK_SenderLoop(void);
 void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size);
+void PK_Sender_RegisterDestination(eTransChannels xDest,
+    uint8_t *xQueueBuffer, uint32_t xQueueBufferSize,
+    uint8_t *xSendingBuffer, uint32_t xSendingBufferSize);
 
 #endif /* PACKETS_H_ */

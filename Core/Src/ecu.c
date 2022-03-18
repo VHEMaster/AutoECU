@@ -1460,7 +1460,6 @@ static void ecu_mem_loop(void)
     flashstatus = config_save_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
     if(flashstatus)
     {
-      PK_SaveConfigAcknowledge.Destination = Mem.savereqsrc;
       PK_SaveConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
       PK_SendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       gStatus.Flash.Struct.Save = flashstatus;
@@ -1474,7 +1473,6 @@ static void ecu_mem_loop(void)
     flashstatus = config_load_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
     if(flashstatus)
     {
-      PK_RestoreConfigAcknowledge.Destination = Mem.loadreqsrc;
       PK_RestoreConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
       PK_SendCommand(Mem.loadreqsrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
       gStatus.Flash.Struct.Load = flashstatus;
@@ -1584,7 +1582,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     if(DelayDiff(now, pclastsent) > 100000)
     {
       pclastsent = now;
-      PK_PcConnected.Destination = etrCTRL;
       PK_SendCommand(xChaSrc, &PK_PcConnected, sizeof(PK_PcConnected));
     }
   }

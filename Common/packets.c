@@ -1,8 +1,9 @@
+#include <string.h>
 #include "packets.h"
 #include "xProFIFO.h"
 #include "xCommand.h"
 
-#define PACKET_C(x) x##_t x __attribute__((aligned(32))) = {x##ID,0,sizeof(x##_t)}
+#define PACKET_C(x) x##_t x __attribute__((aligned(32))) = {x##ID,sizeof(x##_t)}
 
 PACKET_C(PK_Ping);
 PACKET_C(PK_Pong);
@@ -37,89 +38,113 @@ PACKET_C(PK_CriticalMemoryAcknowledge);
 PACKET_C(PK_ParametersRequest);
 PACKET_C(PK_ParametersResponse);
 
-static eTransChannels txDests[] = { etrPC, etrIMMO, etrCTRL, etrBT };
-#define TX_COUNT ITEMSOF(txDests)
+#define SENDERS_MAX_COUNT 4
 
-#define SENDING_QUEUE_SIZE (MAX_PACK_LEN*4)
-static uint8_t buffSendingQueue[TX_COUNT][SENDING_QUEUE_SIZE];
+static uint32_t txDestsCount = 0;
+static eTransChannels txDests[SENDERS_MAX_COUNT] = {0};
 
-#define SENDING_BUFFER_SIZE (MAX_PACK_LEN)
-static uint8_t buffSendingBuffer[TX_COUNT][SENDING_BUFFER_SIZE];
+uint32_t buffSendingQueueSize[SENDERS_MAX_COUNT] = {0};
+uint32_t buffSendingBufferSize[SENDERS_MAX_COUNT] = {0};
 
-static sProFIFO fifoSendingQueue[TX_COUNT];
+static uint8_t *buffSendingQueue[SENDERS_MAX_COUNT] = {NULL};
+static uint8_t *buffSendingBuffer[SENDERS_MAX_COUNT] = {NULL};
 
-int16_t PK_Copy(void * dest, void * source)
+static sProFIFO fifoSendingQueue[SENDERS_MAX_COUNT] = {{NULL}};
+
+static uint8_t sender_sending[SENDERS_MAX_COUNT] = {0};
+static uint8_t sender_destination[SENDERS_MAX_COUNT] = {0};
+static uint16_t sender_size[SENDERS_MAX_COUNT] = {0};
+
+void PK_Sender_RegisterDestination(eTransChannels xDest,
+    uint8_t *xQueueBuffer, uint32_t xQueueBufferSize,
+    uint8_t *xSendingBuffer, uint32_t xSendingBufferSize)
 {
-  if(dest == 0 || source == 0) return -1;
-  uint8_t * dest_data = (uint8_t*)dest;
-  uint8_t * source_data = (uint8_t*)source;
-  int16_t length = dest_data[1];
-  if(dest_data[1] != source_data[1] || dest_data[0] != source_data[0] || length == 0 || length > 384) return -2;
-  for(uint8_t i=2;i<length+2;i++)
-    *dest_data++ = *source_data++;
-  return length;
-}
+  if(txDestsCount < SENDERS_MAX_COUNT) {
+    txDests[txDestsCount] = xDest;
+    buffSendingQueue[txDestsCount] = xQueueBuffer;
+    buffSendingQueueSize[txDestsCount] = xQueueBufferSize;
+    buffSendingBuffer[txDestsCount] = xSendingBuffer;
+    buffSendingBufferSize[txDestsCount] = xSendingBufferSize;
 
-void PK_SenderInit(void)
-{
-  for(int i = 0; i < TX_COUNT; i++)
-    protInit(&fifoSendingQueue[i], buffSendingQueue[i], 1, SENDING_QUEUE_SIZE);
-}
+    protInit(&fifoSendingQueue[txDestsCount], buffSendingQueue[txDestsCount], 1, buffSendingQueueSize[txDestsCount]);
 
-void PK_SenderLoop(void)
-{
-  static uint8_t sending[TX_COUNT] = {0};
-  static uint8_t destination[TX_COUNT] = {0};
-  static uint16_t size[TX_COUNT] = {0};
-  uint8_t byte;
-  uint8_t * pnt;
-  int8_t status;
+    sender_sending[txDestsCount] = 0;
 
-  for(int i = 0; i < TX_COUNT; i++)
-  {
-    do
-    {
-      if(!sending[i])
-      {
-        if(protGetSize(&fifoSendingQueue[i]) > 8) {
-          protLook(&fifoSendingQueue[i],1,&destination[i]);
-          protLook(&fifoSendingQueue[i],2,&byte);
-          size[i] = byte;
-          protLook(&fifoSendingQueue[i],3,&byte);
-          size[i] |= byte << 8;
-          if(destination[i] > etrNone && destination[i] < etrCount)
-          {
-            if(protGetSize(&fifoSendingQueue[i]) >= size[i])
-            {
-              pnt = buffSendingBuffer[i];
-              for(int i = 0; i < size[i]; i++)
-                protPull(&fifoSendingQueue[i], pnt++);
-              if(destination[i])
-                sending[i] = 1;
-            }
-          } else protClear(&fifoSendingQueue[i]);
-        }
-      } else {
-        status = xSender(destination[i], buffSendingBuffer[i], size[i]);
-        if(status != 0)
-        {
-          sending[i] = 0;
-          continue;
-        }
-      }
-    } while(0);
+    txDestsCount++;
   }
 }
 
 void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size)
 {
   sProFIFO *fifo = NULL;
-  ((sDummyPacketStruct *)buffer)->Destination = xDest;
-  for(int i = 0; i < TX_COUNT; i++) {
-    if(txDests[i] == xDest) {
-      fifo = &fifoSendingQueue[i];
+  for(int i = 0; i < SENDERS_MAX_COUNT; i++) {
+    if(txDests[i]) {
+      if(txDests[i] == xDest) {
+        fifo = &fifoSendingQueue[i];
+        protPushSequence(fifo, (uint8_t *)buffer, size);
+        break;
+      }
+    } else {
       break;
     }
   }
-  protPushSequence(fifo, (uint8_t *)buffer, size);
+}
+
+int16_t PK_Copy(void * dest, void * source)
+{
+  if(!dest || !source) return -1;
+  uint8_t * dest_data = (uint8_t*)dest;
+  uint8_t * source_data = (uint8_t*)source;
+  int16_t length = dest_data[2] | (dest_data[3] << 8);
+  if(memcmp(dest_data, source_data, 4) != 0 || length == 0 || length > MAX_PACK_LEN) return -2;
+  memcpy(dest, source, length);
+  return length;
+}
+
+void PK_SenderInit(void)
+{
+
+}
+
+void PK_SenderLoop(void)
+{
+  uint8_t byte;
+  uint8_t * pnt;
+  int8_t status;
+
+  for(int i = 0; i < SENDERS_MAX_COUNT; i++)
+  {
+    if(txDests[i]) {
+      do {
+        if(!sender_sending[i]) {
+          if(protGetSize(&fifoSendingQueue[i]) > 4) {
+            protLook(&fifoSendingQueue[i],2,&byte);
+            sender_size[i] = byte;
+            protLook(&fifoSendingQueue[i],3,&byte);
+            sender_size[i] |= byte << 8;
+
+            if(sender_destination[i] > etrNone && sender_destination[i] < etrCount && sender_destination[i] == txDests[i]) {
+              if(protGetSize(&fifoSendingQueue[i]) >= sender_size[i]) {
+                pnt = buffSendingBuffer[i];
+                for(int i = 0; i < sender_size[i]; i++)
+                  protPull(&fifoSendingQueue[i], pnt++);
+                if(sender_destination[i]) {
+                  sender_sending[i] = 1;
+                  continue;
+                }
+              }
+            } else protClear(&fifoSendingQueue[i]);
+          }
+        } else {
+          status = xSender(txDests[i], buffSendingBuffer[i], sender_size[i]);
+          if(status != 0) {
+            sender_sending[i] = 0;
+            continue;
+          }
+        }
+      } while(0);
+    } else {
+      break;
+    }
+  }
 }

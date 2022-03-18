@@ -81,6 +81,13 @@ static void MX_UART8_Init(void);
 static void MX_CRC_Init(void);
 static void MX_RNG_Init(void);
 
+#define SENDING_QUEUE_SIZE (MAX_PACK_LEN*4)
+#define SENDING_BUFFER_SIZE (MAX_PACK_LEN)
+
+static eTransChannels PK_ECU_TxDests[] = {etrPC, etrCTRL, etrIMMO, etrBT};
+static uint8_t PK_ECU_TxQueueBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_QUEUE_SIZE] = {{0}};
+static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_SIZE] = {{0}};
+
 static volatile uint32_t o2_pwm_period = 0;
 
 INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
@@ -293,6 +300,13 @@ int main(void)
   PK_SenderInit();
   xFifosInit();
   xGetterInit();
+
+  for(int i = 0; i < ITEMSOF(PK_ECU_TxDests); i++)
+    if(PK_ECU_TxDests[i])
+      PK_Sender_RegisterDestination(PK_ECU_TxDests[i],
+          PK_ECU_TxQueueBuffers[i], ITEMSOF(PK_ECU_TxQueueBuffers[i]),
+          PK_ECU_TxSendingBuffers[i], ITEMSOF(PK_ECU_TxSendingBuffers[i]));
+
 
   ADC_Init(&hspi1, &hadc1);
   SST25_Init(&hspi2);
