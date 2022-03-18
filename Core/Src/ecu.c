@@ -458,6 +458,17 @@ static void ecu_update(void)
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
 
+
+  if(idle_flag && running) {
+    if(out_get_fan(NULL) != GPIO_PIN_RESET) {
+      ignition_correction += table->idle_ign_fan_corr;
+
+      if(ignition_correction > table->idle_ign_deviation_max)
+        ignition_correction = table->idle_ign_deviation_max;
+      else if(ignition_correction < table->idle_ign_deviation_min)
+        ignition_correction = table->idle_ign_deviation_min;
+    }
+  }
   ignition_angle += ignition_correction;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
@@ -468,12 +479,6 @@ static void ecu_update(void)
   if(gForceParameters.Enable.params.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
 
-
-  if(idle_flag && running) {
-    if(out_get_fan(NULL) != GPIO_PIN_RESET) {
-      ignition_angle += table->idle_ign_fan_corr;
-    }
-  }
 
   if(gForceParameters.Enable.params.IgnitionAngle)
     ignition_angle = gForceParameters.IgnitionAngle;

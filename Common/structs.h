@@ -203,8 +203,6 @@ typedef struct {
 }sEcuCorrections;
 
 typedef struct {
-    int32_t tables_count;
-
     float engineVolume;
 
     int32_t isForceTable;
@@ -235,7 +233,7 @@ typedef struct {
     int32_t bluetoothPin;
     char bluetoothName[TABLE_STRING_MAX];
 
-    int32_t Reserved32[987];
+    int32_t Reserved32[988];
 }sEcuParams;
 
 typedef struct {

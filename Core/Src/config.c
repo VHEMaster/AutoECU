@@ -327,8 +327,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
 void config_default_params(sEcuParams *table)
 {
-  table->tables_count = TABLE_SETUPS_MAX;
-
   table->engineVolume = 1551.0f;
 
   table->isSwitchByExternal = 0;
