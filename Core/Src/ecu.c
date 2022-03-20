@@ -24,6 +24,7 @@
 #include "math_misc.h"
 #include "config.h"
 #include "pid.h"
+#include "crc.h"
 
 #include <string.h>
 #include "arm_math.h"
@@ -762,7 +763,9 @@ static void ecu_backup_save_process(void)
   int8_t critical_status = 0;
   int8_t backup_status = 0;
 
-  critical_status = config_save_critical_backup(&gEcuCriticalBackup);
+  if(!CRC16_IsBusy()) {
+    critical_status = config_save_critical_backup(&gEcuCriticalBackup);
+  }
 
   switch(state) {
     case 0:
@@ -776,9 +779,11 @@ static void ecu_backup_save_process(void)
       }
       break;
     case 2:
-      backup_status = config_save_corrections(&gEcuCorrections);
-      if(backup_status) {
-        state = 0;
+      if(!CRC16_IsBusy()) {
+        backup_status = config_save_corrections(&gEcuCorrections);
+        if(backup_status) {
+          state = 0;
+        }
       }
       break;
 

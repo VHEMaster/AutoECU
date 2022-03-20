@@ -22,7 +22,7 @@ uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
 
 #define FLASH_VERSION 0x00000010
 
-#define REGION_SIZE 0x400000
+#define REGION_SIZE 0x200000
 #define PAGE_SIZE 32768
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
 uint8_t page_buffer[32768] __attribute__ ((aligned(32)));

@@ -35,6 +35,7 @@ uint16_t CRC16_Generate(uint8_t * input, uint32_t size)
 #elif defined(CRC_HW)
 
 static CRC_HandleTypeDef *handle_crc;
+static volatile uint8_t CRC_IsBusy = 0;
 
 void CRC16_Init(CRC_HandleTypeDef *hcrc)
 {
@@ -54,11 +55,18 @@ void CRC16_Init(CRC_HandleTypeDef *hcrc)
   }
 }
 
+INLINE uint8_t CRC16_IsBusy(void)
+{
+  return CRC_IsBusy;
+}
+
 INLINE uint16_t CRC16_Generate(uint8_t *input, uint32_t size)
 {
   uint16_t result = 0;
   if (handle_crc != NULL) {
+    CRC_IsBusy = 1;
     result = HAL_CRC_Calculate(handle_crc, (uint32_t *)input, size);
+    CRC_IsBusy = 0;
   }
   return result;
 }
@@ -67,7 +75,9 @@ INLINE uint8_t CRC8_Generate(uint8_t *input, uint32_t size)
 {
   uint16_t result = 0;
   if (handle_crc != NULL) {
+    CRC_IsBusy = 1;
     result = HAL_CRC_Calculate(handle_crc, (uint32_t *)input, size);
+    CRC_IsBusy = 0;
   }
   return (result & 0xFF) ^ (result >> 8);
 }

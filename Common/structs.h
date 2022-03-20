@@ -185,7 +185,7 @@ typedef struct {
 
     float knock_noise_level[TABLE_ROTATES_MAX];
 
-    int32_t Reserved[128];
+    int32_t Reserved[1154];
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
@@ -233,7 +233,7 @@ typedef struct {
     int32_t bluetoothPin;
     char bluetoothName[TABLE_STRING_MAX];
 
-    int32_t Reserved32[988];
+    int32_t Reserved32[996];
 }sEcuParams;
 
 typedef struct {
