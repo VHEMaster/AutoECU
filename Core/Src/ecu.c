@@ -798,7 +798,7 @@ static void ecu_backup_save_process(void)
   }
 }
 
-STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder, float rpm)
 {
   static uint8_t cutoff_processing_prev = 0;
   static int8_t cutoffcnt0 = -1;
@@ -820,8 +820,6 @@ STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
   //Cutoff always enabled
   if(1)
   {
-    sCspsData csps = csps_data();
-    float rpm = csps_getrpm(csps);
     int32_t mode = gEcuParams.cutoffMode;
     float cutoffrpm = gEcuParams.cutoffRPM;
     if(rpm >= cutoffrpm)
@@ -964,14 +962,12 @@ STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder)
   return 1;
 }
 
-STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, float rpm)
 {
-  sCspsData csps = csps_data();
-  float rpm = csps_getrpm(csps);
   float cutoffrpm = gEcuParams.cutoffRPM;
 
   //Just for safety purpose...
-  if(rpm >= cutoffrpm + 500) {
+  if(rpm >= cutoffrpm + 250) {
     return 0;
   }
 
@@ -1037,6 +1033,7 @@ static void ecu_process(void)
   float anglesbeforeignite[4];
   float anglesbeforeinject[4];
 
+  float rpm = csps_getrpm(csps);
   float found = csps_isfound();
   float uspa = csps_getuspa(csps);
   float period = csps_getperiod(csps);
@@ -1141,7 +1138,7 @@ static void ecu_process(void)
         {
           saturated[i] = 1;
 
-          if(ecu_cutoff_ign_act(cy_count_ignition, i))
+          if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
             ecu_coil_saturate(cy_count_ignition, i);
         }
       }
@@ -1178,7 +1175,7 @@ static void ecu_process(void)
         {
           injection[i] = 1;
 
-          if(ecu_cutoff_inj_act(cy_count_injection, i) && inj_pulse > 0.0f)
+          if(ecu_cutoff_inj_act(cy_count_injection, i, rpm) && inj_pulse > 0.0f)
             ecu_inject(cy_count_injection, i, inj_pulse);
         }
       }
