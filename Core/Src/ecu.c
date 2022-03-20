@@ -1196,8 +1196,11 @@ static void ecu_process(void)
     }
   } else {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin;
-    gInjChPorts[0]->BSRR = gInjChPins[0] << 16;
-    gInjChPorts[1]->BSRR = gInjChPins[1] << 16;
+    for(int i = 0; i < ITEMSOF(gInjChPins); i++)
+      gInjChPorts[i]->BSRR = gInjChPins[i] << 16;
+    for(int i = 0; i < ITEMSOF(gIgnPorts); i++)
+      gIgnPorts[i]->BSRR = gIgnPins[i] << 16;
+
   }
 }
 
