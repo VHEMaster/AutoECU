@@ -72,16 +72,6 @@ static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 
-static HAL_StatusTypeDef ecu_get_start_allowed(void)
-{
-  return gParameters.StartAllowed ? HAL_OK : HAL_ERROR;
-}
-
-static void ecu_set_start_allowed(HAL_StatusTypeDef allowed)
-{
-  gParameters.StartAllowed = allowed == HAL_OK ? 1 : 0;
-}
-
 static uint8_t ecu_get_table(void)
 {
   return gParameters.CurrentTable;
@@ -1053,6 +1043,7 @@ static void ecu_process(void)
   uint8_t individual_coils;
   uint8_t use_tsps;
   uint8_t injector_channel;
+  uint8_t start_allowed = gParameters.StartAllowed;
 
   injector_channel = gEcuTable[gParameters.CurrentTable].inj_channel;
   individual_coils = gEcuParams.isIndividualCoils;
@@ -1108,7 +1099,7 @@ static void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
-  if(found)
+  if(found && start_allowed)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
@@ -1539,13 +1530,13 @@ void ecu_init(void)
 {
   ecu_config_init();
 
-  ecu_set_start_allowed(HAL_OK);
   ecu_set_table(gEcuParams.startupTableNumber);
 
   ecu_pid_init();
 
   ecu_init_post_init();
 
+  gParameters.StartAllowed = 1;
   gEcuInitialized = 1;
 }
 
