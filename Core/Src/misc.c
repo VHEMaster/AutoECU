@@ -700,6 +700,7 @@ inline void Misc_EnableIdleValvePosition(uint8_t enablement_position)
   for(int i = 0; i < (enablement_position & 3); i++)
     STEP_INCREMENT();
   STEP_APPEND();
+  DelayUs(20);
   STEP_HOLD();
   IdleValveEnabled = 1;
 }
@@ -714,15 +715,23 @@ static void IdleValve_FastLoop(void)
   uint8_t target = IdleValvePositionTarget;
   static uint8_t is_calibrating = 0;
   static uint16_t calibration_steps = 0;
+  static uint8_t mode = 1;
+  static uint8_t mode_prev = 1;
 
   if(IdleValveEnabled) {
     if(IdleValveCalibrate == IdleValveCalibratedOk || !IdleValveCalibrate) {
       is_calibrating = 0;
       calibration_steps = 0;
       if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
-        last_tick = now;
         if(current != target) {
           STEP_ACCELERATE();
+          mode = 3;
+          if(mode != mode_prev) {
+            mode_prev = 3;
+            return;
+          }
+          last_tick = now;
+
           if(current < target) {
             IdleValvePositionCurrent++;
             STEP_INCREMENT();
@@ -736,12 +745,15 @@ static void IdleValve_FastLoop(void)
         } else {
           if(is_hold) {
             STEP_HOLD();
+            mode = mode_prev = 1;
           } else {
             if(DelayDiff(now, last_move) > 1000000) {
-              last_move = now;
+              mode = mode_prev = 1;
               STEP_HOLD();
               is_hold = 1;
-            } else {
+              last_move = now;
+            } else if(DelayDiff(now, last_move) > STEP_MAX_FREQ * 5) {
+              mode = mode_prev = 2;
               STEP_NORMAL();
             }
           }
@@ -755,6 +767,8 @@ static void IdleValve_FastLoop(void)
           IdleValvePositionCurrent = 0;
           //STEP_ACCELERATE();
           STEP_NORMAL();
+          mode = mode_prev = 2;
+          last_tick = now;
         } else {
 
           if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
@@ -766,7 +780,10 @@ static void IdleValve_FastLoop(void)
               is_calibrating = 0;
               calibration_steps = 0;
               IdleValvePositionCurrent = 0;
+              mode = mode_prev = 2;
               STEP_NORMAL();
+              last_move = now;
+              last_tick = now;
               IdleValveCalibratedOk = 1;
             }
           }
