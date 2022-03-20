@@ -224,6 +224,7 @@ typedef struct {
     int32_t useTSPS;
     int32_t useKnockSensor;
     int32_t performAdaptation;
+    int32_t isSingleCoil;
     int32_t isIndividualCoils;
 
     float fanHighTemperature;
@@ -233,7 +234,7 @@ typedef struct {
     int32_t bluetoothPin;
     char bluetoothName[TABLE_STRING_MAX];
 
-    int32_t Reserved32[996];
+    int32_t Reserved32[995];
 }sEcuParams;
 
 typedef struct {

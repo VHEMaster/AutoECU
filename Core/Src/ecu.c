@@ -976,6 +976,11 @@ STATIC_INLINE void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
       gIgnPorts[1]->BSRR = gIgnPins[1];
       gIgnPorts[2]->BSRR = gIgnPins[2];
     }
+  } else if(cy_count == 1) {
+    gIgnPorts[0]->BSRR = gIgnPins[0];
+    gIgnPorts[1]->BSRR = gIgnPins[1];
+    gIgnPorts[2]->BSRR = gIgnPins[2];
+    gIgnPorts[3]->BSRR = gIgnPins[3];
   }
 }
 
@@ -991,6 +996,11 @@ STATIC_INLINE void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
       gIgnPorts[1]->BSRR = gIgnPins[1] << 16;
       gIgnPorts[2]->BSRR = gIgnPins[2] << 16;
     }
+  } else if(cy_count == 1) {
+    gIgnPorts[0]->BSRR = gIgnPins[0] << 16;
+    gIgnPorts[1]->BSRR = gIgnPins[1] << 16;
+    gIgnPorts[2]->BSRR = gIgnPins[2] << 16;
+    gIgnPorts[3]->BSRR = gIgnPins[3] << 16;
   }
 }
 
@@ -1041,20 +1051,28 @@ static void ecu_process(void)
   uint8_t cy_count_ignition;
   uint8_t cy_count_injection;
   uint8_t individual_coils;
+  uint8_t single_coil;
   uint8_t use_tsps;
   uint8_t injector_channel;
   uint8_t start_allowed = gParameters.StartAllowed;
 
   injector_channel = gEcuTable[gParameters.CurrentTable].inj_channel;
+  single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
   phased_injection = use_tsps && csps_isphased(csps);
-  phased_ignition = phased_injection && individual_coils;
+  phased_ignition = phased_injection && individual_coils && !single_coil;
   cy_count_injection = phased_injection ? 4 : 2;
   cy_count_ignition = phased_ignition ? 4 : 2;
   angle_ignite = gParameters.IgnitionAngle;
-  time_sat = gParameters.IgnitionPulse;
-  time_pulse = 2000;
+
+  if(single_coil) {
+    time_sat = gParameters.IgnitionPulse;
+    time_pulse = 2000;
+  } else {
+    time_sat = period / 2.0f * 0.65f;
+    time_pulse = period / 2.0f * 0.35f;
+  }
 
   inj_phase = gParameters.InjectionPhase;
   inj_pulse = gParameters.InjectionPulse;
@@ -1129,8 +1147,12 @@ static void ecu_process(void)
         {
           saturated[i] = 1;
 
-          if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
-            ecu_coil_saturate(cy_count_ignition, i);
+          if(single_coil) {
+            ecu_coil_saturate(1, 0);
+          } else {
+            if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
+              ecu_coil_saturate(cy_count_ignition, i);
+          }
         }
       }
 
@@ -1141,7 +1163,12 @@ static void ecu_process(void)
           ignited[i] = 1;
           saturated[i] = 0;
 
-          ecu_coil_ignite(cy_count_ignition, i);
+          if(single_coil) {
+            if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
+              ecu_coil_ignite(1, 0);
+          } else {
+            ecu_coil_ignite(cy_count_ignition, i);
+          }
         }
       }
       else ignited[i] = 0;
