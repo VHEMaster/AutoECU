@@ -400,9 +400,9 @@ static void ecu_update(void)
     map = 0;
   }
 
-  air_destiny = ecu_get_air_destiny(map, air_temp);
+  air_destiny = ecu_get_air_destiny(map, air_temp) * 1000.0f;
 
-  cycle_air_flow = effective_volume * 0.25f * air_destiny * 1000.0f;
+  cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
   while(halfturns != prev_halfturns) {
