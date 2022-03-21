@@ -188,7 +188,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1154];
+    int32_t Reserved[1146];
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
@@ -196,14 +196,14 @@ typedef struct {
     int8_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     int8_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     int8_t idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
-}sEcuCorrectionsBackup;
+}sEcuCorrectionsBackup __attribute__((aligned(32)));
 
 typedef struct {
     float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
-}sEcuCorrections;
+}sEcuCorrections __attribute__((aligned(32)));
 
 typedef struct {
     float engineVolume;
@@ -238,7 +238,7 @@ typedef struct {
     char bluetoothName[TABLE_STRING_MAX];
 
     int32_t Reserved32[995];
-}sEcuParams;
+}sEcuParams __attribute__((aligned(32)));
 
 typedef struct {
     char CurrentTableName[TABLE_STRING_MAX];
@@ -310,7 +310,7 @@ typedef struct {
     int32_t StartAllowed;
     int32_t IsRunning;
     int32_t IsCheckEngine;
-}sParameters;
+}sParameters __attribute__((aligned(32)));
 
 typedef struct {
     float IgnitionAngle;
@@ -341,7 +341,7 @@ typedef struct {
       uint8_t FuelPumpRelay;
       uint8_t CheckEngine;
     } Enable;
-}sForceParameters;
+}sForceParameters __attribute__((aligned(32)));
 
 typedef struct {
     union {
@@ -380,13 +380,13 @@ typedef struct {
     HAL_StatusTypeDef O2Status;
     sO2Diagnostic O2Diagnostic;
     //TODO: add more diagnostic fields
-}sStatus;
+}sStatus __attribute__((aligned(32)));
 
 typedef struct {
     float km_driven;
     float fuel_consumed;
     sStatus status_recorded;
     uint8_t idle_valve_position;
-}sEcuCriticalBackup;
+}sEcuCriticalBackup __attribute__((aligned(32)));
 
 #endif /* STRUCTS_H_ */
