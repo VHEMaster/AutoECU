@@ -8,6 +8,8 @@
 #ifndef DEFINES_H_
 #define DEFINES_H_
 
+#define ECU_CYLINDERS_COUNT 4
+
 #define TABLE_SETUPS_MAX 4
 #define TABLE_PRESSURES_MAX 16
 #define TABLE_THROTTLES_MAX 16

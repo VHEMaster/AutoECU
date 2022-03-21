@@ -322,6 +322,11 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->knock_noise_level, default_knock_noise_level, sizeof(default_knock_noise_level));
 
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    table->cy_corr_injection[i] = 0;
+    table->cy_corr_ignition[i] = 0;
+  }
+
 
 }
 
