@@ -301,15 +301,13 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
 
-
-
   table->idle_valve_to_massair_pid_p = 3.0f;
-  table->idle_valve_to_massair_pid_i = 0.0f;
-  table->idle_valve_to_massair_pid_d = 0.0f;
+  table->idle_valve_to_massair_pid_i = 1.0f;
+  table->idle_valve_to_massair_pid_d = 1.0f;
 
   table->idle_ign_to_rpm_pid_p = 0.08f;
-  table->idle_ign_to_rpm_pid_i = 0.0f;
-  table->idle_ign_to_rpm_pid_d = 0.0f;
+  table->idle_ign_to_rpm_pid_i = 0.02f;
+  table->idle_ign_to_rpm_pid_d = 0.01f;
 
   table->idle_ign_deviation_min = -14.0f;
   table->idle_ign_deviation_max = 14.0f;
