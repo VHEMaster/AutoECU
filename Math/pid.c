@@ -59,7 +59,7 @@ INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
   pid->Error = error;
   P = pid->P = error * pid->Kp;
   I = pid->I += error * dtf * pid->Ki;
-  D = pid->D = -(input - pid->Current) / (dtf * pid->Kd);
+  D = pid->D = -(input - pid->Current) / dtf * pid->Kd;
 
   pid->Current = input;
 
