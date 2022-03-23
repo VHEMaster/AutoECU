@@ -261,6 +261,7 @@ static void ecu_update(void)
   static float enrichment = 0.0f;
   float enrichment_proportion;
   float fuel_amount_per_cycle;
+  float knock_threshold;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -346,6 +347,17 @@ static void ecu_update(void)
 
   idle_flag = throttle < 0.5f && running;
 
+  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+    wish_fault_rpm = 1400.0f;
+  } else if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    wish_fault_rpm = 1700.0f;
+    //TODO: check how will it work?
+    map = throttle * 913.25f + 10000.0f; //throttle / 100 * (101325-10000) + 10000
+  } else {
+    wish_fault_rpm = 0.0f;
+    map = 0;
+  }
+
   fuel_abs_pressure = fuel_pressure + (1.0f - map * 0.00001f);
   fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
   fuel_flow_per_us *= fuel_abs_pressure / fuel_pressure;
@@ -377,18 +389,6 @@ static void ecu_update(void)
   } else effective_volume = 0;
 
   effective_volume *= gEcuParams.engineVolume;
-
-
-  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
-    wish_fault_rpm = 1400.0f;
-  } else if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    wish_fault_rpm = 1700.0f;
-    //TODO: check how will it work?
-    map = throttle * 913.25f + 10000.0f; //throttle / 100 * (101325-10000) + 10000
-  } else {
-    wish_fault_rpm = 0.0f;
-    map = 0;
-  }
 
   air_destiny = ecu_get_air_destiny(map, air_temp) * 1000.0f;
 
@@ -518,6 +518,7 @@ static void ecu_update(void)
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
+  knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
 
   idle_wish_rpm += idle_rpm_shift;
 
@@ -603,7 +604,15 @@ static void ecu_update(void)
 
   //TODO: handle knock sensor adaptation
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
-
+    if(csps_isrunning()) {
+      if(knock_filtered >= knock_threshold) {
+        gStatus.KnockStatus = HAL_ERROR;
+      } else if(knock < knock_noise_level * 0.5f) {
+        gStatus.KnockStatus = HAL_OK;
+      } else {
+        gStatus.KnockStatus = HAL_OK;
+      }
+    }
   }
 
   if(gEcuParams.performAdaptation) {

@@ -234,12 +234,17 @@ static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
 
 static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
     0, 50, 100, 100, 100, 150, 150, 150,
-    200, 200, 200, 200, 250, 250, 300, 300
+    150, 150, 200, 200, 200, 200, 200, 200
 };
 
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+    0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f,
+    0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f
+};
+
+static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
+    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
 };
 
 void config_default_table(sEcuTable *table, uint8_t number)
@@ -319,6 +324,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_rpm_shift, default_idle_rpm_shift, sizeof(default_idle_rpm_shift));
 
   memcpy(table->knock_noise_level, default_knock_noise_level, sizeof(default_knock_noise_level));
+  memcpy(table->knock_threshold, default_knock_threshold, sizeof(default_knock_threshold));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
