@@ -65,6 +65,12 @@ typedef enum {
   OutputDiagShortToGnd = 3
 }eOutputDiagnosticStatus;
 
+typedef enum {
+  KnockStatusOk = 0,
+  KnockStatusDedonation,
+  KnockStatusLowNoise
+}eKnockStatus;
+
 typedef struct {
   struct {
     union {
@@ -379,8 +385,8 @@ typedef struct {
     sOutputDiagnostic OutputDiagnostic;
     HAL_StatusTypeDef IdleValvePosition;
     HAL_StatusTypeDef O2Status;
-    HAL_StatusTypeDef KnockStatus;
     sO2Diagnostic O2Diagnostic;
+    eKnockStatus KnockStatus;
     //TODO: add more diagnostic fields
 }sStatus __attribute__((aligned(32)));
 
@@ -390,5 +396,17 @@ typedef struct {
     sStatus status_recorded;
     uint8_t idle_valve_position;
 }sEcuCriticalBackup __attribute__((aligned(32)));
+
+typedef struct {
+    uint32_t code;
+    char *str;
+    uint8_t active;
+}sEcuCheckItem;
+
+typedef struct {
+    uint32_t Count;
+    uint32_t Max;
+    sEcuCheckItem Items[CHECK_ITEMS_MAX];
+}sEcuCheckData;
 
 #endif /* STRUCTS_H_ */

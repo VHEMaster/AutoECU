@@ -606,14 +606,14 @@ static void ecu_update(void)
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
     if(csps_isrunning()) {
       if(knock_filtered >= knock_threshold) {
-        gStatus.KnockStatus = HAL_ERROR;
+        gStatus.KnockStatus = KnockStatusDedonation;
       } else if(knock < knock_noise_level * 0.5f) {
-        gStatus.KnockStatus = HAL_OK;
+        gStatus.KnockStatus = KnockStatusLowNoise;
       } else {
-        gStatus.KnockStatus = HAL_OK;
+        gStatus.KnockStatus = KnockStatusOk;
       }
     } else {
-      gStatus.KnockStatus = HAL_OK;
+      gStatus.KnockStatus = KnockStatusOk;
     }
   }
 
@@ -1586,7 +1586,6 @@ static void ecu_diagnostic_loop(void)
     gStatus.O2Status = HAL_ERROR;
   }
 
-  ;
 }
 
 void ecu_init(void)
