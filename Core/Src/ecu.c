@@ -602,7 +602,6 @@ static void ecu_update(void)
     injection_phase_duration = 0;
   }
 
-  //TODO: handle knock sensor adaptation
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
     if(csps_isrunning()) {
       if(knock_filtered >= knock_threshold) {
@@ -612,6 +611,8 @@ static void ecu_update(void)
       } else {
         gStatus.KnockStatus = HAL_OK;
       }
+    } else {
+      gStatus.KnockStatus = HAL_OK;
     }
   }
 
@@ -1298,9 +1299,10 @@ static void ecu_fan_process(void)
 
 static void ecu_checkengine_process(void)
 {
-  static uint32_t error_last = 0;
+  static uint32_t hal_error_last = 0;
   static uint8_t was_error = 0;
   uint32_t now = Delay_Tick;
+  uint32_t hal_now = HAL_GetTick();
   uint8_t running = csps_isrunning();
   uint8_t iserror = 0;
 
@@ -1318,11 +1320,11 @@ static void ecu_checkengine_process(void)
 
   if(iserror) {
     was_error = 1;
-    error_last = now;
+    hal_error_last = now;
   }
 
   if(was_error) {
-    if(DelayDiff(now, error_last) < 5000000) {
+    if(HAL_DelayDiff(hal_now, hal_error_last) < 60000) {
       iserror = 1;
     } else {
       was_error = 0;
