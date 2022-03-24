@@ -288,7 +288,30 @@ typedef struct
   uint32_t ErrorCode;
 }PACKET_DEFINE(PK_ForceParametersDataAcknowledge, 34);
 
-extern int16_t PK_Copy(void * dest, void * source);
+typedef struct
+{
+  PACKET_HEADER;
+}PACKET_DEFINE(PK_StatusRequest, 35);
+
+typedef struct
+{
+  PACKET_HEADER;
+  sStatus Current;
+  sStatus Recorded;
+}PACKET_DEFINE(PK_StatusResponse, 36);
+
+typedef struct
+{
+  PACKET_HEADER;
+}PACKET_DEFINE(PK_ResetStatusRequest, 37);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+}PACKET_DEFINE(PK_ResetStatusResponse, 38);
+
+int16_t PK_Copy(void * dest, void * source);
 
 #undef PACKET_C
 #undef PACKET_HEADER

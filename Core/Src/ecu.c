@@ -56,6 +56,7 @@ static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
 static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
 static sEcuCriticalBackup gEcuCriticalBackup;
+static uint8_t volatile gStatusReset = 0;
 static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
@@ -1309,6 +1310,7 @@ static void ecu_checkengine_process(void)
   uint8_t byte;
   uint8_t *ptr_status = (uint8_t *)&gStatus;
   uint8_t *ptr_recorded = (uint8_t *)&gEcuCriticalBackup.status_recorded;
+  uint8_t status_reset = gStatusReset;
   uint32_t size = sizeof(sStatus);
 
 
@@ -1332,6 +1334,15 @@ static void ecu_checkengine_process(void)
   }
 
   gEcuIsError = iserror;
+
+  if(status_reset) {
+    memset(&gStatus, 0, sizeof(gStatus));
+    memset(&gEcuCriticalBackup.status_recorded, 0, sizeof(gEcuCriticalBackup.status_recorded));
+    gEcuIsError = 0;
+    was_error = 0;
+    iserror = 0;
+    gStatusReset = 0;
+  }
 
   if(gForceParameters.Enable.CheckEngine) {
     out_set_checkengine(gForceParameters.CheckEngine > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
@@ -2056,6 +2067,22 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       gForceParameters = PK_ForceParametersData.Parameters;
       PK_ForceParametersDataAcknowledge.ErrorCode = 0;
       PK_SendCommand(xChaSrc, &PK_ForceParametersDataAcknowledge, sizeof(PK_ForceParametersDataAcknowledge));
+      break;
+
+    case PK_StatusRequestID :
+      //PK_Copy(&PK_StatusRequest, msgBuf);
+      PK_StatusResponse.Current = gStatus;
+      PK_StatusResponse.Recorded = gEcuCriticalBackup.status_recorded;
+      PK_SendCommand(xChaSrc, &PK_StatusResponse, sizeof(PK_StatusResponse));
+      break;
+
+    case PK_ResetStatusRequestID :
+      //PK_Copy(&PK_StatusRequest, msgBuf);
+      gStatusReset = 1;
+      memset(&gStatus, 0, sizeof(gStatus));
+      memset(&gEcuCriticalBackup.status_recorded, 0, sizeof(gEcuCriticalBackup.status_recorded));
+      PK_ResetStatusResponse.ErrorCode = 0;
+      PK_SendCommand(xChaSrc, &PK_ResetStatusResponse, sizeof(PK_ResetStatusResponse));
       break;
 
     default:

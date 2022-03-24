@@ -39,6 +39,10 @@ PACKET_C(PK_ParametersRequest);
 PACKET_C(PK_ParametersResponse);
 PACKET_C(PK_ForceParametersData);
 PACKET_C(PK_ForceParametersDataAcknowledge);
+PACKET_C(PK_StatusRequest);
+PACKET_C(PK_StatusResponse);
+PACKET_C(PK_ResetStatusRequest);
+PACKET_C(PK_ResetStatusResponse);
 
 #define SENDERS_MAX_COUNT 4
 
