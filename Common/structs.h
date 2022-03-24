@@ -399,7 +399,7 @@ typedef struct {
 
 typedef struct {
     uint32_t code;
-    char *str;
+    const char *str;
     uint8_t active;
 }sEcuCheckItem;
 
