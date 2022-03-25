@@ -351,11 +351,8 @@ static void ecu_update(void)
     wish_fault_rpm = 1400.0f;
   } else if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     wish_fault_rpm = 1700.0f;
-    //TODO: check how will it work?
-    map = throttle * 913.25f + 10000.0f; //throttle / 100 * (101325-10000) + 10000
   } else {
     wish_fault_rpm = 0.0f;
-    map = 0;
   }
 
   speed *= gEcuParams.speedCorrection;
@@ -576,13 +573,13 @@ static void ecu_update(void)
   if(knock_filtered < 0.0f)
     knock_filtered = 0.0f;
 
-  if(!running) {
-    ignition_angle = table->ignition_initial;
-    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && throttle >= 80.0f)
-      injection_time = 0;
+  if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+    running = 0;
+    rotates = 0;
   }
 
   if(!rotates) {
+    running = 0;
     injection_time = 0;
     cycle_air_flow = 0;
     mass_air_flow = 0;
@@ -594,6 +591,12 @@ static void ecu_update(void)
     km_driven += speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
     fuel_consumed += fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / (60000000.0f / rpm)) * 0.001f;
     fuel_consumption = fuel_consumed / km_driven * 100.0f;
+  }
+
+  if(!running) {
+    ignition_angle = table->ignition_initial;
+    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && throttle >= 80.0f)
+      injection_time = 0;
   }
 
   if(uspa > 0.0f && injection_time > 0.0f) {
