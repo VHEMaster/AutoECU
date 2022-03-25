@@ -231,7 +231,7 @@ static void ecu_update(void)
 
   float wish_fuel_ratio;
   float filling_map;
-  float filling_thr;
+  float map_thr;
   float effective_volume;
   float ignition_angle;
   float ignition_time;
@@ -267,7 +267,6 @@ static void ecu_update(void)
   float warmup_mixture;
   float warmup_mix_koff;
 
-  float fill_proportion;
   float fuel_pressure;
   float fuel_abs_pressure;
   float fuel_consumption;
@@ -282,16 +281,16 @@ static void ecu_update(void)
   float injection_dutycycle;
 
   float filling_diff;
-  float filling_diff_map;
-  float filling_diff_thr;
+  float map_diff_thr;
   float lpf_calculation;
   float fill_correction_map;
-  float fill_correction_thr;
+  float map_correction_thr;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
   float ignition_correction;
   float wish_fault_rpm;
   float start_mixture;
+  float long_term_correction;
 
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
@@ -306,9 +305,9 @@ static void ecu_update(void)
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
   uspa = csps_getuspa(csps);
-  fill_proportion = table->fill_proportion_map_vs_thr;
   enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
+  long_term_correction = gEcuCorrections.long_term_correction;
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
@@ -324,9 +323,9 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
-    engine_temp = 20.0f;
+    engine_temp = 40.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
-    air_temp = 0.0f;
+    air_temp = 10.0f;
 
   if(gEcuParams.useLambdaSensor) {
     gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, NULL);
@@ -366,30 +365,30 @@ static void ecu_update(void)
   speed *= gEcuParams.speedCorrection;
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
-  ipMap = math_interpolate_input(map, table->pressures, table->pressures_count);
+  ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
+
+  map_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
+  map_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
+
+  map_thr *= map_correction_thr + 1.0f;
+  map_thr *= 100000.0f;
+
+  if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map != HAL_OK) {
+    map = map_thr;
+  }
+
   ipTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
-  ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
+  ipMap = math_interpolate_input(map, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
   filling_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
-  filling_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->fill_by_thr);
 
   fill_correction_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
-  fill_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr);
 
   filling_map *= fill_correction_map + 1.0f;
-  filling_thr *= fill_correction_thr + 1.0f;
 
-  if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
-    effective_volume = filling_map * (fill_proportion) + filling_thr * (1.0f - fill_proportion);
-  } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    effective_volume = filling_thr;
-  } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
-    effective_volume = filling_map;
-  } else effective_volume = 0;
-
-  effective_volume *= gEcuParams.engineVolume;
+  effective_volume = filling_map * gEcuParams.engineVolume;
 
   air_destiny = ecu_get_air_destiny(map, air_temp) * 1000.0f;
 
@@ -508,6 +507,7 @@ static void ecu_update(void)
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= enrichment + 1.0f;
+  injection_time *= long_term_correction + 1.0f;
   injection_time += injector_lag;
 
   if(gForceParameters.Enable.InjectionTime)
@@ -617,25 +617,26 @@ static void ecu_update(void)
     }
   }
 
-  if(gEcuParams.performAdaptation) {
+  if(adapt_diff >= 100000) {
+    adaptation_last = now;
     if(running) {
-      if(adapt_diff >= 100000) {
-        adaptation_last = now;
+      if(gEcuParams.performAdaptation) {
         lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionTime) {
+          gEcuCorrections.long_term_correction = 0.0f;
+
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
 
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
-            filling_diff_map = filling_diff * table->fill_proportion_map_vs_thr;
-            fill_correction_map *= filling_diff_map * lpf_calculation + 1.0f;
+            fill_correction_map *= filling_diff * lpf_calculation + 1.0f;
             math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
           }
 
-          if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-            filling_diff_thr = filling_diff * (1.0f - table->fill_proportion_map_vs_thr);
-            fill_correction_thr *= filling_diff_thr * lpf_calculation + 1.0f;
-            math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_thr, fill_correction_thr);
+          if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
+            map_diff_thr = map / map_thr;
+            map_correction_thr *= map_diff_thr * lpf_calculation + 1.0f;
+            math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
           }
 
         }
@@ -648,6 +649,12 @@ static void ecu_update(void)
         }
 
 
+      } else {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionTime) {
+          lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
+          filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
+          gEcuCorrections.long_term_correction *= filling_diff * lpf_calculation + 1.0f;
+        }
       }
     }
   }
@@ -679,6 +686,7 @@ static void ecu_update(void)
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
   gParameters.FuelRatio = fuel_ratio;
+  gParameters.LongTermCorrection = long_term_correction;
 
   gParameters.IdleFlag = idle_flag;
   gParameters.RPM = rpm;

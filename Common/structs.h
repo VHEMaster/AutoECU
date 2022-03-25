@@ -135,10 +135,9 @@ typedef struct {
     int32_t throttles_count;
     float throttles[TABLE_THROTTLES_MAX];
 
-    float fill_proportion_map_vs_thr;
     float enrichment_proportion_map_vs_thr;
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float enrichment_by_map_sens[TABLE_PRESSURES_MAX];
     float enrichment_by_map_hpf[TABLE_ROTATES_MAX];
     float enrichment_by_thr_sens[TABLE_THROTTLES_MAX];
@@ -195,21 +194,23 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1130];
+    int32_t Reserved[1131];
 }sEcuTable __attribute__((aligned(32)));
 
 typedef struct {
     int8_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     int8_t fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    int8_t fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    int8_t map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     int8_t idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    float long_term_correction;
 }sEcuCorrectionsBackup __attribute__((aligned(32)));
 
 typedef struct {
     float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    float fill_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    float long_term_correction;
 }sEcuCorrections __attribute__((aligned(32)));
 
 typedef struct {
@@ -272,6 +273,7 @@ typedef struct {
     float ReferenceVoltage;
     float PowerVoltage;
     float FuelRatio;
+    float LongTermCorrection;
 
     int32_t IdleFlag;
     float RPM;
