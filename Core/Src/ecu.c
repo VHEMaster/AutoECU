@@ -358,10 +358,6 @@ static void ecu_update(void)
     map = 0;
   }
 
-  fuel_abs_pressure = fuel_pressure + (1.0f - map * 0.00001f);
-  fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
-  fuel_flow_per_us *= fuel_abs_pressure / fuel_pressure;
-
   speed *= gEcuParams.speedCorrection;
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
@@ -371,11 +367,14 @@ static void ecu_update(void)
   map_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
 
   map_thr *= map_correction_thr + 1.0f;
-  map_thr *= 100000.0f;
 
   if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map != HAL_OK) {
     map = map_thr;
   }
+
+  fuel_abs_pressure = fuel_pressure + (1.0f - map * 0.00001f);
+  fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
+  fuel_flow_per_us *= fuel_abs_pressure / fuel_pressure;
 
   ipTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
