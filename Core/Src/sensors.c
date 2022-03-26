@@ -97,7 +97,16 @@ inline GPIO_PinState sens_get_rsvd2(uint32_t *time)
   return Sensors[SensorRsvd2].state;
 }
 
-static float getTemperatureByResistance(float resistance)
+static float getTemperatureByResistance_airtemp(float resistance)
+{
+  const static float resistances[19] = {71,89,113,144,187,243,323,436,596,834,1175,1707,2500,3792,5896,9397,15462,26114,45313};
+  const static float temperatures[19] = {140,130,120,110,100,90,80,70,60,50,40,30,20,10,0,-10,-20,-30,-40};
+  sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
+
+  return math_interpolate_1d(ipResistance, temperatures);
+}
+
+static float getTemperatureByResistance_enginetemp(float resistance)
 {
   const static float resistances[19] = {80,177,241,332,467,667,973,1188,1459,1802,2238,2796,3520,4450,5670,7280,9420,15000,30000};
   const static float temperatures[19] = {128,100,90,80,70,60,50,45,40,35,30,25,20,15,10,5,0,-20,-40};
@@ -171,7 +180,7 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
 
     reference_resistance = 1000.0f;
     meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
-    temperature = getTemperatureByResistance(meter_resistance);
+    temperature = getTemperatureByResistance_airtemp(meter_resistance);
     if(temperature < -40.0f) {
       *output = -40.0f;
       status = HAL_ERROR;
@@ -204,7 +213,7 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
 
     reference_resistance = 200.0f;
     meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
-    temperature = getTemperatureByResistance(meter_resistance);
+    temperature = getTemperatureByResistance_enginetemp(meter_resistance);
     if(temperature < -40.0f) {
       *output = -40.0f;
       status = HAL_ERROR;
