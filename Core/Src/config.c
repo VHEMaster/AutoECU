@@ -343,7 +343,7 @@ void config_default_params(sEcuParams *table)
   table->switchPos0Table = 0;
   table->switchPos2Table = 0;
 
-  table->cutoffRPM = 6500;
+  table->cutoffRPM = 6200;
   table->cutoffMode = 5;
   table->cutoffAngle = 5.0f;
   table->cutoffMixture = 12.1f;

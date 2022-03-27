@@ -67,6 +67,7 @@ typedef enum {
   CheckOutputs2CommunicationFailure,
   CheckIdleValveFailure,
   CheckIdleValveDriverFailure,
+  CheckInjectionUnderflow,
   CheckLambdaCommunicationFailure,
   CheckLambdaVMShortToBat,
   CheckLambdaVMLowBattery,

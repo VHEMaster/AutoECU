@@ -305,6 +305,7 @@ static void ecu_update(void)
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
+  uint8_t o2_valid = 0;
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
 
@@ -342,7 +343,7 @@ static void ecu_update(void)
     air_temp = 10.0f;
 
   if(gEcuParams.useLambdaSensor) {
-    gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, NULL);
+    gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, &o2_valid);
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
@@ -620,6 +621,12 @@ static void ecu_update(void)
     injection_phase_duration = 0;
   }
 
+  if(injection_dutycycle > 1.0f) {
+    gStatus.InjectionUnderflow = HAL_ERROR;
+  } else {
+    gStatus.InjectionUnderflow = HAL_ERROR;
+  }
+
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
     if(csps_isrunning()) {
       if(knock_filtered >= knock_threshold) {
@@ -640,7 +647,7 @@ static void ecu_update(void)
       if(gEcuParams.performAdaptation) {
         lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionTime) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionTime) {
           gEcuCorrections.long_term_correction = 0.0f;
 
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
@@ -1406,6 +1413,7 @@ static void ecu_checkengine_loop(void)
 
   CHECK_STATUS(gStatus, iserror, CheckIdleValveFailure, OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
   CHECK_STATUS(gStatus, iserror, CheckIdleValveDriverFailure, IdleValvePosition != HAL_OK);
+  CHECK_STATUS(gStatus, iserror, CheckInjectionUnderflow, InjectionUnderflow != HAL_OK);
 
   if(gEcuParams.useLambdaSensor) {
     CHECK_STATUS(gStatus, iserror, CheckLambdaCommunicationFailure, O2Status != HAL_OK);

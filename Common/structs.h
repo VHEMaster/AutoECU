@@ -387,6 +387,7 @@ typedef struct {
     sOutputDiagnostic OutputDiagnostic;
     HAL_StatusTypeDef IdleValvePosition;
     HAL_StatusTypeDef O2Status;
+    HAL_StatusTypeDef InjectionUnderflow;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
     //TODO: add more diagnostic fields
