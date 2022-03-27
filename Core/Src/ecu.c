@@ -191,14 +191,6 @@ static void ecu_pid_init(void)
   ecu_pid_update(0);
 }
 
-
-float gDebugMap = 20000;
-float gDebugAirTemp = 20.0f;
-float gDebugEngineTemp = 90.0f;
-float gDebugThrottle = 5;
-float gDebugReferenceVoltage = 5.1f;
-float gDebugPowerVoltage = 14.4f;
-
 static void ecu_update(void)
 {
   static uint32_t adaptation_last = 0;
@@ -322,20 +314,14 @@ static void ecu_update(void)
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
   acceleration = speed_getacceleration();
-  //gStatus.Sensors.Struct.Map = sens_get_map(&map);
-  map = gDebugMap;
+  gStatus.Sensors.Struct.Map = sens_get_map(&map);
   knock_status = sens_get_knock(&knock);
   sens_get_knock_raw(&knock_raw);
-  //gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
-  air_temp = gDebugAirTemp;
-  //gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
-  engine_temp = gDebugEngineTemp;
-  //gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
-  throttle = gDebugThrottle;
-  //gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
-  reference_voltage = gDebugReferenceVoltage;
-  //gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
-  power_voltage = gDebugPowerVoltage;
+  gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
+  gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
+  gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
+  gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
+  gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 40.0f;
