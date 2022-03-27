@@ -63,7 +63,7 @@ void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t c
   for(int i = 0; i < 116; i++)
     tval += csps_cors[i];
   csps_cors_sum = (120.0f / tval) * 3.0f;
-  csps_cors_avg = tval / 116.0f;
+  csps_cors_avg = tval / 120.0f;
 
   for(int i = 0; i < 116; i++)
   {
@@ -80,7 +80,7 @@ inline void csps_tsps_exti(uint32_t timestamp)
 
 inline void csps_exti(uint32_t timestamp)
 {
-  static float csps_angle14 = 0, csps_angle23 = 0, csps_angle_phased = 0;
+  static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
   static float average_prev = 0;
   static uint8_t dataindex = 0;
@@ -167,13 +167,16 @@ inline void csps_exti(uint32_t timestamp)
     {
       case 2:
         csps_turns++;
+        adder = ANGLE_INITIAL - csps_angle14;
+
         csps_angle14 = ANGLE_INITIAL;
         if (ANGLE_INITIAL > 0)
           csps_angle23 = ANGLE_INITIAL - 180.0f;
         else
           csps_angle23 = ANGLE_INITIAL + 180.0f;
-        cs14_p = csps_angle14 - csps_cors[115] * csps_cors_sum;
-        cs23_p = csps_angle23 - csps_cors[115] * csps_cors_sum;
+
+        cs14_p = csps_angle14 - adder;
+        cs23_p = csps_angle23 - adder;
 
         //adder = 9.0f;
         break;
