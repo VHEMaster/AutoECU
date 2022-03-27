@@ -173,7 +173,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
   sEcuTable *table = &gEcuTable[table_number];
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
-  math_pid_set_clamp(&gPidIdleAirFlow, 0, 255);
+  math_pid_set_clamp(&gPidIdleAirFlow, -256, 256);
 
   if(isidle) {
     math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, table->idle_ign_to_rpm_pid_i, table->idle_ign_to_rpm_pid_d);
@@ -541,15 +541,16 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  if(idle_flag) {
-    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
-    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-  } else {
+  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+
+  if(!idle_flag) {
     idle_valve_pos_correction = 0;
     idle_angle_correction = 0;
   }
 
   if(idle_flag && !cutoff_processing) {
+    ignition_angle = idle_wish_ignition;
     ignition_angle += idle_angle_correction;
 
     if(gForceParameters.Enable.WishIdleIgnitionAngle) {

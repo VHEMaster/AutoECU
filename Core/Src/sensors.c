@@ -159,7 +159,11 @@ HAL_StatusTypeDef sens_get_knock(float *output)
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float voltage = ADC_GetVoltage(AdcChManifoldAbsolutePressure);
+  float voltage = ADC_GetVoltage(AdcChManifoldAbsolutePressure);;
+  float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
+  if(voltage >= power_voltage * 0.985f)
+    status = HAL_ERROR;
+
   float result = voltage * 19000.0f + 10000.0f;
   *output = result;
   return status;

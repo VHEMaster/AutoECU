@@ -49,7 +49,7 @@ INLINE void math_pid_init(sMathPid *pid)
 
 INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
 {
-  float error = input - pid->Target;
+  float error = pid->Target - input;
   float output;
   float P,I,D;
   uint32_t dt = DelayDiff(time, pid->LastTime);
