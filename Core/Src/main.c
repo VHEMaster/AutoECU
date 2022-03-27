@@ -97,9 +97,22 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
   }
 }
 
+void csps_emulate(uint32_t timestamp, float rpm);
+
+float gDebugRpm = 3000;
+
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim == &htim3) {
+  if(htim == &htim10) {
+    injector_irq(InjectorCy1);
+  } else if(htim == &htim11) {
+    injector_irq(InjectorCy2);
+  } else if(htim == &htim13) {
+    injector_irq(InjectorCy4);
+  } else if(htim == &htim14) {
+    injector_irq(InjectorCy3);
+  } else if (htim == &htim3) {
+    csps_emulate(Delay_Tick, gDebugRpm);
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();
@@ -118,8 +131,8 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   uint32_t timestamp;
   if (htim == &htim5) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-      timestamp = htim->Instance->CCR1;
-      csps_exti(timestamp);
+      //timestamp = htim->Instance->CCR1;
+      //csps_exti(timestamp);
     }
   }
   else if (htim == &htim8) {
@@ -127,8 +140,8 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
       timestamp = Delay_Tick;
       speed_exti(timestamp);
     } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-      timestamp = Delay_Tick;
-      csps_tsps_exti(timestamp);
+      //timestamp = Delay_Tick;
+      //csps_tsps_exti(timestamp);
     }
   }
 }
@@ -137,18 +150,6 @@ INLINE void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim9 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
     htim9.Instance->CCR1 = o2_pwm_period;
-  }
-  else if(htim == &htim10 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-    injector_irq(InjectorCy1);
-  }
-  else if(htim == &htim11 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-    injector_irq(InjectorCy2);
-  }
-  else if(htim == &htim13 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-    injector_irq(InjectorCy4);
-  }
-  else if(htim == &htim14 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-    injector_irq(InjectorCy3);
   }
 }
 
@@ -315,10 +316,10 @@ int main(void)
   csps_init(&Delay_Tick, &htim2, TIM_CHANNEL_1);
   speed_init(&Delay_Tick, &htim1, TIM_CHANNEL_1);
 
-  injector_register(InjectorCy1, &htim10, TIM_CHANNEL_1);
-  injector_register(InjectorCy2, &htim11, TIM_CHANNEL_1);
-  injector_register(InjectorCy3, &htim14, TIM_CHANNEL_1);
-  injector_register(InjectorCy4, &htim13, TIM_CHANNEL_1);
+  injector_register(InjectorCy1, &htim10, INJ_1_GPIO_Port, INJ_1_Pin);
+  injector_register(InjectorCy2, &htim11, INJ_2_GPIO_Port, INJ_2_Pin);
+  injector_register(InjectorCy3, &htim14, INJ_3_GPIO_Port, INJ_3_Pin);
+  injector_register(InjectorCy4, &htim13, INJ_4_GPIO_Port, INJ_4_Pin);
 
   Misc_O2_Init(htim9.Init.Period, &o2_pwm_period);
 
@@ -1026,8 +1027,6 @@ static void MX_TIM10_Init(void)
 
   /* USER CODE END TIM10_Init 0 */
 
-  TIM_OC_InitTypeDef sConfigOC = { 0 };
-
   /* USER CODE BEGIN TIM10_Init 1 */
 
   /* USER CODE END TIM10_Init 1 */
@@ -1040,23 +1039,9 @@ static void MX_TIM10_Init(void)
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim10) != HAL_OK) {
-    Error_Handler();
-  }
   if (HAL_TIM_OnePulse_Init(&htim10, TIM_OPMODE_SINGLE) != HAL_OK) {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim10, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM10_Init 2 */
-
-  /* USER CODE END TIM10_Init 2 */
-  HAL_TIM_MspPostInit(&htim10);
 
 }
 
@@ -1072,8 +1057,6 @@ static void MX_TIM11_Init(void)
 
   /* USER CODE END TIM11_Init 0 */
 
-  TIM_OC_InitTypeDef sConfigOC = { 0 };
-
   /* USER CODE BEGIN TIM11_Init 1 */
 
   /* USER CODE END TIM11_Init 1 */
@@ -1086,23 +1069,9 @@ static void MX_TIM11_Init(void)
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim11) != HAL_OK) {
-    Error_Handler();
-  }
-  if (HAL_TIM_OnePulse_Init(&htim11, TIM_OPMODE_SINGLE) != HAL_OK) {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim11, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM11_Init 2 */
-
-  /* USER CODE END TIM11_Init 2 */
-  HAL_TIM_MspPostInit(&htim11);
+  //if (HAL_TIM_OnePulse_Init(&htim11, TIM_OPMODE_SINGLE) != HAL_OK) {
+  //  Error_Handler();
+  //}
 
 }
 
@@ -1118,8 +1087,6 @@ static void MX_TIM13_Init(void)
 
   /* USER CODE END TIM13_Init 0 */
 
-  TIM_OC_InitTypeDef sConfigOC = { 0 };
-
   /* USER CODE BEGIN TIM13_Init 1 */
 
   /* USER CODE END TIM13_Init 1 */
@@ -1132,23 +1099,9 @@ static void MX_TIM13_Init(void)
   if (HAL_TIM_Base_Init(&htim13) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim13) != HAL_OK) {
-    Error_Handler();
-  }
-  if (HAL_TIM_OnePulse_Init(&htim13, TIM_OPMODE_SINGLE) != HAL_OK) {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim13, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM13_Init 2 */
-
-  /* USER CODE END TIM13_Init 2 */
-  HAL_TIM_MspPostInit(&htim13);
+  //if (HAL_TIM_OnePulse_Init(&htim13, TIM_OPMODE_SINGLE) != HAL_OK) {
+  //  Error_Handler();
+  //}
 
 }
 
@@ -1164,8 +1117,6 @@ static void MX_TIM14_Init(void)
 
   /* USER CODE END TIM14_Init 0 */
 
-  TIM_OC_InitTypeDef sConfigOC = { 0 };
-
   /* USER CODE BEGIN TIM14_Init 1 */
 
   /* USER CODE END TIM14_Init 1 */
@@ -1178,23 +1129,9 @@ static void MX_TIM14_Init(void)
   if (HAL_TIM_Base_Init(&htim14) != HAL_OK) {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim14) != HAL_OK) {
-    Error_Handler();
-  }
-  if (HAL_TIM_OnePulse_Init(&htim14, TIM_OPMODE_SINGLE) != HAL_OK) {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim14, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM14_Init 2 */
-
-  /* USER CODE END TIM14_Init 2 */
-  HAL_TIM_MspPostInit(&htim14);
+  //if (HAL_TIM_OnePulse_Init(&htim14, TIM_OPMODE_SINGLE) != HAL_OK) {
+  //  Error_Handler();
+  //}
 
 }
 
@@ -1358,6 +1295,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
+  HAL_GPIO_WritePin(INJ_1_GPIO_Port, INJ_1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(INJ_2_GPIO_Port, INJ_2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(INJ_3_GPIO_Port, INJ_3_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(INJ_4_GPIO_Port, INJ_4_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, SPI4_NSS_OUTS1_Pin | SPI4_NSS_OUTS2_Pin,
       GPIO_PIN_SET);
@@ -1490,6 +1432,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(KNOCK_INT_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Pin = INJ_1_Pin;
+  HAL_GPIO_Init(INJ_1_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = INJ_2_Pin;
+  HAL_GPIO_Init(INJ_2_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = INJ_3_Pin;
+  HAL_GPIO_Init(INJ_3_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = INJ_4_Pin;
+  HAL_GPIO_Init(INJ_4_GPIO_Port, &GPIO_InitStruct);
+
 
   /*Configure GPIO pin : TIM5_CH1_SENS_CSPS_Pin */
   //GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;

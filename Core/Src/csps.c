@@ -54,6 +54,39 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
+void csps_emulate(uint32_t timestamp, float rpm)
+{
+  static uint8_t phase = 0;
+  static uint32_t step = 0;
+  static float time_prev = 0;
+  float period = 60000000 / rpm;
+  float time_needed = period * csps_cors[step] / 120.0f;
+
+  if(rpm == 0)
+    time_prev = timestamp;
+
+  if(DelayDiff(timestamp, time_prev) >= time_needed) {
+    time_prev += time_needed;
+    if(time_prev > (float)(DelayMask))
+      time_prev -= (float)(DelayMask);
+    csps_exti(timestamp);
+    HAL_GPIO_TogglePin(TIM5_CH1_SENS_CSPS_GPIO_Port, TIM5_CH1_SENS_CSPS_Pin);
+    if(++step >= 116)
+      step = 0;
+    if(step == 113) {
+      phase ^= 1;
+      if(phase) {
+        HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
+        csps_tsps_exti(timestamp);
+      }
+    }
+    if(step == 2) {
+      HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
+    }
+
+  }
+}
+
 void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {
   float tval = 0;
@@ -117,11 +150,18 @@ inline void csps_exti(uint32_t timestamp)
     return;
   }
   prev = cspc_irq_data[IRQ_SIZE - 2];
+
+  if(!csps_rotates) {
+    found = 0;
+    t1 = 0;
+    t2 = 0;
+  }
+
   csps_rotates = 1;
 
-  if(found) {
+  //if(found) {
     t1++;
-  }
+  //}
 
   for(i = 1; i < IRQ_SIZE; i++)
   {
@@ -138,9 +178,11 @@ inline void csps_exti(uint32_t timestamp)
         csps_errors += 1.0f;
       }
 
+      if(t1 == 116) {
+        found = 1;
+      }
       t1 = 0;
       csps_last = cur;
-      found = 1;
 
     }
   }
@@ -362,9 +404,8 @@ float inline csps_getangle23from14(float angle)
   return angle;
 }
 
-float inline csps_getphasedangle_cy(sCspsData data, uint8_t cylinder)
+float inline csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
 {
-  float angle = csps_getphasedangle(data);
   uint8_t phased = csps_isphased(data);
   switch(cylinder) {
     case 0 :

@@ -678,10 +678,18 @@ static void IdleValve_CriticalLoop(void)
 
 static volatile uint32_t StepPhase = 0;
 
-//Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port, STEP_PH1_Pin < STEP_PH2_Pin and close together
-#define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPhase | (StepPhase ^ (STEP_PH1_Pin | STEP_PH2_Pin)) << 16; }
-#define STEP_INCREMENT() { StepPhase = (StepPhase + STEP_PH1_Pin) & (STEP_PH1_Pin | STEP_PH2_Pin); }
-#define STEP_DECREMENT() { StepPhase = (StepPhase - STEP_PH1_Pin) & (STEP_PH1_Pin | STEP_PH2_Pin); }
+//Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port
+static const uint32_t StepPos[4] = {
+    (STEP_PH1_Pin | STEP_PH2_Pin) << 16,
+    STEP_PH1_Pin | (STEP_PH2_Pin << 16),
+    (STEP_PH1_Pin | STEP_PH2_Pin),
+    (STEP_PH1_Pin << 16) | STEP_PH2_Pin,
+
+};
+
+#define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPos[StepPhase]; }
+#define STEP_INCREMENT() { StepPhase = (StepPhase + 1) & 0x3; }
+#define STEP_DECREMENT() { StepPhase = (StepPhase - 1) & 0x3; }
 
 //Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
 #define STEP_IDLE() { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }

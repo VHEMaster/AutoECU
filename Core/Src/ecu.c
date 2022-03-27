@@ -191,6 +191,14 @@ static void ecu_pid_init(void)
   ecu_pid_update(0);
 }
 
+
+float gDebugMap = 20000;
+float gDebugAirTemp = 20.0f;
+float gDebugEngineTemp = 90.0f;
+float gDebugThrottle = 5;
+float gDebugReferenceVoltage = 5.1f;
+float gDebugPowerVoltage = 14.4f;
+
 static void ecu_update(void)
 {
   static uint32_t adaptation_last = 0;
@@ -313,14 +321,20 @@ static void ecu_update(void)
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
   acceleration = speed_getacceleration();
-  gStatus.Sensors.Struct.Map = sens_get_map(&map);
+  //gStatus.Sensors.Struct.Map = sens_get_map(&map);
+  map = gDebugMap;
   knock_status = sens_get_knock(&knock);
   sens_get_knock_raw(&knock_raw);
-  gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
-  gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
-  gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
-  gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
-  gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
+  //gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
+  air_temp = gDebugAirTemp;
+  //gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
+  engine_temp = gDebugEngineTemp;
+  //gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
+  throttle = gDebugThrottle;
+  //gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
+  reference_voltage = gDebugReferenceVoltage;
+  //gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
+  power_voltage = gDebugPowerVoltage;
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 40.0f;
@@ -566,7 +580,7 @@ static void ecu_update(void)
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
 
-  injection_dutycycle = injection_time / csps_getperiod(csps) * 2.0f;
+  injection_dutycycle = injection_time / (csps_getperiod(csps) * 2.0f);
 
   out_set_idle_valve(idle_wish_valve_pos);
 
@@ -1041,6 +1055,13 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
   }
 }
 
+#define ANGLES_SIZE 1024
+float debug_angles[ANGLES_SIZE];
+uint32_t debug_item = 0;
+uint32_t debug_errors = 0;
+
+uint32_t time_old = 0;
+
 static void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
@@ -1056,6 +1077,7 @@ static void ecu_process(void)
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
+  float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
   float found = csps_isfound();
   float uspa = csps_getuspa(csps);
@@ -1092,11 +1114,11 @@ static void ecu_process(void)
   angle_ignite = gParameters.IgnitionAngle;
 
   if(single_coil) {
-    time_sat = gParameters.IgnitionPulse;
-    time_pulse = 2000;
-  } else {
     time_sat = period * 0.5f * 0.65f;
     time_pulse = period * 0.5f * 0.35f;
+  } else {
+    time_sat = gParameters.IgnitionPulse * 1000.0f;
+    time_pulse = 2000;
   }
 
   inj_phase = gParameters.InjectionPhase;
@@ -1137,7 +1159,7 @@ static void ecu_process(void)
 
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
-      angle_ignition[i] = csps_getphasedangle_cy(csps, i);
+      angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
     }
   } else {
     angle_ignition[0] = csps_getangle14(csps);
@@ -1146,7 +1168,7 @@ static void ecu_process(void)
 
   if(phased_injection) {
     for(int i = 0; i < cy_count_injection; i++) {
-      angle_injection[i] = csps_getphasedangle_cy(csps, i);
+      angle_injection[i] = csps_getphasedangle_cy(csps, i, angle);
     }
   } else {
     angle_injection[0] = csps_getangle14(csps);
@@ -1192,7 +1214,7 @@ static void ecu_process(void)
         }
       }
 
-      if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -1.0f)
+      if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
       {
         if(!ignited[i] && saturated[i])
         {
@@ -1220,28 +1242,26 @@ static void ecu_process(void)
       else
         anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase;
 
-      if(anglesbeforeinject[i] - oldanglesbeforeinject[i] > 0.0f && anglesbeforeinject[i] - oldanglesbeforeinject[i] < 180.0f)
+      if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
         anglesbeforeinject[i] = oldanglesbeforeinject[i];
 
       if(anglesbeforeinject[i] - inj_angle < 0.0f)
       {
-        if(!injection[i] && !injected[i])
+        if(!injection[i])
         {
           injection[i] = 1;
-
           if(ecu_cutoff_inj_act(cy_count_injection, i, rpm) && cy_injection[i] > 0.0f)
             ecu_inject(cy_count_injection, i, cy_injection[i]);
         }
       }
 
-      if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -1.0f)
+      if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -90.0f)
       {
         if(!injected[i] && injection[i])
         {
-          injected[i] = 1;
           injection[i] = 0;
-
-          //We may end injection here. TODO: check it somehow?
+          injector_isenabled(i, &injected[i]);
+          injected[i] ^= 1;
         }
       }
       else injected[i] = 0;

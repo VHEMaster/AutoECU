@@ -9,7 +9,8 @@
 
 typedef struct {
     TIM_HandleTypeDef *htim;
-    uint32_t tim_channel;
+    GPIO_TypeDef *port;
+    uint16_t pin;
     volatile uint8_t enabled;
 }sInjector;
 
@@ -18,18 +19,19 @@ static sInjector injectors[InjectorCount] = {{0}};
 inline void injector_irq(eInjector injector)
 {
   if(injector < InjectorCount) {
-    injectors[injector].htim->Init.Period = 0;
-    injectors[injector].htim->Instance->ARR = 0;
+    injectors[injector].port->BSRR = injectors[injector].pin;
     injectors[injector].enabled = 0;
   }
 }
 
-HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim, uint32_t channel)
+HAL_StatusTypeDef injector_register(eInjector injector, TIM_HandleTypeDef *htim, GPIO_TypeDef *port, uint16_t pin)
 {
   if(injector < InjectorCount) {
     injectors[injector].htim = htim;
-    injectors[injector].tim_channel = channel;
+    injectors[injector].port = port;
+    injectors[injector].pin = pin;
     injectors[injector].enabled = 0;
+    injectors[injector].port->BSRR = injectors[injector].pin;
   } else return HAL_ERROR;
   return HAL_OK;
 }
@@ -44,18 +46,18 @@ HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
 
 inline HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
 {
-  if(injector < InjectorCount) {
-    if(injectors[injector].enabled) {
-      if(TIM_CHANNEL_STATE_GET(injectors[injector].htim, injectors[injector].tim_channel) != HAL_TIM_CHANNEL_STATE_READY) {
-        HAL_TIM_PWM_Stop_IT(injectors[injector].htim, injectors[injector].tim_channel);
-      }
-    }
-    injectors[injector].htim->Init.Period = usec;
+  if(injector < InjectorCount && injectors[injector].htim && injectors[injector].port) {
+    __HAL_TIM_DISABLE_IT(injectors[injector].htim, TIM_IT_UPDATE);
+    __HAL_TIM_DISABLE(injectors[injector].htim);
     injectors[injector].htim->Instance->ARR = usec;
-    if(HAL_TIM_PWM_Start_IT(injectors[injector].htim, injectors[injector].tim_channel) == HAL_OK) {
-      injectors[injector].enabled = 1;
-    } else return HAL_ERROR;
-  } else return HAL_ERROR;
+    injectors[injector].htim->Instance->EGR |= 1;
+    injectors[injector].enabled = 1;
+    __HAL_TIM_CLEAR_IT(injectors[injector].htim, TIM_IT_UPDATE);
+    __HAL_TIM_CLEAR_FLAG(injectors[injector].htim, TIM_FLAG_UPDATE);
+    injectors[injector].port->BSRR = injectors[injector].pin << 16;
+    __HAL_TIM_ENABLE_IT(injectors[injector].htim, TIM_IT_UPDATE);
+    __HAL_TIM_ENABLE(injectors[injector].htim);
+  }
   return HAL_OK;
 }
 
