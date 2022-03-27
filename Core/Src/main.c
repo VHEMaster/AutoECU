@@ -97,9 +97,10 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
   }
 }
 
-void csps_emulate(uint32_t timestamp, float rpm);
+void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased);
 
 float gDebugRpm = 3000;
+uint8_t gPhased = 1;
 
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -112,7 +113,7 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   } else if(htim == &htim14) {
     injector_irq(InjectorCy3);
   } else if (htim == &htim3) {
-    csps_emulate(Delay_Tick, gDebugRpm);
+    csps_emulate(Delay_Tick, gDebugRpm, gPhased);
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();

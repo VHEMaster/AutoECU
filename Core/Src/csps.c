@@ -54,7 +54,7 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
-void csps_emulate(uint32_t timestamp, float rpm)
+void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
   static uint8_t phase = 0;
   static uint32_t step = 0;
@@ -77,7 +77,8 @@ void csps_emulate(uint32_t timestamp, float rpm)
       phase ^= 1;
       if(phase) {
         HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
-        csps_tsps_exti(timestamp);
+        if(phased)
+          csps_tsps_exti(timestamp);
       }
     }
     if(step == 2) {
