@@ -211,7 +211,7 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
     if(temperature > power_voltage)
       temperature = power_voltage;
 
-    reference_resistance = 200.0f;
+    reference_resistance = 1000.0f;
     meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
     temperature = getTemperatureByResistance_enginetemp(meter_resistance);
     if(temperature < -40.0f) {
