@@ -346,7 +346,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  idle_flag = throttle < 0.5f && running;
+  idle_flag = throttle < 2.0f && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     wish_fault_rpm = 1400.0f;
