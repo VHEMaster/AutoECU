@@ -29,7 +29,7 @@
 #include <string.h>
 #include "arm_math.h"
 
-#define ENRICHMENT_STATES_COUNT 3
+#define ENRICHMENT_STATES_COUNT 4
 
 typedef volatile struct {
     uint8_t savereq;

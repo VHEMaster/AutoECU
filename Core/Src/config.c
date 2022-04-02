@@ -255,9 +255,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->inj_channel = InjectorChannel1;
 
-  //For Bosch 62415 / BMW 1731357 injectors
   table->ignition_initial = 10.0f;
-  table->injector_performance = 162.0f;
+  table->injector_performance = 180.0f;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
 

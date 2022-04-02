@@ -108,8 +108,8 @@ static float getTemperatureByResistance_airtemp(float resistance)
 
 static float getTemperatureByResistance_enginetemp(float resistance)
 {
-  const static float resistances[19] = {80,177,241,332,467,667,973,1188,1459,1802,2238,2796,3520,4450,5670,7280,9420,15000,30000};
-  const static float temperatures[19] = {128,100,90,80,70,60,50,45,40,35,30,25,20,15,10,5,0,-20,-40};
+  const static float resistances[22] = {80,177,241,332,467,667,973,1188,1459,2238,2796,3520,4450,5670,7280,9420,12300,16180,21450,28680,52700,100700};
+  const static float temperatures[22] = {128,100,90,80,70,60,50,45,40,30,25,20,15,10,5,0,-5,-10,-15,-20,-30,-40};
   sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
 
   return math_interpolate_1d(ipResistance, temperatures);
