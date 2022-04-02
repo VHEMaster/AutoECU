@@ -1048,13 +1048,6 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
   }
 }
 
-#define ANGLES_SIZE 1024
-float debug_angles[ANGLES_SIZE];
-uint32_t debug_item = 0;
-uint32_t debug_errors = 0;
-
-uint32_t time_old = 0;
-
 static void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
