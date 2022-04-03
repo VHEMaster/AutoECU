@@ -290,7 +290,7 @@ int main(void)
   sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
   sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
 
-  outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 1, GPIO_PIN_RESET);
   outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);

@@ -558,6 +558,10 @@ void csps_loop(void)
     if(csps_rpm > 600.0f) {
       csps_running = 1;
     }
+  } else {
+    if(csps_rpm < 450.0f) {
+      csps_running = 0;
+    }
   }
 
   if(DelayDiff(now, last_error_null) > 50000)

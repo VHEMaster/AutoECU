@@ -157,7 +157,7 @@ static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
-    1.6f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f, 1.0f, 1.0f,
+    2.5f, 1.7f, 1.4f, 1.3f, 1.2f, 1.1f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 

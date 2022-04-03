@@ -29,7 +29,7 @@
 #include <string.h>
 #include "arm_math.h"
 
-#define ENRICHMENT_STATES_COUNT 4
+#define ENRICHMENT_STATES_COUNT 6
 
 typedef volatile struct {
     uint8_t savereq;
@@ -140,11 +140,11 @@ static void ecu_config_init(void)
 
 static float ecu_get_air_destiny(float pressure, float temperature)
 {
-  //Output in g/cc
+  //Output in mg/cc
   const float M = 29.0f;
-  const float R = 8314462.61815324f;
-  float g_cc3 = (pressure * M) / (R * (temperature + 273.0f));
-  return g_cc3;
+  const float R = 8314.46261815324f;
+  float mg_cc3 = (pressure * M) / (R * (temperature + 273.0f));
+  return mg_cc3;
 }
 
 static void ecu_update_current_table(void)
@@ -401,7 +401,7 @@ static void ecu_update(void)
 
   effective_volume = filling_map * gEcuParams.engineVolume;
 
-  air_destiny = ecu_get_air_destiny(map, air_temp) * 1000.0f;
+  air_destiny = ecu_get_air_destiny(map, air_temp);
 
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
@@ -605,7 +605,8 @@ static void ecu_update(void)
     fuel_consumption = 0;
   } else {
     km_driven += speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
-    fuel_consumed += fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / (60000000.0f / rpm)) * 0.001f;
+    if(fuel_amount_per_cycle < 1000.0f)
+      fuel_consumed += fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / (60000000.0f / rpm)) * 0.001f;
     fuel_consumption = fuel_consumed / km_driven * 100.0f;
   }
 
@@ -621,10 +622,10 @@ static void ecu_update(void)
     injection_phase_duration = 0;
   }
 
-  if(injection_dutycycle > 1.0f) {
+  if(injection_dutycycle > 0.85f) {
     gStatus.InjectionUnderflow = HAL_ERROR;
   } else {
-    gStatus.InjectionUnderflow = HAL_ERROR;
+    gStatus.InjectionUnderflow = HAL_OK;
   }
 
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
@@ -1072,6 +1073,8 @@ static void ecu_process(void)
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
+  static uint8_t inj_was_phased = 0;
+  static uint8_t ign_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
   float angle_ignition[ECU_CYLINDERS_COUNT];
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
@@ -1151,6 +1154,20 @@ static void ecu_process(void)
     injection[3] = injected[3] = 1;
     cy_injection[0] = ((table->cy_corr_injection[0] + table->cy_corr_injection[3]) * 0.5f + 1.0f) * inj_pulse;
     cy_injection[1] = ((table->cy_corr_injection[1] + table->cy_corr_injection[2]) * 0.5f + 1.0f) * inj_pulse;
+  }
+
+  if(inj_was_phased != phased_injection) {
+    inj_was_phased = phased_injection;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      oldanglesbeforeinject[i] = 0.0f;
+    }
+  }
+
+  if(ign_was_phased != phased_ignition) {
+    ign_was_phased = phased_ignition;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      oldanglesbeforeignite[i] = 0.0f;
+    }
   }
 
   while(inj_phase > angles_injection_per_turn * 0.5f) {
@@ -1282,18 +1299,24 @@ static void ecu_fuelpump_process(void)
 {
   static uint32_t active_last = 0;
   static uint8_t active = 0;
+  static uint8_t was_rotating = 1;
   uint32_t now = Delay_Tick;
   uint8_t rotates = csps_isrotates();
+  uint8_t time_to_last = DelayDiff(now, active_last) < 1000000;
 
   if(gForceParameters.Enable.FuelPumpRelay) {
     active = gForceParameters.FuelPumpRelay > 0;
     active_last = now;
   } else {
-    if(rotates || active_last == 0 || DelayDiff(now, active_last) < 1000000) {
-      active_last = now;
+    if((was_rotating && time_to_last) || rotates) {
+      if(rotates) {
+        active_last = now;
+        was_rotating = 1;
+      }
       active = 1;
     } else {
       active = 0;
+      was_rotating = 0;
     }
   }
 

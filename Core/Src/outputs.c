@@ -33,9 +33,9 @@ inline void out_set_fuelpump(GPIO_PinState state)
 inline void out_set_checkengine(GPIO_PinState state)
 {
   Outputs[OutCheckEngine].state = state;
-  if(Outputs[OutFuelPumpRelay].state != state) {
-    Outputs[OutFuelPumpRelay].time_switched = Delay_Tick;
-    Outputs[OutFuelPumpRelay].state = state;
+  if(Outputs[OutCheckEngine].state != state) {
+    Outputs[OutCheckEngine].time_switched = Delay_Tick;
+    Outputs[OutCheckEngine].state = state;
   }
 }
 
