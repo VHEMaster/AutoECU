@@ -97,6 +97,11 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
   }
 }
 
+void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased);
+
+float gDebugRpm = 3000;
+uint8_t gPhased = 1;
+
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim10) {
@@ -108,6 +113,7 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   } else if(htim == &htim14) {
     injector_irq(InjectorCy3);
   } else if (htim == &htim3) {
+    csps_emulate(Delay_Tick, gDebugRpm, gPhased);
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();
@@ -126,8 +132,8 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   uint32_t timestamp;
   if (htim == &htim5) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-      timestamp = htim->Instance->CCR1;
-      csps_exti(timestamp);
+      //timestamp = htim->Instance->CCR1;
+      //csps_exti(timestamp);
     }
   }
   else if (htim == &htim8) {
@@ -135,8 +141,8 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
       timestamp = Delay_Tick;
       speed_exti(timestamp);
     } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-      timestamp = Delay_Tick;
-      csps_tsps_exti(timestamp);
+      //timestamp = Delay_Tick;
+      //csps_tsps_exti(timestamp);
     }
   }
 }
