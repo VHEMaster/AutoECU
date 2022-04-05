@@ -25,6 +25,7 @@
 #include "config.h"
 #include "pid.h"
 #include "crc.h"
+#include "failures.h"
 
 #include <string.h>
 #include "arm_math.h"
@@ -60,6 +61,8 @@ static uint8_t volatile gStatusReset = 0;
 static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
+static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
+static uint8_t gCheckBitmapRecorded[CHECK_BITMAP_SIZE] = {0};
 
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
@@ -1354,6 +1357,7 @@ static void ecu_fan_process(void)
 
 #define CHECK_STATUS(status, iserror, cod, link) \
   if(((status).link)) { \
+    gCheckBitmap[cod >> 3] |= 1 << (cod & 7); \
     iserror |= 1; \
   }
 
@@ -1366,6 +1370,8 @@ static void ecu_checkengine_loop(void)
   uint8_t running = csps_isrunning();
   uint8_t iserror = 0;
   uint8_t status_reset = gStatusReset;
+
+  memset(gCheckBitmap, 0, sizeof(gCheckBitmap));
 
   CHECK_STATUS(gStatus, iserror, CheckFlashLoadFailure, Flash.Struct.Load != HAL_OK);
   CHECK_STATUS(gStatus, iserror, CheckFlashSaveFailure, Flash.Struct.Save != HAL_OK);
@@ -1466,6 +1472,7 @@ static void ecu_checkengine_loop(void)
 
   gEcuIsError = iserror;
 
+  //TODO: make checks recording! Because it isn't recording now
   if(status_reset) {
     memset(&gStatus, 0, sizeof(gStatus));
     memset(&gEcuCriticalBackup.status_recorded, 0, sizeof(gEcuCriticalBackup.status_recorded));
@@ -2203,6 +2210,8 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       //PK_Copy(&PK_StatusRequest, msgBuf);
       PK_StatusResponse.Current = gStatus;
       PK_StatusResponse.Recorded = gEcuCriticalBackup.status_recorded;
+      memcpy(PK_StatusResponse.CheckBitmap, gCheckBitmap, CHECK_BITMAP_SIZE);
+      memcpy(PK_StatusResponse.CheckBitmapRecorded, gCheckBitmapRecorded, CHECK_BITMAP_SIZE);
       PK_SendCommand(xChaSrc, &PK_StatusResponse, sizeof(PK_StatusResponse));
       break;
 

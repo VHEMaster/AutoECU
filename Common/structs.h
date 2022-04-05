@@ -391,6 +391,7 @@ typedef struct {
     HAL_StatusTypeDef InjectionUnderflow;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
+    uint32_t pad;
     //TODO: add more diagnostic fields
 }sStatus __attribute__((aligned(32)));
 
