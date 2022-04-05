@@ -62,7 +62,6 @@ static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
-static uint8_t gCheckBitmapRecorded[CHECK_BITMAP_SIZE] = {0};
 
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
@@ -1470,12 +1469,16 @@ static void ecu_checkengine_loop(void)
     }
   }
 
+  for(int i = 0; i < CHECK_BITMAP_SIZE; i++) {
+    gEcuCriticalBackup.CheckBitmapRecorded[i] |= gCheckBitmap[i];
+  }
+
   gEcuIsError = iserror;
 
-  //TODO: make checks recording! Because it isn't recording now
   if(status_reset) {
     memset(&gStatus, 0, sizeof(gStatus));
-    memset(&gEcuCriticalBackup.status_recorded, 0, sizeof(gEcuCriticalBackup.status_recorded));
+    memset(&gCheckBitmap, 0, sizeof(gCheckBitmap));
+    memset(&gEcuCriticalBackup.CheckBitmapRecorded, 0, sizeof(gEcuCriticalBackup.CheckBitmapRecorded));
     gEcuIsError = 0;
     was_error = 0;
     iserror = 0;
@@ -2208,10 +2211,8 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_StatusRequestID :
       //PK_Copy(&PK_StatusRequest, msgBuf);
-      PK_StatusResponse.Current = gStatus;
-      PK_StatusResponse.Recorded = gEcuCriticalBackup.status_recorded;
       memcpy(PK_StatusResponse.CheckBitmap, gCheckBitmap, CHECK_BITMAP_SIZE);
-      memcpy(PK_StatusResponse.CheckBitmapRecorded, gCheckBitmapRecorded, CHECK_BITMAP_SIZE);
+      memcpy(PK_StatusResponse.CheckBitmapRecorded, gEcuCriticalBackup.CheckBitmapRecorded, CHECK_BITMAP_SIZE);
       PK_SendCommand(xChaSrc, &PK_StatusResponse, sizeof(PK_StatusResponse));
       break;
 
@@ -2219,7 +2220,8 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       //PK_Copy(&PK_StatusRequest, msgBuf);
       gStatusReset = 1;
       memset(&gStatus, 0, sizeof(gStatus));
-      memset(&gEcuCriticalBackup.status_recorded, 0, sizeof(gEcuCriticalBackup.status_recorded));
+      memset(&gCheckBitmap, 0, sizeof(gCheckBitmap));
+      memset(&gEcuCriticalBackup.CheckBitmapRecorded, 0, sizeof(gEcuCriticalBackup.CheckBitmapRecorded));
       PK_ResetStatusResponse.ErrorCode = 0;
       PK_SendCommand(xChaSrc, &PK_ResetStatusResponse, sizeof(PK_ResetStatusResponse));
       break;

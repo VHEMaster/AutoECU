@@ -296,8 +296,6 @@ typedef struct
 typedef struct
 {
   PACKET_HEADER;
-  sStatus Current;
-  sStatus Recorded;
   uint8_t CheckBitmap[CHECK_BITMAP_SIZE];
   uint8_t CheckBitmapRecorded[CHECK_BITMAP_SIZE];
 }PACKET_DEFINE(PK_StatusResponse, 36);

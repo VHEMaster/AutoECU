@@ -398,7 +398,7 @@ typedef struct {
 typedef struct {
     float km_driven;
     float fuel_consumed;
-    sStatus status_recorded;
+    uint8_t CheckBitmapRecorded[CHECK_BITMAP_SIZE];
     uint8_t idle_valve_position;
 }sEcuCriticalBackup __attribute__((aligned(32)));
 
