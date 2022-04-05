@@ -350,6 +350,7 @@ typedef struct {
       uint8_t FuelPumpRelay;
       uint8_t CheckEngine;
     } Enable;
+    uint32_t pad;
 }sForceParameters __attribute__((aligned(32)));
 
 typedef struct {

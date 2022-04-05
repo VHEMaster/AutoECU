@@ -7,6 +7,7 @@
 
 
 const char * const gCheckDataErrorString[] = {
+    "Invalid",
     "Flash: Load failure",
     "Flash: Save failure",
     "Flash: Init failure",
