@@ -97,26 +97,34 @@ static void ecu_config_init(void)
 
   gStatus.Flash.Struct.Init = config_init();
 
-  while(!(status = config_load_params(&gEcuParams))) {}
-  if(status < 0) {
-    gStatus.Flash.Struct.Load = HAL_ERROR;
-    config_default_params(&gEcuParams);
-    while(!(status = config_save_params(&gEcuParams))) {}
-    if(status < 0) {
-        gStatus.Flash.Struct.Save = HAL_ERROR;
-    }
-  }
-
-  for(int i = 0; i < TABLE_SETUPS_MAX; i++) {
-    while(!(status = config_load_table(&gEcuTable[i], i))) {}
+  if(gStatus.Flash.Struct.Init == HAL_OK) {
+    while(!(status = config_load_params(&gEcuParams))) {}
     if(status < 0) {
       gStatus.Flash.Struct.Load = HAL_ERROR;
-      config_default_table(&gEcuTable[i], i);
-      while(!(status = config_save_table(&gEcuTable[i], i))) {}
+      config_default_params(&gEcuParams);
+      while(!(status = config_save_params(&gEcuParams))) {}
       if(status < 0) {
           gStatus.Flash.Struct.Save = HAL_ERROR;
       }
     }
+
+    for(int i = 0; i < TABLE_SETUPS_MAX; i++) {
+      while(!(status = config_load_table(&gEcuTable[i], i))) {}
+      if(status < 0) {
+        gStatus.Flash.Struct.Load = HAL_ERROR;
+        config_default_table(&gEcuTable[i], i);
+        while(!(status = config_save_table(&gEcuTable[i], i))) {}
+        if(status < 0) {
+            gStatus.Flash.Struct.Save = HAL_ERROR;
+        }
+      }
+    }
+  } else {
+    config_default_params(&gEcuParams);
+    gStatus.Flash.Struct.Load = HAL_ERROR;
+    gStatus.Flash.Struct.Save = HAL_ERROR;
+    for(int i = 0; i < TABLE_SETUPS_MAX; i++)
+      config_default_table(&gEcuTable[i], i);
   }
 
   while(!(status = config_load_corrections(&gEcuCorrections))) {}
@@ -769,11 +777,6 @@ static void ecu_init_post_init(void)
 {
   Misc_EnableIdleValvePosition(gEcuCriticalBackup.idle_valve_position);
   if(gStatus.Bkpsram.Struct.Load != HAL_OK) {
-    if(gStatus.Bkpsram.Struct.Save != HAL_OK) {
-
-    } else {
-      gStatus.Bkpsram.Struct.Load = HAL_OK;
-    }
     gEcuIdleValveCalibrateOk = 0;
     gEcuIdleValveCalibrate = 1;
   }
