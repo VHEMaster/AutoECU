@@ -58,7 +58,6 @@ static uint8_t *buffSendingBuffer[SENDERS_MAX_COUNT] = {NULL};
 static sProFIFO fifoSendingQueue[SENDERS_MAX_COUNT] = {{NULL}};
 
 static uint8_t sender_sending[SENDERS_MAX_COUNT] = {0};
-static uint8_t sender_destination[SENDERS_MAX_COUNT] = {0};
 static uint16_t sender_size[SENDERS_MAX_COUNT] = {0};
 
 void PK_Sender_RegisterDestination(eTransChannels xDest,
@@ -129,17 +128,13 @@ void PK_SenderLoop(void)
             protLook(&fifoSendingQueue[i],3,&byte);
             sender_size[i] |= byte << 8;
 
-            if(sender_destination[i] > etrNone && sender_destination[i] < etrCount && sender_destination[i] == txDests[i]) {
-              if(protGetSize(&fifoSendingQueue[i]) >= sender_size[i]) {
-                pnt = buffSendingBuffer[i];
-                for(int i = 0; i < sender_size[i]; i++)
-                  protPull(&fifoSendingQueue[i], pnt++);
-                if(sender_destination[i]) {
-                  sender_sending[i] = 1;
-                  continue;
-                }
-              }
-            } else protClear(&fifoSendingQueue[i]);
+            if(protGetSize(&fifoSendingQueue[i]) >= sender_size[i]) {
+              pnt = buffSendingBuffer[i];
+              for(int j = 0; j < sender_size[i]; j++)
+                protPull(&fifoSendingQueue[j], pnt++);
+              sender_sending[i] = 1;
+              continue;
+            }
           }
         } else {
           status = xSender(txDests[i], buffSendingBuffer[i], sender_size[i]);
