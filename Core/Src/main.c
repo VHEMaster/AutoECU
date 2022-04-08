@@ -15,6 +15,7 @@
 #include "injector.h"
 #include "sst25vf032b.h"
 #include "bluetooth.h"
+#include "usb_device.h"
 
 ADC_HandleTypeDef hadc1;
 
@@ -293,9 +294,11 @@ int main(void)
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 1, GPIO_PIN_RESET);
-  outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
+  //Commented to not to disturb USB
+  //outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
   outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 1, GPIO_PIN_RESET);
-  outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 1, GPIO_PIN_RESET);
+  //Commented to not to disturb USB
+  //outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 1, GPIO_PIN_RESET);
 
   CRC16_Init(&hcrc);
 
@@ -343,6 +346,8 @@ int main(void)
   bluetooth_disable();
 
   ecu_init();
+
+  MX_USB_DEVICE_Init();
 
   while (1) {
     speed_loop();

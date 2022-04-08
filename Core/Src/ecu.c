@@ -1744,6 +1744,7 @@ void ecu_init(void)
 
   gParameters.StartAllowed = 1;
   gEcuInitialized = 1;
+
 }
 
 void ecu_irq_fast_loop(void)
