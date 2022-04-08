@@ -1,11 +1,9 @@
 #include "crc.h"
 #include "defines.h"
 
-#ifdef CRC_SW
-
 #define POLY 0x8005 // CRC-16-MAXIM (IBM) (or 0xA001)
 
-uint16_t CRC16_Generate(uint8_t * input, uint32_t size)
+static uint16_t CRC16_Generate_SW(uint8_t * input, uint32_t size)
 {
     uint8_t i,j;
     uint16_t data;
@@ -32,8 +30,6 @@ uint16_t CRC16_Generate(uint8_t * input, uint32_t size)
     return (crc);
 }
 
-#elif defined(CRC_HW)
-
 static CRC_HandleTypeDef *handle_crc;
 static volatile uint8_t CRC_IsBusy = 0;
 
@@ -44,7 +40,7 @@ void CRC16_Init(CRC_HandleTypeDef *hcrc)
   hcrc->Instance = CRC;
   hcrc->Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_DISABLE;
   hcrc->Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_DISABLE;
-  hcrc->Init.GeneratingPolynomial = 0x8005;
+  hcrc->Init.GeneratingPolynomial = POLY;
   hcrc->Init.CRCLength = CRC_POLYLENGTH_16B;
   hcrc->Init.InitValue = 0xFFFF;
   hcrc->Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_BYTE;
@@ -63,24 +59,19 @@ INLINE uint8_t CRC16_IsBusy(void)
 INLINE uint16_t CRC16_Generate(uint8_t *input, uint32_t size)
 {
   uint16_t result = 0;
-  if (handle_crc != NULL) {
+  if (handle_crc != NULL && !CRC_IsBusy) {
     CRC_IsBusy = 1;
     result = HAL_CRC_Calculate(handle_crc, (uint32_t *)input, size);
     CRC_IsBusy = 0;
+  } else {
+    result = CRC16_Generate_SW(input, size);
   }
   return result;
 }
 
 INLINE uint8_t CRC8_Generate(uint8_t *input, uint32_t size)
 {
-  uint16_t result = 0;
-  if (handle_crc != NULL) {
-    CRC_IsBusy = 1;
-    result = HAL_CRC_Calculate(handle_crc, (uint32_t *)input, size);
-    CRC_IsBusy = 0;
-  }
+  uint16_t result = CRC16_Generate(input, size);
   return (result & 0xFF) ^ (result >> 8);
 }
-
-#endif
 
