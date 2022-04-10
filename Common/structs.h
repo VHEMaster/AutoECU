@@ -319,7 +319,7 @@ typedef struct {
     int32_t StartAllowed;
     int32_t IsRunning;
     int32_t IsCheckEngine;
-}sParameters __attribute__((aligned(32)));
+}sParameters;
 
 typedef struct {
     float IgnitionAngle;
@@ -351,7 +351,7 @@ typedef struct {
       uint8_t CheckEngine;
     } Enable;
     uint32_t pad;
-}sForceParameters __attribute__((aligned(32)));
+}sForceParameters;
 
 typedef struct {
     union {
@@ -393,14 +393,14 @@ typedef struct {
     eKnockStatus KnockStatus;
     uint32_t pad;
     //TODO: add more diagnostic fields
-}sStatus __attribute__((aligned(32)));
+}sStatus;
 
 typedef struct {
     float km_driven;
     float fuel_consumed;
     uint8_t CheckBitmapRecorded[CHECK_BITMAP_SIZE];
     uint8_t idle_valve_position;
-}sEcuCriticalBackup __attribute__((aligned(32)));
+}sEcuCriticalBackup;
 
 typedef struct {
     uint32_t code;

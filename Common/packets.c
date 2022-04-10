@@ -131,7 +131,7 @@ void PK_SenderLoop(void)
             if(protGetSize(&fifoSendingQueue[i]) >= sender_size[i]) {
               pnt = buffSendingBuffer[i];
               for(int j = 0; j < sender_size[i]; j++)
-                protPull(&fifoSendingQueue[j], pnt++);
+                protPull(&fifoSendingQueue[i], pnt++);
               sender_sending[i] = 1;
               continue;
             }
