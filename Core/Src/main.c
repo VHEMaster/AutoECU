@@ -289,7 +289,7 @@ int main(void)
   sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
   sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
   sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
-  sensors_register(SensorRsvd2, SENS_RSVD2_GPIO_Port, SENS_RSVD2_Pin, 1);
+  sensors_register(SensorIgn, SENS_IGN_GPIO_Port, SENS_IGN_Pin, 1);
 
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
@@ -298,7 +298,7 @@ int main(void)
   //outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
   outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 1, GPIO_PIN_RESET);
   //Commented to not to disturb USB
-  //outputs_register(OutRsvd2, OUT_RSVD2_GPIO_Port, OUT_RSVD2_Pin, 1, GPIO_PIN_RESET);
+  //outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
 
   CRC16_Init(&hcrc);
 
@@ -1323,10 +1323,10 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA,
-      O2_NRST_Pin | CAN1_LBK_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_RSVD2_Pin
+      O2_NRST_Pin | CAN1_LBK_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
           | OUT_STARTER_Pin, GPIO_PIN_RESET);
 
-  HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_RSVD2_Pin
+  HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
       | OUT_STARTER_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
@@ -1385,9 +1385,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SPI4_NSS_KNOCK_Pin O2_NRST_Pin CAN1_LBK_Pin OUT_FAN_Pin
-   OUT_RSVD1_Pin OUT_RSVD2_Pin OUT_STARTER_Pin */
+   OUT_RSVD1_Pin OUT_IGN_Pin OUT_STARTER_Pin */
   GPIO_InitStruct.Pin = SPI4_NSS_KNOCK_Pin | O2_NRST_Pin | CAN1_LBK_Pin
-      | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_RSVD2_Pin | OUT_STARTER_Pin;
+      | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin | OUT_STARTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -1426,8 +1426,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SENS_RSVD2_Pin SENS_RSVD1_Pin SENS_CHARGE_Pin SENS_HANDBRAKE_Pin */
-  GPIO_InitStruct.Pin = SENS_RSVD2_Pin | SENS_RSVD1_Pin | SENS_CHARGE_Pin
+  /*Configure GPIO pins : SENS_IGN_Pin SENS_RSVD1_Pin SENS_CHARGE_Pin SENS_HANDBRAKE_Pin */
+  GPIO_InitStruct.Pin = SENS_IGN_Pin | SENS_RSVD1_Pin | SENS_CHARGE_Pin
       | SENS_HANDBRAKE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

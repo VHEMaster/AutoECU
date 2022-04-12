@@ -99,7 +99,7 @@ typedef struct {
   struct {
     union {
       struct {
-        eOutputDiagnosticStatus OutRsvd2 : 2;
+        eOutputDiagnosticStatus OutIgn : 2;
         eOutputDiagnosticStatus OutRsvd1 : 2;
         eOutputDiagnosticStatus StarterRelay : 2;
         eOutputDiagnosticStatus FanRelay : 2;
@@ -307,14 +307,14 @@ typedef struct {
     int32_t HandbrakeSensor;
     int32_t ChargeSensor;
     int32_t Rsvd1Sensor;
-    int32_t Rsvd2Sensor;
+    int32_t IgnSensor;
 
     int32_t FuelPumpRelay;
     int32_t FanRelay;
     int32_t CheckEngine;
     int32_t StarterRelay;
     int32_t Rsvd1Output;
-    int32_t Rsvd2Output;
+    int32_t IgnOutput;
 
     int32_t StartAllowed;
     int32_t IsRunning;
@@ -325,8 +325,8 @@ typedef struct {
     float IgnitionAngle;
     float InjectionPhase;
     float IgnitionOctane;
-    float IgnitionTime;
-    float InjectionTime;
+    float IgnitionPulse;
+    float InjectionPulse;
     float WishFuelRatio;
     float WishIdleRPM;
     float WishIdleValvePosition;
@@ -339,8 +339,8 @@ typedef struct {
       uint8_t IgnitionAngle;
       uint8_t InjectionPhase;
       uint8_t IgnitionOctane;
-      uint8_t IgnitionTime;
-      uint8_t InjectionTime;
+      uint8_t IgnitionPulse;
+      uint8_t InjectionPulse;
       uint8_t WishFuelRatio;
       uint8_t WishIdleRPM;
       uint8_t WishIdleValvePosition;

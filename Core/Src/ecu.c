@@ -519,11 +519,13 @@ static void ecu_update(void)
     fuel_ratio = wish_fuel_ratio;
 
   injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
+
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
+  ignition_time *= 1000.0f;
 
-  if(gForceParameters.Enable.IgnitionTime)
-    ignition_time = gForceParameters.IgnitionTime;
+  if(gForceParameters.Enable.IgnitionPulse)
+    ignition_time = gForceParameters.IgnitionPulse;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
@@ -531,8 +533,8 @@ static void ecu_update(void)
   injection_time *= long_term_correction + 1.0f;
   injection_time += injector_lag;
 
-  if(gForceParameters.Enable.InjectionTime)
-    injection_time = gForceParameters.InjectionTime;
+  if(gForceParameters.Enable.InjectionPulse)
+    injection_time = gForceParameters.InjectionPulse;
 
   idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipTemp, table->idle_wish_massair);
@@ -658,7 +660,7 @@ static void ecu_update(void)
       if(gEcuParams.performAdaptation) {
         lpf_calculation = adapt_diff * 0.000001f * 0.1f;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionTime) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionPulse) {
           gEcuCorrections.long_term_correction = 0.0f;
 
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
@@ -685,7 +687,7 @@ static void ecu_update(void)
 
 
       } else {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionTime) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse) {
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           gEcuCorrections.long_term_correction *= filling_diff * lpf_calculation + 1.0f;
@@ -755,14 +757,14 @@ static void ecu_update(void)
   gParameters.HandbrakeSensor = sens_get_handbrake(NULL) != GPIO_PIN_RESET;
   gParameters.ChargeSensor = sens_get_charge(NULL);
   gParameters.Rsvd1Sensor = sens_get_rsvd1(NULL) != GPIO_PIN_RESET;
-  gParameters.Rsvd2Sensor = sens_get_rsvd2(NULL) != GPIO_PIN_RESET;
+  gParameters.IgnSensor = sens_get_ign(NULL) != GPIO_PIN_RESET;
 
   gParameters.FuelPumpRelay = out_get_fuelpump(NULL) != GPIO_PIN_RESET;
   gParameters.FanRelay = out_get_fan(NULL) != GPIO_PIN_RESET;
   gParameters.CheckEngine = out_get_checkengine(NULL) != GPIO_PIN_RESET;
   gParameters.StarterRelay = out_get_starter(NULL) != GPIO_PIN_RESET;
   gParameters.Rsvd1Output = out_get_rsvd1(NULL) != GPIO_PIN_RESET;
-  gParameters.Rsvd2Output = out_get_rsvd2(NULL) != GPIO_PIN_RESET;
+  gParameters.IgnOutput = out_get_ign(NULL) != GPIO_PIN_RESET;
 
   gParameters.IsRunning = running;
   gParameters.IsCheckEngine = gEcuIsError;
@@ -1125,7 +1127,7 @@ static void ecu_process(void)
     time_sat = period * 0.5f * 0.65f;
     time_pulse = period * 0.5f * 0.35f;
   } else {
-    time_sat = gParameters.IgnitionPulse * 1000.0f;
+    time_sat = gParameters.IgnitionPulse;
     time_pulse = 2000;
   }
 
@@ -1421,9 +1423,9 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(gStatus, iserror, CheckFuelPumpShortToGND, OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToGnd);
   CHECK_STATUS(gStatus, iserror, CheckOutputs1CommunicationFailure, OutputDiagnostic.Outs1.Availability != HAL_OK);
 
-  //CHECK_STATUS(gStatus, iserror, CheckOutRsvd2OpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd2 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckOutRsvd2ShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd2 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckOutRsvd2ShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd2 == OutputDiagShortToGnd);
+  //CHECK_STATUS(gStatus, iserror, CheckOutIgnOpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
+  CHECK_STATUS(gStatus, iserror, CheckOutIgnShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(gStatus, iserror, CheckOutIgnShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToGnd);
   //CHECK_STATUS(gStatus, iserror, CheckOutRsvd1OpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagOpenCircuit);
   CHECK_STATUS(gStatus, iserror, CheckOutRsvd1ShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(gStatus, iserror, CheckOutRsvd1ShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToGnd);

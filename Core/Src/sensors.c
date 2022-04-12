@@ -90,11 +90,11 @@ inline GPIO_PinState sens_get_rsvd1(uint32_t *time)
   return Sensors[SensorRsvd1].state;
 }
 
-inline GPIO_PinState sens_get_rsvd2(uint32_t *time)
+inline GPIO_PinState sens_get_ign(uint32_t *time)
 {
   if(time)
-    *time = DelayDiff(Delay_Tick, Sensors[SensorRsvd2].time_switched);
-  return Sensors[SensorRsvd2].state;
+    *time = DelayDiff(Delay_Tick, Sensors[SensorIgn].time_switched);
+  return Sensors[SensorIgn].state;
 }
 
 static float getTemperatureByResistance_airtemp(float resistance)

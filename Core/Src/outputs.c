@@ -63,11 +63,11 @@ inline void out_set_rsvd1(GPIO_PinState state)
   }
 }
 
-inline void out_set_rsvd2(GPIO_PinState state)
+inline void out_set_ign(GPIO_PinState state)
 {
-  if(Outputs[OutRsvd2].state != state) {
-    Outputs[OutRsvd2].time_switched = Delay_Tick;
-    Outputs[OutRsvd2].state = state;
+  if(Outputs[OutIgn].state != state) {
+    Outputs[OutIgn].time_switched = Delay_Tick;
+    Outputs[OutIgn].state = state;
   }
 }
 
@@ -106,11 +106,11 @@ inline GPIO_PinState out_get_rsvd1(uint32_t *time)
   return Outputs[OutRsvd1].state;
 }
 
-inline GPIO_PinState out_get_rsvd2(uint32_t *time)
+inline GPIO_PinState out_get_ign(uint32_t *time)
 {
   if(time)
-    *time = DelayDiff(Delay_Tick, Outputs[OutRsvd2].time_switched);
-  return Outputs[OutRsvd2].state;
+    *time = DelayDiff(Delay_Tick, Outputs[OutIgn].time_switched);
+  return Outputs[OutIgn].state;
 }
 
 void outputs_init(void)

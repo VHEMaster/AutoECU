@@ -122,8 +122,8 @@ void Error_Handler(void);
 #define IGN_2_GPIO_Port GPIOD
 #define IGN_1_Pin GPIO_PIN_11
 #define IGN_1_GPIO_Port GPIOD
-#define SENS_RSVD2_Pin GPIO_PIN_12
-#define SENS_RSVD2_GPIO_Port GPIOD
+#define SENS_IGN_Pin GPIO_PIN_12
+#define SENS_IGN_GPIO_Port GPIOD
 #define SENS_RSVD1_Pin GPIO_PIN_13
 #define SENS_RSVD1_GPIO_Port GPIOD
 #define SENS_CHARGE_Pin GPIO_PIN_14
@@ -144,8 +144,8 @@ void Error_Handler(void);
 #define OUT_FAN_GPIO_Port GPIOA
 #define OUT_RSVD1_Pin GPIO_PIN_10
 #define OUT_RSVD1_GPIO_Port GPIOA
-#define OUT_RSVD2_Pin GPIO_PIN_11
-#define OUT_RSVD2_GPIO_Port GPIOA
+#define OUT_IGN_Pin GPIO_PIN_11
+#define OUT_IGN_GPIO_Port GPIOA
 #define OUT_STARTER_Pin GPIO_PIN_12
 #define OUT_STARTER_GPIO_Port GPIOA
 #define TIM2_CH1_TACHOMETER_Pin GPIO_PIN_15

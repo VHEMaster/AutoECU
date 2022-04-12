@@ -54,9 +54,9 @@ const char * const gCheckDataErrorString[] = {
     "FuelPump: ShortToGND",
     "Outputs1: Communication failure",
 
-    "OutRsvd2: OpenCircuit",
-    "OutRsvd2: ShortToBatOrOverheat",
-    "OutRsvd2: ShortToGND",
+    "OutIgn: OpenCircuit",
+    "OutIgn: ShortToBatOrOverheat",
+    "OutIgn: ShortToGND",
     "OutRsvd1: OpenCircuit",
     "OutRsvd1: ShortToBatOrOverheat",
     "OutRsvd1: ShortToGND",
