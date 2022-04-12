@@ -109,8 +109,8 @@ static float getTemperatureByResistance_airtemp(float resistance)
 
 static float getTemperatureByResistance_enginetemp(float resistance)
 {
-  const static float resistances[22] = {80,177,241,332,467,667,973,1188,1459,2238,2796,3520,4450,5670,7280,9420,12300,16180,21450,28680,52700,100700};
-  const static float temperatures[22] = {128,100,90,80,70,60,50,45,40,30,25,20,15,10,5,0,-5,-10,-15,-20,-30,-40};
+  const static float resistances[24] = {80,102,133,177,241,332,467,667,973,1188,1459,2238,2796,3520,4450,5670,7280,9420,12300,16180,21450,28680,52700,100700};
+  const static float temperatures[24] = {128,120,110,100,90,80,70,60,50,45,40,30,25,20,15,10,5,0,-5,-10,-15,-20,-30,-40};
   sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
 
   return math_interpolate_1d(ipResistance, temperatures);
@@ -242,8 +242,8 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
   float value = ADC_GetVoltage(AdcChEngineTemperature);
   //TODO: calibrate throttle position sensor
-  float voltage_from = power_voltage * 0.14f;
-  float voltage_to = power_voltage * 0.8f;
+  float voltage_from = power_voltage * 0.12f;
+  float voltage_to = power_voltage * 0.92f;
 
   if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
     status = HAL_ERROR;
