@@ -244,6 +244,7 @@ static inline float ADC_Convert(uint8_t channel)
 HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 {
   HAL_StatusTypeDef result = HAL_OK;
+  uint8_t data;
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
@@ -263,20 +264,60 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
   if(result != HAL_OK)
     goto ret;
 
+  //Check all channels enabled
+  result = SPI_ReadRegister(0x02, &data);
+  if(result != HAL_OK)
+    goto ret;
+
+  if(data != 0x00) {
+    goto ret;
+    result = HAL_ERROR;
+  }
+
   //All channels in sequence mode
   result = SPI_WriteRegister(0x01, 0xFF);
   if(result != HAL_OK)
     goto ret;
+
+  //Check all channels in sequence mode
+  result = SPI_ReadRegister(0x01, &data);
+  if(result != HAL_OK)
+    goto ret;
+
+  if(data != 0xFF) {
+    result = HAL_ERROR;
+    goto ret;
+  }
 
   //SDO format: 011, dev address: 0
   result = SPI_WriteRegister(0x03, 0x03);
   if(result != HAL_OK)
     goto ret;
 
+  //Check SDO format: 011, dev address: 0
+  result = SPI_ReadRegister(0x03, &data);
+  if(result != HAL_OK)
+    goto ret;
+
+  if(data != 0x03) {
+    result = HAL_ERROR;
+    goto ret;
+  }
+
   for(int i = 0; i < ADC_CHANNELS; i++) {
     result = SPI_WriteRegister(0x05 + i, ChRange[i]);
     if(result != HAL_OK)
       goto ret;
+
+    //Check channel setup
+    result = SPI_ReadRegister(0x05 + i, &data);
+    if(result != HAL_OK)
+      goto ret;
+
+    if(data != ChRange[i]) {
+      result = HAL_ERROR;
+      goto ret;
+    }
   }
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
@@ -359,6 +400,9 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
   static HAL_StatusTypeDef result = HAL_OK;
   uint32_t data;
   uint32_t failed_channels = 0;
+
+  if(adcInitStatus != HAL_OK)
+    return adcInitStatus;
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
     data = 0;

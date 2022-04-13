@@ -319,6 +319,8 @@ static void ecu_update(void)
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
 
+  gStatus.AdcStatus = sens_get_adc_status();
+
   halfturns = csps_gethalfturns();
   running = csps_isrunning();
   rotates = csps_isrotates();
@@ -1440,6 +1442,7 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(gStatus, iserror, CheckIdleValveFailure, OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
   CHECK_STATUS(gStatus, iserror, CheckIdleValveDriverFailure, IdleValvePosition != HAL_OK);
   CHECK_STATUS(gStatus, iserror, CheckInjectionUnderflow, InjectionUnderflow != HAL_OK);
+  CHECK_STATUS(gStatus, iserror, CheckAdcFailure, AdcStatus != HAL_OK);
 
   if(gEcuParams.useLambdaSensor) {
     CHECK_STATUS(gStatus, iserror, CheckLambdaCommunicationFailure, O2Status != HAL_OK);

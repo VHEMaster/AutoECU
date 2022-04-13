@@ -71,6 +71,7 @@ const char * const gCheckDataErrorString[] = {
     "IdleValve: Failure",
     "IdleValve: Driver failure",
     "Injection: Fuel underflow",
+    "ADC: Communication Failure",
 
     "Lambda: Communication failure",
     "Lambda: VM ShortToBat",

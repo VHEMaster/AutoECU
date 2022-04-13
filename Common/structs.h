@@ -389,6 +389,7 @@ typedef struct {
     HAL_StatusTypeDef IdleValvePosition;
     HAL_StatusTypeDef O2Status;
     HAL_StatusTypeDef InjectionUnderflow;
+    HAL_StatusTypeDef AdcStatus;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
     uint32_t pad;
