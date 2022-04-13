@@ -472,8 +472,21 @@ static void ecu_update(void)
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
 
+  idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
+  idle_wish_massair = math_interpolate_1d(ipTemp, table->idle_wish_massair);
+  idle_wish_ignition = math_interpolate_1d(ipRpm, table->idle_wish_ignition);
+
+  idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
+  knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
+  knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
+
+
+  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
 
   if(idle_flag && running) {
+    ignition_angle = idle_wish_ignition;
+
     if(out_get_fan(NULL) != GPIO_PIN_RESET || gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd) {
       ignition_correction += table->idle_ign_fan_corr;
 
@@ -481,9 +494,15 @@ static void ecu_update(void)
         ignition_correction = table->idle_ign_deviation_max;
       else if(ignition_correction < table->idle_ign_deviation_min)
         ignition_correction = table->idle_ign_deviation_min;
+
+      ignition_angle += ignition_correction;
+    }
+    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
+      math_pid_reset(&gPidIdleIgnition);
+      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
+      idle_angle_correction = 0;
     }
   }
-  ignition_angle += ignition_correction;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
@@ -492,12 +511,6 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
-
-
-  if(gForceParameters.Enable.IgnitionAngle)
-    ignition_angle = gForceParameters.IgnitionAngle;
-  if(gForceParameters.Enable.IgnitionOctane)
-    ignition_angle += gForceParameters.IgnitionOctane;
 
   if(running) {
     warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
@@ -538,14 +551,6 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPulse)
     injection_time = gForceParameters.InjectionPulse;
 
-  idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
-  idle_wish_massair = math_interpolate_1d(ipTemp, table->idle_wish_massair);
-  idle_wish_ignition = math_interpolate_1d(ipRpm, table->idle_wish_ignition);
-
-  idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
-  knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
-  knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
-
   idle_wish_rpm += idle_rpm_shift;
 
   if(gForceParameters.Enable.WishIdleRPM)
@@ -570,28 +575,22 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
-  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-
   if(!idle_flag) {
     idle_valve_pos_correction = 0;
     idle_angle_correction = 0;
   }
 
-  if(idle_flag && !cutoff_processing) {
-    ignition_angle = idle_wish_ignition;
-    ignition_angle += idle_angle_correction;
-
-    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
-      math_pid_reset(&gPidIdleIgnition);
-      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
-    }
-  }
-
   idle_wish_valve_pos += idle_valve_pos_correction;
+  ignition_angle += idle_angle_correction;
+
+  if(gForceParameters.Enable.IgnitionAngle)
+    ignition_angle = gForceParameters.IgnitionAngle;
+  if(gForceParameters.Enable.IgnitionOctane)
+    ignition_angle += gForceParameters.IgnitionOctane;
 
   if(gForceParameters.Enable.WishIdleValvePosition) {
     math_pid_reset(&gPidIdleAirFlow);
+    idle_valve_pos_correction = 0;
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
 
