@@ -268,7 +268,6 @@ static void ecu_update(void)
   float min, max;
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
-  static uint32_t enrichment_step = 0;
   static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_status_map = 0.0f;
@@ -420,15 +419,19 @@ static void ecu_update(void)
 
   while(halfturns != prev_halfturns) {
     prev_halfturns++;
-    enrichment_map_states[enrichment_step] = map;
-    enrichment_thr_states[enrichment_step] = throttle;
-    if(++enrichment_step >= ENRICHMENT_STATES_COUNT)
-      enrichment_step = 0;
+    for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--)
+    {
+      enrichment_map_states[i] = enrichment_map_states[i + 1];
+      enrichment_thr_states[i] = enrichment_thr_states[i + 1];
+    }
+    enrichment_map_states[ENRICHMENT_STATES_COUNT - 1] = map;
+    enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1] = throttle;
 
     if(running) {
 
       if(gStatus.Sensors.Struct.Map == HAL_OK) {
-        math_minmax(enrichment_map_states, ENRICHMENT_STATES_COUNT, &min, &max);
+        max = enrichment_map_states[ENRICHMENT_STATES_COUNT - 1];
+        min = enrichment_map_states[0];
         if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
         ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
         enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
@@ -441,7 +444,8 @@ static void ecu_update(void)
       }
 
       if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-        math_minmax(enrichment_thr_states, ENRICHMENT_STATES_COUNT, &min, &max);
+        max = enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1];
+        min = enrichment_thr_states[0];
         if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
         ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
         enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_map_sens);
