@@ -283,6 +283,7 @@ typedef struct {
     float CyclicAirFlow;
     float EffectiveVolume;
     float AirDestiny;
+    float RelativeFilling;
     float WishFuelRatio;
     float IdleValvePosition;
     float WishIdleRPM;
@@ -295,6 +296,7 @@ typedef struct {
     float InjectionPulse;
     float InjectionDutyCycle;
     float InjectionEnrichment;
+    float InjectionLag;
     float IgnitionPulse;
     float IdleSpeedShift;
 

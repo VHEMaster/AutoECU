@@ -259,7 +259,9 @@ static void ecu_update(void)
   float injection_time;
   float injection_phase;
   float injection_phase_duration;
+  float knock_threshold;
   float air_destiny;
+  float filling_relative;
   float fuel_flow_per_us;
   float knock_filtered;
   float knock_noise_level;
@@ -279,7 +281,6 @@ static void ecu_update(void)
   static float enrichment = 0.0f;
   float enrichment_proportion;
   float fuel_amount_per_cycle;
-  float knock_threshold;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -409,6 +410,7 @@ static void ecu_update(void)
   fill_correction_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
 
   filling_map *= fill_correction_map + 1.0f;
+  filling_relative = filling_map;
 
   effective_volume = filling_map * gEcuParams.engineVolume;
 
@@ -738,6 +740,7 @@ static void ecu_update(void)
   gParameters.CyclicAirFlow = cycle_air_flow;
   gParameters.EffectiveVolume = effective_volume;
   gParameters.AirDestiny = air_destiny;
+  gParameters.RelativeFilling = filling_relative;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
   gParameters.WishIdleRPM = idle_wish_rpm;
@@ -745,11 +748,12 @@ static void ecu_update(void)
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;
   gParameters.WishIdleIgnitionAngle = idle_wish_ignition;
   gParameters.IgnitionAngle = ignition_angle;
-  gParameters.InjectionPhaseDuration = injection_phase_duration;
   gParameters.InjectionPhase = injection_phase;
+  gParameters.InjectionPhaseDuration = injection_phase_duration;
   gParameters.InjectionPulse = injection_time;
   gParameters.InjectionDutyCycle = injection_dutycycle;
   gParameters.InjectionEnrichment = enrichment;
+  gParameters.InjectionLag = injector_lag;
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
 
