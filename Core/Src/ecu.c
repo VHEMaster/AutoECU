@@ -543,7 +543,6 @@ static void ecu_update(void)
 
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
-  ignition_time *= 1000.0f;
 
   if(gForceParameters.Enable.IgnitionPulse)
     ignition_time = gForceParameters.IgnitionPulse;
