@@ -210,8 +210,19 @@ typedef struct {
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    uint8_t progress_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    uint8_t progress_fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    uint8_t progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    uint8_t progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
     float long_term_correction;
 }sEcuCorrections __attribute__((aligned(32)));
+
+typedef struct {
+    float progress_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float progress_fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    float progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+}sEcuCorrectionsProgress __attribute__((aligned(32)));;
 
 typedef struct {
     float engineVolume;
