@@ -501,8 +501,12 @@ static void ecu_update(void)
       else if(ignition_correction < table->idle_ign_deviation_min)
         ignition_correction = table->idle_ign_deviation_min;
 
-      ignition_angle += ignition_correction;
     }
+  }
+
+  ignition_angle += ignition_correction;
+
+  if(idle_flag && running) {
     if(gForceParameters.Enable.WishIdleIgnitionAngle) {
       math_pid_reset(&gPidIdleIgnition);
       ignition_angle = gForceParameters.WishIdleIgnitionAngle;

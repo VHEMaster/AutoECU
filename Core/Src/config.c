@@ -351,7 +351,7 @@ void config_default_params(sEcuParams *table)
   table->useLambdaSensor = 1;
   table->useTSPS = 1;
   table->useKnockSensor = 1;
-  table->performAdaptation = 1;
+  table->performAdaptation = 0;
   table->isSingleCoil = 0;
   table->isIndividualCoils = 1;
 
