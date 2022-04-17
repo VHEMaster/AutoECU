@@ -1072,14 +1072,15 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
   return 1;
 }
 
-STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch)
+STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch, uint8_t reset)
 {
-  if(mode > 0)
+  if(mode > 0 && !reset)
   {
-
+    //TODO: shift handle
   }
   else
   {
+    //TODO: reset handle
     return 2;
   }
 
@@ -1094,48 +1095,41 @@ STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO
   float rpmtill = gEcuParams.shiftRpmTill;
   uint8_t shift_result = 1;
 
-  if(mode > 0) {
-    if(throttle >= thrthr) {
-      if(clutch == GPIO_PIN_RESET) {
-        if(!Shift.Shifting) {
-          Shift.Tilled = 0;
-          Shift.Shifting = 0;
-          if(rpm >= rpmthr && throttle >= thrthr) {
-            Shift.Thresholded = 1;
-          }
-        }
-      } else {
-        if(Shift.Thresholded) {
-          if(rpm >= rpmtill && !Shift.Tilled) {
-            Shift.Shifting = 1;
-          } else {
-            Shift.Tilled = 1;
-            Shift.Shifting = 0;
-          }
+  if(mode > 0 && throttle >= thrthr) {
+    if(clutch == GPIO_PIN_RESET) {
+      if(!Shift.Shifting) {
+        Shift.Tilled = 0;
+        Shift.Shifting = 0;
+        if(rpm >= rpmthr && throttle >= thrthr) {
+          Shift.Thresholded = 1;
         }
       }
     } else {
-      Shift.Shifting = 0;
-      Shift.Thresholded = 0;
-      Shift.Tilled = 0;
+      if(Shift.Thresholded) {
+        if(rpm >= rpmtill && !Shift.Tilled) {
+          Shift.Shifting = 1;
+        } else {
+          Shift.Tilled = 1;
+          Shift.Shifting = 0;
+          Shift.Thresholded = 0;
+        }
+      }
     }
   } else {
-    if(Shift.Shifting) {
-      clutch = GPIO_PIN_RESET;
-    } else {
-      Shift.Shifting = 0;
-      Shift.Thresholded = 0;
-      Shift.Tilled = 0;
-    }
+    Shift.Shifting = 0;
+    Shift.Thresholded = 0;
+    Shift.Tilled = 0;
   }
 
-  if(Shift.Thresholded && Shift.Shifting) {
-    shift_result = ecu_shift_process(cy_count, cylinder, mode, clutch);
+  if(Shift.Thresholded && Shift.Shifting && !Shift.Tilled) {
+    shift_result = ecu_shift_process(cy_count, cylinder, mode, clutch, 0);
     if(shift_result > 1) {
       Shift.Shifting = 0;
       Shift.Thresholded = 0;
       Shift.Tilled = 0;
     }
+  } else {
+    shift_result = ecu_shift_process(cy_count, cylinder, mode, clutch, 1);
   }
 
   return shift_result > 0;
