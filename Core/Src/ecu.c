@@ -50,6 +50,9 @@ typedef volatile struct {
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
+static GPIO_TypeDef * const gInjPorts[ECU_CYLINDERS_COUNT] = { INJ_1_GPIO_Port, INJ_2_GPIO_Port, INJ_3_GPIO_Port, INJ_4_GPIO_Port };
+static const uint16_t gInjPins[ECU_CYLINDERS_COUNT] = { INJ_1_Pin, INJ_2_Pin, INJ_3_Pin, INJ_4_Pin };
+
 static GPIO_TypeDef * const gInjChPorts[2] = { INJ_CH1_GPIO_Port, INJ_CH2_GPIO_Port };
 static const uint16_t gInjChPins[2] = { INJ_CH1_Pin, INJ_CH2_Pin};
 
@@ -75,6 +78,10 @@ static sMathPid gPidIdleAirFlow = {0};
 static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
+
+static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
+static volatile uint8_t gIgnCanShutdown = 0;
+static volatile uint8_t gIgnShutdownReady = 0;
 
 static uint8_t ecu_get_table(void)
 {
@@ -1235,7 +1242,7 @@ static void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
-  if(found && start_allowed)
+  if(found && start_allowed && !gIgnCanShutdown)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
@@ -1334,6 +1341,8 @@ static void ecu_process(void)
       gInjChPorts[i]->BSRR = gInjChPins[i] << 16;
     for(int i = 0; i < ITEMSOF(gIgnPorts); i++)
       gIgnPorts[i]->BSRR = gIgnPins[i] << 16;
+    for(int i = 0; i < ITEMSOF(gInjPorts); i++)
+      gInjPorts[i]->BSRR = gInjPins[i];
 
   }
 }
@@ -1820,6 +1829,42 @@ static void ecu_corrections_loop(void)
   }
 }
 
+static void ecu_ign_process(void)
+{
+  static uint32_t tick_ready = 0;
+  HAL_StatusTypeDef state;
+  uint32_t now = Delay_Tick;
+  uint32_t time;
+
+  state = sens_get_ign(&time);
+
+  if(state == GPIO_PIN_SET) {
+    gIgnShutdownReady = 0;
+    gIgnCanShutdown = 0;
+    gIgnState = GPIO_PIN_SET;
+    out_set_ign(GPIO_PIN_SET);
+  }
+  else if(time >= 100000) {
+    gIgnState = GPIO_PIN_RESET;
+    gIgnCanShutdown = 1;
+    tick_ready = now;
+  }
+
+  if(gIgnCanShutdown && !gIgnShutdownReady) {
+    tick_ready = now;
+  }
+  else if(gIgnCanShutdown && gIgnShutdownReady) {
+    if(DelayDiff(now, tick_ready) > 5000000) {
+      out_set_ign(GPIO_PIN_RESET);
+    }
+  }
+
+  //TODO: maybe move to another place?
+  if(gIgnCanShutdown && !gIgnShutdownReady && !csps_isrotates()) {
+    gIgnShutdownReady = 1;
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -1855,6 +1900,7 @@ void ecu_irq_slow_loop(void)
   ecu_backup_save_process();
   ecu_fuelpump_process();
   ecu_fan_process();
+  ecu_ign_process();
 
 }
 
