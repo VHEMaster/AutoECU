@@ -1113,10 +1113,23 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
   }
 }
 
+STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+{
+
+  return 1;
+}
+
+STATIC_INLINE uint8_t ecu_shift_inj_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+{
+
+  return 1;
+}
+
 static void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   sCspsData csps = csps_data();
+  static GPIO_PinState clutch = GPIO_PIN_RESET;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
@@ -1130,6 +1143,7 @@ static void ecu_process(void)
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
+  float throttle;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
   float found = csps_isfound();
@@ -1155,6 +1169,28 @@ static void ecu_process(void)
   uint8_t use_tsps;
   uint8_t injector_channel;
   uint8_t start_allowed = gParameters.StartAllowed;
+  uint8_t cutoff_inj_act, cutoff_ign_act;
+  uint8_t shift_inj_act, shift_ign_act;
+  uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
+  HAL_StatusTypeDef throttleStatus = HAL_OK;
+  GPIO_PinState clutch_pin;
+  uint32_t clutch_time;
+
+  if(shiftEnabled) {
+    clutch_pin = sens_get_clutch(&clutch_time);
+    if(clutch_pin != clutch)
+    {
+      if(clutch_time > 500) {
+        clutch = clutch_pin;
+      }
+    }
+    throttleStatus = sens_get_throttle_position(&throttle);
+  }
+  if(throttleStatus != HAL_OK)
+    shiftEnabled = 0;
+  if(!shiftEnabled)
+    clutch = GPIO_PIN_RESET;
+
 
   injector_channel = table->inj_channel;
   single_coil = gEcuParams.isSingleCoil;
@@ -1275,7 +1311,9 @@ static void ecu_process(void)
           if(single_coil) {
             ecu_coil_saturate(1, 0);
           } else {
-            if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
+            shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
+            cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
+            if(shift_ign_act && cutoff_ign_act)
               ecu_coil_saturate(cy_count_ignition, i);
           }
         }
@@ -1289,7 +1327,9 @@ static void ecu_process(void)
           saturated[i] = 0;
 
           if(single_coil) {
-            if(ecu_cutoff_ign_act(cy_count_ignition, i, rpm))
+            shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
+            cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
+            if(shift_ign_act && cutoff_ign_act)
               ecu_coil_ignite(1, 0);
           } else {
             ecu_coil_ignite(cy_count_ignition, i);
@@ -1317,7 +1357,9 @@ static void ecu_process(void)
         if(!injection[i])
         {
           injection[i] = 1;
-          if(ecu_cutoff_inj_act(cy_count_injection, i, rpm) && cy_injection[i] > 0.0f)
+          shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
+          cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
+          if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
             ecu_inject(cy_count_injection, i, cy_injection[i]);
         }
       }
@@ -1832,7 +1874,7 @@ static void ecu_corrections_loop(void)
 static void ecu_ign_process(void)
 {
   static uint32_t tick_ready = 0;
-  HAL_StatusTypeDef state;
+  GPIO_PinState state;
   uint32_t now = Delay_Tick;
   uint32_t time;
 
