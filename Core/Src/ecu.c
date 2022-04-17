@@ -2013,7 +2013,9 @@ void ecu_irq_slow_loop(void)
   ecu_backup_save_process();
   ecu_fuelpump_process();
   ecu_fan_process();
-  ecu_ign_process();
+
+  //TODO: uncomment on real ECU
+  //ecu_ign_process();
 
 }
 
