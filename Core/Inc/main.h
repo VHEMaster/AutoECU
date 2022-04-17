@@ -124,8 +124,8 @@ void Error_Handler(void);
 #define IGN_1_GPIO_Port GPIOD
 #define SENS_IGN_Pin GPIO_PIN_12
 #define SENS_IGN_GPIO_Port GPIOD
-#define SENS_RSVD1_Pin GPIO_PIN_13
-#define SENS_RSVD1_GPIO_Port GPIOD
+#define SENS_CLUTCH_Pin GPIO_PIN_13
+#define SENS_CLUTCH_GPIO_Port GPIOD
 #define SENS_CHARGE_Pin GPIO_PIN_14
 #define SENS_CHARGE_GPIO_Port GPIOD
 #define SENS_HANDBRAKE_Pin GPIO_PIN_15

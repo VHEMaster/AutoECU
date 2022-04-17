@@ -83,11 +83,11 @@ inline GPIO_PinState sens_get_charge(uint32_t *time)
   return Sensors[SensorCharge].state;
 }
 
-inline GPIO_PinState sens_get_rsvd1(uint32_t *time)
+inline GPIO_PinState sens_get_clutch(uint32_t *time)
 {
   if(time)
-    *time = DelayDiff(Delay_Tick, Sensors[SensorRsvd1].time_switched);
-  return Sensors[SensorRsvd1].state;
+    *time = DelayDiff(Delay_Tick, Sensors[SensorClutch].time_switched);
+  return Sensors[SensorClutch].state;
 }
 
 inline GPIO_PinState sens_get_ign(uint32_t *time)

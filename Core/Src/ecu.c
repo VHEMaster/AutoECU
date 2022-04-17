@@ -799,7 +799,7 @@ static void ecu_update(void)
   gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
   gParameters.HandbrakeSensor = sens_get_handbrake(NULL) != GPIO_PIN_RESET;
   gParameters.ChargeSensor = sens_get_charge(NULL);
-  gParameters.Rsvd1Sensor = sens_get_rsvd1(NULL) != GPIO_PIN_RESET;
+  gParameters.ClutchSensor = sens_get_clutch(NULL) != GPIO_PIN_RESET;
   gParameters.IgnSensor = sens_get_ign(NULL) != GPIO_PIN_RESET;
 
   gParameters.FuelPumpRelay = out_get_fuelpump(NULL) != GPIO_PIN_RESET;

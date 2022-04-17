@@ -235,8 +235,8 @@ typedef struct {
     int32_t switchPos2Table;
     int32_t forceTable;
 
-    float cutoffRPM;
     int32_t cutoffMode;
+    float cutoffRPM;
     float cutoffAngle;
     float cutoffMixture;
 
@@ -256,7 +256,14 @@ typedef struct {
     int32_t bluetoothPin;
     char bluetoothName[TABLE_STRING_MAX];
 
-    int32_t Reserved32[995];
+    int32_t shiftMode;
+    float shiftThrThr;
+    float shiftRpmThr;
+    float shiftRpmTill;
+    float shiftAngle;
+    float shiftMixture;
+
+    int32_t Reserved32[989];
 }sEcuParams;
 
 typedef struct {
@@ -319,7 +326,7 @@ typedef struct {
     int32_t StarterSensor;
     int32_t HandbrakeSensor;
     int32_t ChargeSensor;
-    int32_t Rsvd1Sensor;
+    int32_t ClutchSensor;
     int32_t IgnSensor;
 
     int32_t FuelPumpRelay;

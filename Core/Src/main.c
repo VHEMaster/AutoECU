@@ -288,7 +288,7 @@ int main(void)
   sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
   sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
   sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
-  sensors_register(SensorRsvd1, SENS_RSVD1_GPIO_Port, SENS_RSVD1_Pin, 1);
+  sensors_register(SensorClutch, SENS_CLUTCH_GPIO_Port, SENS_CLUTCH_Pin, 1);
   sensors_register(SensorIgn, SENS_IGN_GPIO_Port, SENS_IGN_Pin, 1);
 
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
@@ -1426,8 +1426,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SENS_IGN_Pin SENS_RSVD1_Pin SENS_CHARGE_Pin SENS_HANDBRAKE_Pin */
-  GPIO_InitStruct.Pin = SENS_IGN_Pin | SENS_RSVD1_Pin | SENS_CHARGE_Pin
+  /*Configure GPIO pins : SENS_IGN_Pin SENS_CLUTCH_Pin SENS_CHARGE_Pin SENS_HANDBRAKE_Pin */
+  GPIO_InitStruct.Pin = SENS_IGN_Pin | SENS_CLUTCH_Pin | SENS_CHARGE_Pin
       | SENS_HANDBRAKE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

@@ -16,7 +16,7 @@ typedef enum {
   SensorStarter,
   SensorHandbrake,
   SensorCharge,
-  SensorRsvd1,
+  SensorClutch,
   SensorIgn,
   SensorCount
 }eSensor;
@@ -37,7 +37,7 @@ GPIO_PinState sens_get_charge(uint32_t *time);
 GPIO_PinState sens_get_handbrake(uint32_t *time);
 GPIO_PinState sens_get_oil_pressure(uint32_t *time);
 GPIO_PinState sens_get_starter(uint32_t *time);
-GPIO_PinState sens_get_rsvd1(uint32_t *time);
+GPIO_PinState sens_get_clutch(uint32_t *time);
 GPIO_PinState sens_get_ign(uint32_t *time);
 
 void sensors_init(void);
