@@ -251,7 +251,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
 
-  sprintf(table->name, "Default %d", number);
+  sprintf(table->name, "Default %d", number + 1);
 
   table->inj_channel = InjectorChannel1;
 
