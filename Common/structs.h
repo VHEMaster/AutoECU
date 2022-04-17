@@ -195,7 +195,7 @@ typedef struct {
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
     int32_t Reserved[1131];
-}sEcuTable __attribute__((aligned(32)));
+}sEcuTable;
 
 typedef struct {
     int8_t ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
@@ -203,7 +203,7 @@ typedef struct {
     int8_t map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     int8_t idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
     float long_term_correction;
-}sEcuCorrectionsBackup __attribute__((aligned(32)));
+}sEcuCorrectionsBackup;
 
 typedef struct {
     float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
@@ -215,14 +215,14 @@ typedef struct {
     uint8_t progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     uint8_t progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
     float long_term_correction;
-}sEcuCorrections __attribute__((aligned(32)));
+}sEcuCorrections;
 
 typedef struct {
     float progress_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float progress_fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
-}sEcuCorrectionsProgress __attribute__((aligned(32)));;
+}sEcuCorrectionsProgress;;
 
 typedef struct {
     float engineVolume;
@@ -257,7 +257,7 @@ typedef struct {
     char bluetoothName[TABLE_STRING_MAX];
 
     int32_t Reserved32[995];
-}sEcuParams __attribute__((aligned(32)));
+}sEcuParams;
 
 typedef struct {
     char CurrentTableName[TABLE_STRING_MAX];
