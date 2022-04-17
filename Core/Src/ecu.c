@@ -47,6 +47,13 @@ typedef volatile struct {
     uint8_t Cutting;
 }sCutoff;
 
+typedef volatile struct {
+    uint8_t Thresholded;
+    uint8_t Shifting;
+    uint8_t Tilled;
+
+}sShift;
+
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -78,6 +85,7 @@ static sMathPid gPidIdleAirFlow = {0};
 static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
+static sShift Shift = {0};
 
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnCanShutdown = 0;
@@ -327,6 +335,7 @@ static void ecu_update(void)
   uint8_t phased;
   uint8_t idle_flag;
   uint8_t o2_valid = 0;
+  uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
 
@@ -541,6 +550,11 @@ static void ecu_update(void)
     }
   } else {
     wish_fuel_ratio = start_mixture;
+  }
+
+  if(shift_processing && !cutoff_processing) {
+    ignition_angle = gEcuParams.shiftAngle;
+    wish_fuel_ratio = gEcuParams.shiftMixture;
   }
 
   if(cutoff_processing) {
@@ -893,19 +907,12 @@ STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder, flo
   static int8_t cutoffcnt5 = -1;
   static int8_t cutoffcnt6 = -1;
   static int8_t cy_prev = -1;
-
-  if(cutoff_processing_prev)
-  {
-    cutoff_processing_prev--;
-    Cutoff.Processing = 1;
-  }
-  else Cutoff.Processing = 0;
+  int32_t mode = gEcuParams.cutoffMode;
+  float cutoffrpm = gEcuParams.cutoffRPM;
 
   //Cutoff always enabled
   if(1)
   {
-    int32_t mode = gEcuParams.cutoffMode;
-    float cutoffrpm = gEcuParams.cutoffRPM;
     if(rpm >= cutoffrpm)
     {
       if(mode == 0)
@@ -956,6 +963,13 @@ STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder, flo
   if(cy_prev != cylinder)
   {
     cy_prev = cylinder;
+
+    if(cutoff_processing_prev)
+    {
+      cutoff_processing_prev--;
+      Cutoff.Processing = 1;
+    }
+    else Cutoff.Processing = 0;
 
     if(cutoffcnt0 >= 0)
     {
@@ -1051,10 +1065,85 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
   float cutoffrpm = gEcuParams.cutoffRPM;
 
   //Just for safety purpose...
-  if(rpm >= cutoffrpm + 250) {
+  if(rpm >= cutoffrpm + 300) {
     return 0;
   }
 
+  return 1;
+}
+
+STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch)
+{
+  if(mode > 0)
+  {
+
+  }
+  else
+  {
+    return 2;
+  }
+
+  return 1;
+}
+
+STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+{
+  uint8_t mode = gEcuParams.shiftMode;
+  float thrthr = gEcuParams.shiftThrThr;
+  float rpmthr = gEcuParams.shiftRpmThr;
+  float rpmtill = gEcuParams.shiftRpmTill;
+  uint8_t shift_result = 1;
+
+  if(mode > 0) {
+    if(throttle >= thrthr) {
+      if(clutch == GPIO_PIN_RESET) {
+        if(!Shift.Shifting) {
+          Shift.Tilled = 0;
+          Shift.Shifting = 0;
+          if(rpm >= rpmthr && throttle >= thrthr) {
+            Shift.Thresholded = 1;
+          }
+        }
+      } else {
+        if(Shift.Thresholded) {
+          if(rpm >= rpmtill && !Shift.Tilled) {
+            Shift.Shifting = 1;
+          } else {
+            Shift.Tilled = 1;
+            Shift.Shifting = 0;
+          }
+        }
+      }
+    } else {
+      Shift.Shifting = 0;
+      Shift.Thresholded = 0;
+      Shift.Tilled = 0;
+    }
+  } else {
+    if(Shift.Shifting) {
+      clutch = GPIO_PIN_RESET;
+    } else {
+      Shift.Shifting = 0;
+      Shift.Thresholded = 0;
+      Shift.Tilled = 0;
+    }
+  }
+
+  if(Shift.Thresholded && Shift.Shifting) {
+    shift_result = ecu_shift_process(cy_count, cylinder, mode, clutch);
+    if(shift_result > 1) {
+      Shift.Shifting = 0;
+      Shift.Thresholded = 0;
+      Shift.Tilled = 0;
+    }
+  }
+
+  return shift_result > 0;
+}
+
+STATIC_INLINE uint8_t ecu_shift_inj_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+{
+  //TODO: currently not affecting injection directly
   return 1;
 }
 
@@ -1111,18 +1200,6 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
       injector_enable(InjectorCy3, time);
     }
   }
-}
-
-STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
-{
-
-  return 1;
-}
-
-STATIC_INLINE uint8_t ecu_shift_inj_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
-{
-
-  return 1;
 }
 
 static void ecu_process(void)
