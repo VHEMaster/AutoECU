@@ -362,6 +362,13 @@ void config_default_params(sEcuParams *table)
   table->bluetoothPin = 1902;
   strcpy(table->bluetoothName, "BT_ECU");
 
+  table->shiftMode = 0;
+  table->shiftThrThr = 90;
+  table->shiftRpmThr = 5000;
+  table->shiftRpmTill = 2500;
+  table->shiftAngle = 5.0f;
+  table->shiftMixture = 12.1f;
+
 }
 
 void config_default_corrections(sEcuCorrections *table)
