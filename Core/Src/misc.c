@@ -733,12 +733,12 @@ static void IdleValve_FastLoop(void)
       if(DelayDiff(now, last_tick) > STEP_MAX_FREQ) {
         if(current != target) {
           STEP_ACCELERATE();
+          last_tick = now;
           mode = 3;
           if(mode != mode_prev) {
             mode_prev = 3;
             return;
           }
-          last_tick = now;
 
           if(current < target) {
             IdleValvePositionCurrent++;
