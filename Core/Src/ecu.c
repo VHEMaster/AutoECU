@@ -1074,17 +1074,54 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
 
 STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch, uint8_t reset)
 {
-  if(mode > 0 && !reset)
-  {
+  static int8_t shift_cnt1 = -1;
+  static uint32_t shift_time_last = 0;
+  uint32_t tick_count = 0;
+  uint32_t now = Delay_Tick;
+  uint8_t retval = 1;
+
+  if(mode > 0 && !reset) {
     //TODO: shift handle
-  }
-  else
-  {
+
+    if(mode == 1) {
+      if(clutch == GPIO_PIN_SET) {
+        shift_cnt1 = 5;
+        retval = 0;
+      } else {
+        if(shift_cnt1 >= 0) {
+          shift_cnt1--;
+          retval = 1;
+        } else {
+          retval = 2;
+        }
+      }
+      retval = 0;
+    } else if(mode > 1) {
+      switch(mode) {
+        case 2 : tick_count = 20000; break;
+        case 3 : tick_count = 50000; break;
+        case 4 : tick_count = 100000; break;
+        default: break;
+      }
+      if(clutch == GPIO_PIN_SET) {
+        if(DelayDiff(now, shift_time_last) < tick_count) {
+          retval = 0;
+        } else {
+          retval = 1;
+        }
+      }
+    }
+  } else {
     //TODO: reset handle
-    return 2;
+    shift_cnt1 = -1;
+    retval = 2;
   }
 
-  return 1;
+  if(retval > 0) {
+    shift_time_last = now;
+  }
+
+  return retval;
 }
 
 STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
