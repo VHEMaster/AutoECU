@@ -306,6 +306,7 @@ static void ecu_update(void)
   float fuel_abs_pressure;
   float fuel_consumption;
 
+  float idle_reg_rpm;
   float idle_wish_rpm;
   float idle_wish_massair;
   float idle_wish_ignition;
@@ -506,7 +507,6 @@ static void ecu_update(void)
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
   knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
 
-
   idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
   idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
 
@@ -595,6 +595,8 @@ static void ecu_update(void)
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
 
+  idle_reg_rpm = idle_wish_rpm * (table->idle_rpm_pid_act + 1.0f);
+
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
@@ -604,12 +606,12 @@ static void ecu_update(void)
   idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
   idle_wish_valve_pos = idle_table_valve_pos;
 
-  ecu_pid_update(idle_flag);
+  ecu_pid_update(idle_flag && rpm <= idle_reg_rpm);
 
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  if(!idle_flag) {
+  if(!idle_flag || (idle_flag && rpm > idle_reg_rpm)) {
     idle_valve_pos_correction = 0;
     idle_angle_correction = 0;
   }
@@ -1081,8 +1083,6 @@ STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint
   uint8_t retval = 1;
 
   if(mode > 0 && !reset) {
-    //TODO: shift handle
-
     if(mode == 1) {
       if(clutch == GPIO_PIN_SET) {
         shift_cnt1 = 5;
@@ -1109,10 +1109,11 @@ STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint
         } else {
           retval = 1;
         }
+      } else {
+        retval = 2;
       }
     }
   } else {
-    //TODO: reset handle
     shift_cnt1 = -1;
     retval = 2;
   }

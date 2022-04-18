@@ -166,6 +166,8 @@ typedef struct {
     float idle_wish_ignition[TABLE_ROTATES_MAX];
     float idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
 
+    float idle_rpm_pid_act;
+
     float idle_valve_to_massair_pid_p;
     float idle_valve_to_massair_pid_i;
     float idle_valve_to_massair_pid_d;
@@ -194,7 +196,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1131];
+    int32_t Reserved[1130];
 }sEcuTable;
 
 typedef struct {
