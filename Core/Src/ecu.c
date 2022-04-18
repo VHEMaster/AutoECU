@@ -632,6 +632,11 @@ static void ecu_update(void)
 
   injection_dutycycle = injection_time / (csps_getperiod(csps) * 2.0f);
 
+  if(idle_wish_valve_pos > 255.0f)
+    idle_wish_valve_pos = 255.0f;
+  else if(idle_wish_valve_pos < 0.0f)
+    idle_wish_valve_pos = 0.0f;
+
   out_set_idle_valve(idle_wish_valve_pos);
 
   knock_filtered = knock - knock_noise_level;
