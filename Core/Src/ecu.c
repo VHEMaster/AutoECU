@@ -544,9 +544,11 @@ static void ecu_update(void)
 
   if(running) {
     warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
-    if(warmup_mix_koff != 0.0f) {
+    if(warmup_mix_koff > 0.0f) {
       warmup_mixture = math_interpolate_1d(ipTemp, table->warmup_mixtures);
-      wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
+      if(warmup_mixture < wish_fuel_ratio) {
+        wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
+      }
     }
   } else {
     wish_fuel_ratio = start_mixture;
