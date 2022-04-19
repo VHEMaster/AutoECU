@@ -20,7 +20,7 @@
 
 #define O2_PID_P  0.5f
 #define O2_PID_I  0.1f
-#define O2_PID_D  0.1f
+#define O2_PID_D  0.001f
 
 static const float o2_afr_table[548] = {
   00.00f, 00.04f, 00.08f, 00.13f, 00.17f, 00.21f, 00.25f, 00.30f, 00.34f, 00.38f, 00.42f, 00.47f, 00.51f, 00.55f, 00.59f, 00.64f, 00.68f, 00.72f, 00.76f, 00.81f,
