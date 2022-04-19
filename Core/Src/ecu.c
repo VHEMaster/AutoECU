@@ -1665,7 +1665,7 @@ static void ecu_checkengine_loop(void)
 
   if(iserror) {
     was_error = 1;
-    hal_error_last = now;
+    hal_error_last = hal_now;
   }
 
   if(was_error) {
