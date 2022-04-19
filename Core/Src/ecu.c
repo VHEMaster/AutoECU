@@ -263,6 +263,7 @@ static void ecu_update(void)
   float idle_valve_position;
   float knock_raw;
   float uspa;
+  float period;
 
   float wish_fuel_ratio;
   float filling_map;
@@ -347,6 +348,7 @@ static void ecu_update(void)
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
   uspa = csps_getuspa(csps);
+  period = csps_getperiod(csps);
   enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
   long_term_correction = gEcuCorrections.long_term_correction;
@@ -632,7 +634,7 @@ static void ecu_update(void)
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
 
-  injection_dutycycle = injection_time / (csps_getperiod(csps) * 2.0f);
+  injection_dutycycle = injection_time / (period * 2.0f);
 
   if(idle_wish_valve_pos > 255.0f)
     idle_wish_valve_pos = 255.0f;
@@ -698,11 +700,11 @@ static void ecu_update(void)
     }
   }
 
-  if(adapt_diff >= 50000) {
+  if(adapt_diff >= period * 2.0f) {
     adaptation_last = now;
     if(running) {
       if(calibration) {
-        lpf_calculation = adapt_diff * 0.000002f;
+        lpf_calculation = adapt_diff * 0.000001f;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionPulse) {
           gEcuCorrections.long_term_correction = 0.0f;
@@ -717,9 +719,7 @@ static void ecu_update(void)
             calib_cur_progress = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map);
             calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
             math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map, calib_cur_progress);
-
           }
-
         }
 
         if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
@@ -732,7 +732,6 @@ static void ecu_update(void)
           calib_cur_progress = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
           math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr, calib_cur_progress);
-
         }
 
         if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.WishIdleValvePosition) {
@@ -746,10 +745,7 @@ static void ecu_update(void)
           calib_cur_progress = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
           math_interpolate_2d_set(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
-
         }
-
-
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse) {
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
@@ -1572,7 +1568,6 @@ static void ecu_checkengine_loop(void)
 {
   static uint32_t hal_error_last = 0;
   static uint8_t was_error = 0;
-  uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   uint8_t running = csps_isrunning();
   uint8_t iserror = 0;
