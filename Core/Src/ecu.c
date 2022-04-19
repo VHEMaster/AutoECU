@@ -698,11 +698,11 @@ static void ecu_update(void)
     }
   }
 
-  if(adapt_diff >= 100000) {
+  if(adapt_diff >= 50000) {
     adaptation_last = now;
     if(running) {
       if(calibration) {
-        lpf_calculation = adapt_diff * 0.000001f;
+        lpf_calculation = adapt_diff * 0.000002f;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionPulse) {
           gEcuCorrections.long_term_correction = 0.0f;
