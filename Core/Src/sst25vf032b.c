@@ -134,9 +134,9 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
 
       SCB_CleanDCache_by_Addr((uint32_t*)tx, 5);
 
-      if((uint32_t)buffer % 32 == 0)
+      if((uint32_t)buffer & 0x1F == 0)
         SCB_CleanDCache_by_Addr((uint32_t*)buffer, size);
-      else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer%32)), size + ((uint32_t)buffer%32));
+      else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer&0x1F)), size + ((uint32_t)buffer&0x1F));
 
       SPI_NSS_ON();
       avoid_nss_reset = 1;
@@ -155,9 +155,9 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
       {
         //SPI_NSS_OFF();
 
-        if((uint32_t)buffer % 32 == 0)
+        if((uint32_t)buffer & 0x1F == 0)
           SCB_InvalidateDCache_by_Addr((uint32_t*)buffer, size);
-        else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer%32)), size + ((uint32_t)buffer%32));
+        else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer&0x1F)), size + ((uint32_t)buffer&0x1F));
         state = 0;
         return 1;
       }

@@ -16,17 +16,15 @@
 #define BACKUP_SIZE 4096
 #define BACKUP_REGION_SIZE (BACKUP_SIZE / 2)
 
-volatile uint8_t const *backup_pointer = (volatile uint8_t *)BACKUP_ADDR;
+uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
 uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
 
-
 #define FLASH_VERSION 0x00000010
-
 #define REGION_SIZE 0x200000
 #define PAGE_SIZE 32768
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
-uint8_t page_buffer[32768] __attribute__ ((aligned(32)));
 
+uint8_t page_buffer[PAGE_SIZE] __attribute__ ((aligned(32)));
 const uint32_t flash_addresses[2] = {0, REGION_SIZE};
 
 int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page)
@@ -55,10 +53,10 @@ static volatile uint8_t save_page = 0;
 static volatile uint32_t save_size_write = 0;
 static volatile uint8_t save_active = 0;
 static volatile uint8_t save_region = 0;
+static volatile uint16_t save_crc16 = 0;
 
 int8_t flash_page_save(const void *buffer, uint32_t size, uint8_t page)
 {
-  static uint16_t save_crc16 = 0;
   static uint8_t state = 0;
   uint32_t size_write;
   uint16_t crc16 = 0;
@@ -116,35 +114,55 @@ void flash_fast_loop(void)
 {
   static uint16_t erased = 0;
   static uint8_t state = 0;
+  static uint16_t verify_buffer = 0;
+  static uint32_t version_buffer = 0;
+  static uint16_t crc16_buffer = 0;
   uint8_t spistatus = 0;
 
   if(save_active) {
-
-    switch (state)
-    {
+    switch (state) {
       case 0:
         erased = 0;
         state++;
         break;
       case 1:
-        if(erased < save_sectors)
-        {
+        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, 4, &version_buffer);
+        if(spistatus) {
+          if(version_buffer == FLASH_VERSION) {
+            state++;
+          } else {
+            state = 3;
+          }
+        }
+        break;
+      case 2:
+        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE + save_size_write - 2, 2, &crc16_buffer);
+        if(spistatus) {
+          if(crc16_buffer == save_crc16) {
+            save_active = 0;
+            state = 0;
+          } else {
+            state = 3;
+          }
+        }
+        break;
+      case 3:
+        if(erased < save_sectors) {
           spistatus = SST25_Erase32KBlock(erased * SST25_32KSIZE + flash_addresses[save_region] + save_page * PAGE_SIZE);
           if(spistatus) {
             erased++;
           }
-        }
-        else {
+        } else {
           state++;
         }
         break;
-      case 2:
+      case 4:
         spistatus = SST25_Write(flash_addresses[save_region] + save_page * PAGE_SIZE, save_size_write, page_buffer);
         if(spistatus) {
           state++;
         }
         break;
-      case 3:
+      case 5:
         spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, save_size_write, page_buffer);
         if(spistatus) {
           save_active = 0;

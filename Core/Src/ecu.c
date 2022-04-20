@@ -569,7 +569,7 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishFuelRatio)
     wish_fuel_ratio = gForceParameters.WishFuelRatio;
 
-  if(!gEcuParams.useLambdaSensor)
+  if(!gEcuParams.useLambdaSensor || !o2_valid)
     fuel_ratio = wish_fuel_ratio;
 
   injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
@@ -754,15 +754,13 @@ static void ecu_update(void)
           math_interpolate_2d_set(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
         }
       } else {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
+          lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
+          filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           if(!idle_flag && throttle > 20.0f) {
-            lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
-            filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
             gEcuCorrections.long_term_correction += filling_diff * lpf_calculation;
           }
           else if(idle_flag || throttle < 5.0f) {
-            lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
-            filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
             gEcuCorrections.idle_correction += filling_diff * lpf_calculation;
           }
         }
