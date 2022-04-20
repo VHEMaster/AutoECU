@@ -305,7 +305,9 @@ static void ecu_update(void)
 
   float fuel_pressure;
   float fuel_abs_pressure;
-  float fuel_consumption;
+  float fuel_consumption_per_distance;
+  float km_drive = 0;
+  float fuel_consumption = 0;
 
   float idle_reg_rpm;
   float idle_wish_rpm;
@@ -660,12 +662,15 @@ static void ecu_update(void)
     injection_dutycycle = 0;
     ignition_time = 0;
     effective_volume = 0;
-    fuel_consumption = 0;
+    fuel_consumption_per_distance = 0;
   } else {
-    km_driven += speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
-    if(fuel_amount_per_cycle < 1000.0f)
-      fuel_consumed += fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / (60000000.0f / rpm)) * 0.001f;
-    fuel_consumption = fuel_consumed / km_driven * 100.0f;
+    km_drive = speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
+    km_driven += km_drive;
+    if(fuel_amount_per_cycle < 1000.0f) {
+      fuel_consumption = fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / period) * 0.001f;
+      fuel_consumed += fuel_consumption;
+    }
+    fuel_consumption_per_distance = fuel_consumption / km_drive * 100.0f;
   }
 
   if(!running) {
@@ -759,10 +764,16 @@ static void ecu_update(void)
   idle_valve_position = out_get_idle_valve();
 
   gEcuCriticalBackup.idle_valve_position = idle_valve_position;
-  gEcuCriticalBackup.km_driven += km_driven;
-  gEcuCriticalBackup.fuel_consumed += fuel_consumed;
-  km_driven = 0;
-  fuel_consumed = 0;
+
+  if(fuel_consumed > 0.1f) {
+    gEcuCriticalBackup.fuel_consumed += fuel_consumed;
+    fuel_consumed = 0;
+  }
+
+  if(km_driven > 0.1f) {
+    gEcuCriticalBackup.km_driven += km_driven;
+    km_driven = 0;
+  }
 
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
@@ -812,7 +823,7 @@ static void ecu_update(void)
 
   gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven;
   gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed;
-  gParameters.FuelConsumption = fuel_consumption;
+  gParameters.FuelConsumption = fuel_consumption_per_distance;
 
   gParameters.OilSensor = sens_get_oil_pressure(NULL) != GPIO_PIN_RESET;
   gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
