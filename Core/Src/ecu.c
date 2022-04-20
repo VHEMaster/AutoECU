@@ -2535,3 +2535,10 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       break;
   }
 }
+
+void ecu_hardfault_handle(void)
+{
+  gEcuCriticalBackup.CheckBitmapRecorded[CheckHardFaultException >> 3] |= 1 << (CheckHardFaultException & 7);
+  config_save_critical_backup(&gEcuCriticalBackup);
+}
+

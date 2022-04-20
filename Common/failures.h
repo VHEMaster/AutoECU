@@ -84,6 +84,7 @@ typedef enum {
   CheckLambdaDIAHGDShortToGND,
   CheckKnockDetonationFound,
   CheckKnockLowNoiseLevel,
+  CheckHardFaultException,
 }eCheckDataErrorCode;
 
 extern const char * const gCheckDataErrorString[];

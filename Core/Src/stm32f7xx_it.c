@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f7xx_it.h"
+#include "ecu.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -112,6 +113,7 @@ void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
   HAL_GPIO_WritePin(CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, GPIO_PIN_RESET);
+  ecu_hardfault_handle();
   NVIC_SystemReset();
   /* USER CODE END HardFault_IRQn 0 */
   while (1)

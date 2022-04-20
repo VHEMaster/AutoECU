@@ -90,5 +90,7 @@ const char * const gCheckDataErrorString[] = {
     "Knock: Detonation Found",
     "Knock: Low Noise Level",
 
+    "CPU: HardFault Exception",
+
 };
 
