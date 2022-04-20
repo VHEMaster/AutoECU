@@ -375,6 +375,7 @@ void config_default_params(sEcuParams *table)
 void config_default_corrections(sEcuCorrections *table)
 {
   table->long_term_correction = 0;
+  table->idle_correction = 0;
 
   for(int i = 0; i < TABLE_FILLING_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
@@ -440,6 +441,7 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
 
   if(state == 0) {
     backup->long_term_correction = corr->long_term_correction;
+    backup->idle_correction = corr->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         backup->ignitions[i][j] = CLAMP(roundf(corr->ignitions[i][j] * 5.0f), -128, 127);
@@ -479,6 +481,7 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
 
   if(state == 0) {
     corr->long_term_correction = backup->long_term_correction;
+    corr->idle_correction = backup->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->ignitions[i][j] = (float)backup->ignitions[i][j] * 0.2f;

@@ -205,6 +205,7 @@ typedef struct {
     int8_t map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     int8_t idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
     float long_term_correction;
+    float idle_correction;
 }sEcuCorrectionsBackup;
 
 typedef struct {
@@ -217,6 +218,7 @@ typedef struct {
     uint8_t progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     uint8_t progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
     float long_term_correction;
+    float idle_correction;
 }sEcuCorrections;
 
 typedef struct {
@@ -294,6 +296,7 @@ typedef struct {
     float PowerVoltage;
     float FuelRatio;
     float LongTermCorrection;
+    float IdleCorrection;
 
     int32_t IdleFlag;
     float RPM;
