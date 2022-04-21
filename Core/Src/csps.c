@@ -74,7 +74,7 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
     HAL_GPIO_TogglePin(TIM5_CH1_SENS_CSPS_GPIO_Port, TIM5_CH1_SENS_CSPS_Pin);
     if(++step >= 116)
       step = 0;
-    if(step == 113) {
+    if(step == 107) {
       phase ^= 1;
       if(phase) {
         HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
@@ -82,7 +82,7 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
           csps_tsps_exti(timestamp);
       }
     }
-    if(step == 2) {
+    if(step == 12) {
       HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
     }
 
