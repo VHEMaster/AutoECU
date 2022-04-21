@@ -36,3 +36,4 @@ uint32_t csps_gethalfturns(void);
 float csps_getphasedangle(sCspsData data);
 float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle);
 sCspsData csps_data(void);
+float csps_gettspsrelpos(void);

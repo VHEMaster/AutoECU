@@ -114,7 +114,6 @@ void flash_fast_loop(void)
 {
   static uint16_t erased = 0;
   static uint8_t state = 0;
-  static uint16_t verify_buffer = 0;
   static uint32_t version_buffer = 0;
   static uint16_t crc16_buffer = 0;
   uint8_t spistatus = 0;
@@ -126,7 +125,7 @@ void flash_fast_loop(void)
         state++;
         break;
       case 1:
-        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, 4, &version_buffer);
+        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, 4, (uint8_t *)&version_buffer);
         if(spistatus) {
           if(version_buffer == FLASH_VERSION) {
             state++;
@@ -136,7 +135,7 @@ void flash_fast_loop(void)
         }
         break;
       case 2:
-        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE + save_size_write - 2, 2, &crc16_buffer);
+        spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE + save_size_write - 2, 2, (uint8_t *)&crc16_buffer);
         if(spistatus) {
           if(crc16_buffer == save_crc16) {
             save_active = 0;

@@ -84,6 +84,7 @@ typedef enum {
   CheckLambdaDIAHGDShortToGND,
   CheckKnockDetonationFound,
   CheckKnockLowNoiseLevel,
+  CheckTspsDesynchronized,
   CheckHardFaultException,
 }eCheckDataErrorCode;
 

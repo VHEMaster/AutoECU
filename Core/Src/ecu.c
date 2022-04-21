@@ -331,6 +331,7 @@ static void ecu_update(void)
   float ignition_correction;
   float wish_fault_rpm;
   float start_mixture;
+  float tsps_rel_pos = 0;
 
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
@@ -372,6 +373,8 @@ static void ecu_update(void)
   //gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   power_voltage = gDebugPowerVoltage;
 
+  tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
+
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 40.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
@@ -387,6 +390,12 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Tsps = HAL_ERROR;
   } else {
     gStatus.Sensors.Struct.Tsps = HAL_OK;
+  }
+
+  if(running && gEcuParams.useTSPS && phased && fabsf(tsps_rel_pos) >= gEcuParams.tspsDesyncThr) {
+    gStatus.TspsSyncStatus = HAL_ERROR;
+  } else {
+    gStatus.TspsSyncStatus = HAL_OK;
   }
 
   if(gEcuParams.useKnockSensor) {
@@ -832,6 +841,7 @@ static void ecu_update(void)
   gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven;
   gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed;
   gParameters.FuelConsumption = fuel_consumption_per_distance;
+  gParameters.TspsRelativePosition = tsps_rel_pos;
 
   gParameters.OilSensor = sens_get_oil_pressure(NULL) != GPIO_PIN_RESET;
   gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
@@ -1677,6 +1687,9 @@ static void ecu_checkengine_loop(void)
   if(gEcuParams.useKnockSensor) {
     CHECK_STATUS(gStatus, iserror, CheckKnockDetonationFound, KnockStatus == KnockStatusDedonation);
     CHECK_STATUS(gStatus, iserror, CheckKnockLowNoiseLevel, KnockStatus == KnockStatusLowNoise);
+  }
+  if(gEcuParams.useTSPS) {
+    CHECK_STATUS(gStatus, iserror, CheckTspsDesynchronized, TspsSyncStatus != HAL_OK);
   }
 
   if(iserror) {

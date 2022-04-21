@@ -43,6 +43,7 @@ static volatile float csps_period = 0;
 static volatile uint32_t csps_turns = 0;
 static volatile uint32_t csps_halfturns = 0;
 static volatile uint32_t *csps_timebase = NULL;
+static volatile float csps_tsps_rel_pos = 0;
 
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
@@ -108,6 +109,7 @@ void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t c
 inline void csps_tsps_exti(uint32_t timestamp)
 {
   if(csps_found && csps_rotates) {
+    csps_tsps_rel_pos = csps_getangle14(csps_data());
     csps_phase_found = 1;
   }
 }
@@ -529,6 +531,13 @@ uint32_t inline csps_getturns(void)
 sCspsData inline csps_data(void)
 {
   return *CspsDataPtr;
+}
+
+inline float csps_gettspsrelpos(void)
+{
+  if(csps_phased)
+    return csps_tsps_rel_pos;
+  return 0.0f;
 }
 
 void csps_loop(void)

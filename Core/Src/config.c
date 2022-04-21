@@ -370,6 +370,9 @@ void config_default_params(sEcuParams *table)
   table->shiftAngle = 5.0f;
   table->shiftMixture = 12.1f;
 
+  table->tspsRelPos = -154.0f;
+  table->tspsDesyncThr = 3.0f;
+
 }
 
 void config_default_corrections(sEcuCorrections *table)

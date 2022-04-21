@@ -24,6 +24,7 @@ const char * const gCheckDataErrorString[] = {
     "Sensor: PwrVoltage failure",
     "Sensor: Lambda failure",
 
+    "Sensor: Lambda failure",
     "Output: Driver failure",
 
     "Injector 4: OpenCircuit",
@@ -90,6 +91,7 @@ const char * const gCheckDataErrorString[] = {
     "Knock: Detonation Found",
     "Knock: Low Noise Level",
 
+    "TSPS: Phase Desynchronized",
     "CPU: HardFault Exception",
 
 };

@@ -267,7 +267,10 @@ typedef struct {
     float shiftAngle;
     float shiftMixture;
 
-    int32_t Reserved32[989];
+    float tspsRelPos;
+    float tspsDesyncThr;
+
+    int32_t Reserved32[987];
 }sEcuParams;
 
 typedef struct {
@@ -326,6 +329,7 @@ typedef struct {
     float DrivenKilometers;
     float FuelConsumed;
     float FuelConsumption;
+    float TspsRelativePosition;
 
     int32_t OilSensor;
     int32_t StarterSensor;
@@ -415,6 +419,7 @@ typedef struct {
     HAL_StatusTypeDef O2Status;
     HAL_StatusTypeDef InjectionUnderflow;
     HAL_StatusTypeDef AdcStatus;
+    HAL_StatusTypeDef TspsSyncStatus;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
     uint32_t pad;
