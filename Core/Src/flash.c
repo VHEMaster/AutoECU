@@ -125,6 +125,7 @@ void flash_fast_loop(void)
         state++;
         break;
       case 1:
+        //TODO: check if it is really enough to check if the page is equal
         spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE, 4, (uint8_t *)&version_buffer);
         if(spistatus) {
           if(version_buffer == FLASH_VERSION) {
@@ -135,6 +136,7 @@ void flash_fast_loop(void)
         }
         break;
       case 2:
+        //TODO: check if it is really enough to check if the page is equal
         spistatus = SST25_Read(flash_addresses[save_region] + save_page * PAGE_SIZE + save_size_write - 2, 2, (uint8_t *)&crc16_buffer);
         if(spistatus) {
           if(crc16_buffer == save_crc16) {
