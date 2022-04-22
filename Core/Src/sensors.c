@@ -149,12 +149,12 @@ HAL_StatusTypeDef sens_get_adc_status(void)
 
 HAL_StatusTypeDef sens_get_knock_raw(float *output)
 {
-  return Misc_GetKnockValueRaw(output);
+  return Knock_GetValueRaw(output);
 }
 
 HAL_StatusTypeDef sens_get_knock(float *output)
 {
-  return Misc_GetKnockValueByRPM(output);
+  return Knock_GetValueByRPM(output);
 }
 
 HAL_StatusTypeDef sens_get_map(float *output)

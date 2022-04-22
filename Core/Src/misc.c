@@ -91,8 +91,18 @@ static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK,
 
 static sMathPid o2_pid;
 
-
 static sO2Status O2Status = {0};
+
+static uint8_t knock_bandpass_filter_frequency = 42; //7.27kHz for D=79mm
+static uint8_t knock_gain_value = 14;                //1.0
+static uint8_t knock_integrator_time_constant = 22;  //280uS
+static uint8_t knock_oscillator_freq_select = 0;
+static uint8_t knock_channel_select = 0;
+static uint8_t knock_diagnostic_mode = 0;
+static uint8_t knock_so_output_mode = 0;
+
+static volatile sKnockConfig KnockConfig = {0};
+static volatile uint8_t KnockConfigChanged = 0;
 
 volatile uint8_t nss_o2_off = 0;
 volatile uint8_t nss_knock_off = 0;
@@ -597,22 +607,120 @@ static int8_t Outs_Loop(void)
 static int8_t Knock_Loop(void)
 {
   static uint8_t state = 0;
+  static uint8_t data = 0;
+  uint8_t check[2];
+  int8_t retval = 1;
+  int8_t status;
+  uint8_t read;
 
   if(KnockInitialStatus != HAL_OK)
     return 1;
 
   switch(state) {
     case 0:
-      //TODO: in case of changed parameters, perform the setup on the fly
-      KnockStatus = HAL_OK;
-      return 1;
+      check[0] = KnockConfig.gain_value;
+      if(check[0] != knock_gain_value) {
+        knock_gain_value = check[0];
+        data = KNOCK_CMD_GAIN | (knock_gain_value & 0x3F);
+        state++;
+      } else {
+        state += 2;
+      }
+      break;
+    case 1:
+      retval = 0;
+      status = Knock_Cmd(data, &read);
+      if(status) {
+        retval = 1;
+        status++;
+      }
+      break;
+    case 2:
+      check[0] = KnockConfig.bandpass_filter_frequency;
+      if(check[0] != knock_bandpass_filter_frequency) {
+        knock_bandpass_filter_frequency = check[0];
+        data = KNOCK_CMD_BP_FREQ | (knock_bandpass_filter_frequency & 0x3F);
+        state++;
+      } else {
+        state += 2;
+      }
+      break;
+    case 3:
+      retval = 0;
+      status = Knock_Cmd(data, &read);
+      if(status) {
+        retval = 1;
+        status++;
+      }
+      break;
+    case 4:
+      check[0] = KnockConfig.integrator_time_constant;
+      if(check[0] != knock_integrator_time_constant) {
+        knock_integrator_time_constant = check[0];
+        data = KNOCK_CMD_INT_TIME | (knock_integrator_time_constant & 0x1F);
+        state++;
+      } else {
+        state += 2;
+      }
+      break;
+    case 5:
+      retval = 0;
+      status = Knock_Cmd(data, &read);
+      if(status) {
+        retval = 1;
+        status++;
+      }
+      break;
+    case 6:
+      check[0] = KnockConfig.channel_select;
+      check[1] = KnockConfig.diagnostic_mode;
+      if(check[0] != knock_channel_select || check[1] != knock_diagnostic_mode) {
+        knock_channel_select = check[0];
+        knock_diagnostic_mode = check[1];
+        data = KNOCK_CMD_CH_SEL | (knock_channel_select & 0x1) | ((knock_diagnostic_mode & 0xF) << 1);
+        state++;
+      } else {
+        state += 2;
+      }
+      break;
+    case 7:
+      retval = 0;
+      status = Knock_Cmd(data, &read);
+      if(status) {
+        retval = 1;
+        status++;
+      }
+      break;
+    case 8:
+      check[0] = KnockConfig.oscillator_freq_select;
+      check[1] = KnockConfig.so_output_mode;
+      if(check[0] != knock_oscillator_freq_select || check[1] != knock_so_output_mode) {
+        knock_oscillator_freq_select = check[0];
+        knock_so_output_mode = check[1];
+        data = KNOCK_CMD_SO_MODE | ((knock_oscillator_freq_select & 0xF) << 1) | (knock_so_output_mode & 0x1);
+        state++;
+      } else {
+        state += 2;
+      }
+      break;
+    case 9:
+      retval = 0;
+      status = Knock_Cmd(data, &read);
+      if(status) {
+        retval = 1;
+        state++;
+      }
+      break;
+    case 10:
+      KnockConfigChanged = 0;
+      state = 0;
       break;
     default:
       state = 0;
       break;
   }
 
-  return 0;
+  return retval;
 }
 
 static void Knock_CriticalLoop(void)
@@ -884,7 +992,7 @@ void Misc_Loop(void)
       lastO2Exec = now;
       work_o2 = 1;
     }
-    if(DelayDiff(now, lastKnockExec) >= 100000) {
+    if(DelayDiff(now, lastKnockExec) >= 50000 || KnockConfigChanged) {
       lastKnockExec = now;
       work_knock = 1;
     }
@@ -912,53 +1020,44 @@ void Misc_Loop(void)
   }
 }
 
-#define KNOCK_CMD_GAIN      0x80
-#define KNOCK_CMD_BP_FREQ   0x00
-#define KNOCK_CMD_INT_TIME  0xC0
-#define KNOCK_CMD_CH_SEL    0xE0
-#define KNOCK_CMD_SO_MODE   0x40
-
 HAL_StatusTypeDef Mics_Knock_Init(void)
 {
-  const uint8_t bandpass_filter_frequency = 42; //7.27kHz for D=79mm
-  const uint8_t gain_value = 14;                //1.0
-  const uint8_t integrator_time_constant = 22;  //280uS
-  const uint8_t oscillator_freq_select = 0;
-  const uint8_t channel_select = 0;
-  const uint8_t diagnostic_mode = 0;
-  const uint8_t so_output_mode = 0;
   uint8_t data,read;
+
+  KnockConfig.bandpass_filter_frequency = knock_bandpass_filter_frequency;
+  KnockConfig.gain_value = knock_gain_value;
+  KnockConfig.integrator_time_constant = knock_integrator_time_constant;
+  KnockConfig.oscillator_freq_select = knock_oscillator_freq_select;
+  KnockConfig.channel_select = knock_channel_select;
+  KnockConfig.diagnostic_mode = knock_diagnostic_mode;
+  KnockConfig.so_output_mode = knock_so_output_mode;
 
   KNOCK_INTEGRATE();
   DelayUs(100);
   KNOCK_HOLD();
 
-  //TODO: perform such setup on the fly
-
-  data = KNOCK_CMD_GAIN | (gain_value & 0x3F);
+  data = KNOCK_CMD_GAIN | (knock_gain_value & 0x3F);
   while(!Knock_Cmd(data, &read)) {}
 
-  DelayUs(15);
+  DelayUs(5);
 
-  data = KNOCK_CMD_BP_FREQ | (bandpass_filter_frequency & 0x3F);
+  data = KNOCK_CMD_BP_FREQ | (knock_bandpass_filter_frequency & 0x3F);
   while(!Knock_Cmd(data, &read)) {}
 
-  DelayUs(15);
+  DelayUs(5);
 
-  data = KNOCK_CMD_INT_TIME | (integrator_time_constant & 0x1F);
+  data = KNOCK_CMD_INT_TIME | (knock_integrator_time_constant & 0x1F);
   while(!Knock_Cmd(data, &read)) {}
 
-  DelayUs(15);
+  DelayUs(5);
 
-  data = KNOCK_CMD_CH_SEL | (channel_select & 0x1) | ((diagnostic_mode & 0xF) << 1);
+  data = KNOCK_CMD_CH_SEL | (knock_channel_select & 0x1) | ((knock_diagnostic_mode & 0xF) << 1);
   while(!Knock_Cmd(data, &read)) {}
 
-  DelayUs(15);
+  DelayUs(5);
 
-  data = KNOCK_CMD_SO_MODE | ((oscillator_freq_select & 0xF) << 1) | (so_output_mode & 0x1);
+  data = KNOCK_CMD_SO_MODE | ((knock_oscillator_freq_select & 0xF) << 1) | (knock_so_output_mode & 0x1);
   while(!Knock_Cmd(data, &read)) {}
-
-  DelayUs(15);
 
   KnockInitialStatus = HAL_OK;
   KnockStatus = HAL_OK;
@@ -1027,15 +1126,92 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
   return result;
 }
 
-HAL_StatusTypeDef Misc_GetKnockValueByRPM(float *value)
+HAL_StatusTypeDef Knock_GetValueByRPM(float *value)
 {
   *value = KnockValue;
   return KnockStatus;
 }
 
-HAL_StatusTypeDef Misc_GetKnockValueRaw(float *value)
+HAL_StatusTypeDef Knock_GetValueRaw(float *value)
 {
   *value = KnockRawValue;
   return KnockStatus;
+}
+
+inline void Knock_SetBandpassFilterFrequency(uint8_t value)
+{
+  KnockConfig.bandpass_filter_frequency = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetGainValue(uint8_t value)
+{
+  KnockConfig.gain_value = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetIntegratorTimeConstant(uint8_t value)
+{
+  KnockConfig.integrator_time_constant = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetOscillatorFrequency(uint8_t value)
+{
+  KnockConfig.oscillator_freq_select = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetChannel(uint8_t value)
+{
+  KnockConfig.channel_select = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetDiagnosticMode(uint8_t value)
+{
+  KnockConfig.diagnostic_mode = value;
+  KnockConfigChanged = 1;
+}
+
+inline void Knock_SetSoOutputMode(uint8_t value)
+{
+  KnockConfig.so_output_mode = value;
+  KnockConfigChanged = 1;
+}
+
+inline uint8_t Knock_GetBandpassFilterFrequency(void)
+{
+  return KnockConfig.bandpass_filter_frequency;
+}
+
+inline uint8_t Knock_GetGainValue(void)
+{
+  return KnockConfig.gain_value;
+}
+
+inline uint8_t Knock_GetIntegratorTimeConstant(void)
+{
+  return KnockConfig.integrator_time_constant;
+}
+
+inline uint8_t Knock_GetOscillatorFrequency(void)
+{
+  return KnockConfig.oscillator_freq_select;
+}
+
+inline uint8_t Knock_GetChannel(void)
+{
+  return KnockConfig.channel_select;
+}
+
+inline uint8_t Knock_GetDiagnosticMode(void)
+{
+  return KnockConfig.diagnostic_mode;
+}
+
+inline uint8_t Knock_GetSoOutputMode(void)
+{
+  return KnockConfig.so_output_mode;
 }
 
