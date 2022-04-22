@@ -843,6 +843,8 @@ static void ecu_update(void)
   gParameters.FuelConsumption = fuel_consumption_per_distance;
   gParameters.TspsRelativePosition = tsps_rel_pos;
 
+  gParameters.LambdaValid = o2_valid > 0;
+
   gParameters.OilSensor = sens_get_oil_pressure(NULL) != GPIO_PIN_RESET;
   gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
   gParameters.HandbrakeSensor = sens_get_handbrake(NULL) != GPIO_PIN_RESET;

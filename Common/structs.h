@@ -331,6 +331,8 @@ typedef struct {
     float FuelConsumption;
     float TspsRelativePosition;
 
+    int32_t LambdaValid;
+
     int32_t OilSensor;
     int32_t StarterSensor;
     int32_t HandbrakeSensor;
