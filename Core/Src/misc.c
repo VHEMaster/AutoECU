@@ -83,6 +83,7 @@ static volatile float KnockRawValue = 0.0f;
 static volatile float KnockValue = 0.0f;
 static HAL_StatusTypeDef KnockInitialStatus = HAL_OK;
 static volatile HAL_StatusTypeDef KnockStatus = HAL_OK;
+static HAL_StatusTypeDef O2InitState = HAL_OK;
 
 static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
@@ -93,10 +94,40 @@ static sMathPid o2_pid;
 
 static sO2Status O2Status = {0};
 
+volatile uint8_t nss_o2_off = 0;
+volatile uint8_t nss_knock_off = 0;
+volatile uint8_t nss_out1_off = 0;
+volatile uint8_t nss_out2_off = 0;
+volatile uint8_t nss_inj_off = 0;
+
+static inline void Misc_CpltNssCheck(void)
+{
+  if(nss_o2_off) {
+    SPI_NSS_O2_OFF();
+    nss_o2_off = 0;
+  }
+  if(nss_knock_off) {
+    SPI_NSS_KNOCK_OFF();
+    nss_knock_off = 0;
+  }
+  if(nss_out1_off) {
+    SPI_NSS_OUTS1_OFF();
+    nss_out1_off = 0;
+  }
+  if(nss_out2_off) {
+    SPI_NSS_OUTS2_OFF();
+    nss_out2_off = 0;
+  }
+  if(nss_inj_off) {
+    SPI_NSS_INJ_OFF();
+    nss_inj_off = 0;
+  }
+}
 
 void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    Misc_CpltNssCheck();
 
   }
 }
@@ -104,6 +135,7 @@ void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi)
 void Misc_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    Misc_CpltNssCheck();
     semTx = 1;
   }
 }
@@ -111,6 +143,7 @@ void Misc_TxCpltCallback(SPI_HandleTypeDef * _hspi)
 void Misc_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    Misc_CpltNssCheck();
     semRx = 1;
   }
 }
@@ -118,6 +151,7 @@ void Misc_RxCpltCallback(SPI_HandleTypeDef * _hspi)
 void Misc_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
+    Misc_CpltNssCheck();
     semTx = 1;
     semRx = 1;
   }
@@ -163,6 +197,7 @@ static int8_t Knock_Cmd(uint8_t cmd, uint8_t *read)
   switch(state) {
     case 0:
       tx[0] = cmd;
+      nss_knock_off = 1;
       SPI_NSS_KNOCK_ON();
       HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 1);
       state++;
@@ -171,7 +206,7 @@ static int8_t Knock_Cmd(uint8_t cmd, uint8_t *read)
     case 1:
       if(waitTxRxCplt())
       {
-        SPI_NSS_KNOCK_OFF();
+        //SPI_NSS_KNOCK_OFF();
         if(read)
           *read = rx[0];
         state = 0;
@@ -206,6 +241,7 @@ static int8_t O2_Write(uint8_t cmd, uint8_t data)
     case 0:
       tx[0] = cmd;
       tx[1] = data;
+      nss_o2_off = 1;
       SPI_NSS_O2_ON();
       HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 2);
       state++;
@@ -214,7 +250,7 @@ static int8_t O2_Write(uint8_t cmd, uint8_t data)
     case 1:
       if(waitTxRxCplt())
       {
-        SPI_NSS_O2_OFF();
+        //SPI_NSS_O2_OFF();
         state = 0;
         if((rx[0] & 0x38) != 0x28 || rx[1] != 0x00) {
           return -1;
@@ -239,6 +275,7 @@ static int8_t O2_Read(uint8_t cmd, uint8_t *data)
     case 0:
       tx[0] = cmd;
       tx[1] = 0;
+      nss_o2_off = 1;
       SPI_NSS_O2_ON();
       HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 2);
       state++;
@@ -247,7 +284,7 @@ static int8_t O2_Read(uint8_t cmd, uint8_t *data)
     case 1:
       if(waitTxRxCplt())
       {
-        SPI_NSS_O2_OFF();
+        //SPI_NSS_O2_OFF();
         state = 0;
         if((rx[0] & 0x38) != 0x28) {
           return -1;
@@ -356,11 +393,12 @@ static int8_t O2_Loop(void)
   static uint32_t last_spi_check = 0;
   static uint32_t calibrate_timestamp = 0;
   static float o2heater = 0.0f;
+  static uint8_t device,diag;
   uint8_t is_engine_running = 0;
   float voltage;
   uint32_t now = Delay_Tick;
-  uint8_t device,diag;
   int8_t status;
+  int8_t retvalue = 1;
 
   is_engine_running = csps_isrunning();
   if(was_engine_running != is_engine_running) {
@@ -370,6 +408,10 @@ static int8_t O2_Loop(void)
   float engine_temperature;
   sens_get_engine_temperature(&engine_temperature);
 
+  if(O2InitState != HAL_OK) {
+    return retvalue;
+  }
+
   switch(state) {
     case 0 :
       if(DelayDiff(now, last_spi_check) > 500000) {
@@ -377,7 +419,7 @@ static int8_t O2_Loop(void)
         state = 1;
       } else if(O2Status.Valid) {
         state = 8;
-      } else if(is_engine_running) {
+      } else if(O2Status.Available && is_engine_running) {
         state = 3;
       }
       else {
@@ -386,21 +428,32 @@ static int8_t O2_Loop(void)
       break;
     case 1 :
       status = O2_GetDevice(&device);
+      retvalue = 0;
+      if(status == 1) {
+        retvalue = 1;
+        O2Device = device & O2_IDENT_MASK_DEVICE;
+        O2Version = device & O2_IDENT_MASK_VERSION;
+        if(O2Device == O2_IDENT_DEVICE_CJ125) {
+          O2Status.Available = 1;
+          state++;
+        } else {
+          status = -1;
+        }
+      }
       if(status == -1) {
+        retvalue = -1;
         O2Status.Available = 0;
         O2Status.Working = 0;
         O2Status.Valid = 0;
         O2_SetHeaterVoltage(0);
         state = 0;
-        return -1;
-      } else if(status == 1) {
-        O2Status.Available = 1;
-        state++;
       }
       break;
     case 2 :
       status = O2_GetDiag(&diag);
+      retvalue = 0;
       if(status) {
+        retvalue = 1;
         O2Status.Diag.Byte = diag ^ 0xFF;
         if(is_engine_running) {
           O2Status.Working = 1;
@@ -414,7 +467,9 @@ static int8_t O2_Loop(void)
       break;
     case 3 :
       status = O2_Calibrate();
+      retvalue = 0;
       if(status) {
+        retvalue = 1;
         state++;
       }
       break;
@@ -461,7 +516,9 @@ static int8_t O2_Loop(void)
       break;
     case 7 :
       status = O2_Enable();
+      retvalue = 0;
       if(status) {
+        retvalue = 1;
         O2Status.Valid = 1;
         calibrate_timestamp = now;
         state++;
@@ -474,7 +531,7 @@ static int8_t O2_Loop(void)
       state = 0;
       break;
   }
-  return 0;
+  return retvalue;
 }
 
 sO2Status Misc_O2_GetStatus(void)
@@ -485,9 +542,9 @@ sO2Status Misc_O2_GetStatus(void)
 static int8_t Outs_Loop(void)
 {
   static uint8_t state = 0;
+  static eMiscDiagChannels channel = 0;
   static uint8_t failure_stored = 0;
   GPIO_PinState pin;
-  eMiscDiagChannels channel = 0;
 
   do {
     switch(state) {
@@ -495,9 +552,9 @@ static int8_t Outs_Loop(void)
         SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
 
         switch(channel) {
-          case MiscDiagChInjectors: SPI_NSS_INJ_ON(); break;
-          case MiscDiagChOutputs1: SPI_NSS_OUTS1_ON(); break;
-          case MiscDiagChOutputs2: SPI_NSS_OUTS2_ON(); break;
+          case MiscDiagChInjectors: SPI_NSS_INJ_ON(); nss_inj_off = 1; break;
+          case MiscDiagChOutputs1: SPI_NSS_OUTS1_ON(); nss_out1_off = 1; break;
+          case MiscDiagChOutputs2: SPI_NSS_OUTS2_ON(); nss_out2_off = 1; break;
           default: channel = 0; continue;
         }
         state++;
@@ -510,7 +567,7 @@ static int8_t Outs_Loop(void)
         break;
       case 2:
         if(waitRxCplt()) {
-          SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
+          //SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
 
           if(OutputsDiagnosticStored[channel] == 0 || failure_stored == 1 || rx[0] != 0xFF) {
             OutputsDiagnosticStored[channel] = 1;
@@ -881,17 +938,27 @@ HAL_StatusTypeDef Mics_Knock_Init(void)
   data = KNOCK_CMD_GAIN | (gain_value & 0x3F);
   while(!Knock_Cmd(data, &read)) {}
 
+  DelayUs(15);
+
   data = KNOCK_CMD_BP_FREQ | (bandpass_filter_frequency & 0x3F);
   while(!Knock_Cmd(data, &read)) {}
+
+  DelayUs(15);
 
   data = KNOCK_CMD_INT_TIME | (integrator_time_constant & 0x1F);
   while(!Knock_Cmd(data, &read)) {}
 
+  DelayUs(15);
+
   data = KNOCK_CMD_CH_SEL | (channel_select & 0x1) | ((diagnostic_mode & 0xF) << 1);
   while(!Knock_Cmd(data, &read)) {}
 
+  DelayUs(15);
+
   data = KNOCK_CMD_SO_MODE | ((oscillator_freq_select & 0xF) << 1) | (so_output_mode & 0x1);
   while(!Knock_Cmd(data, &read)) {}
+
+  DelayUs(15);
 
   KnockInitialStatus = HAL_OK;
   KnockStatus = HAL_OK;
@@ -921,8 +988,11 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Version = device & O2_IDENT_MASK_VERSION;
   if(O2Device != O2_IDENT_DEVICE_CJ125) {
     O2Status.Available = 0;
+    O2InitState = HAL_ERROR;
     return HAL_ERROR;
   }
+
+  O2InitState = HAL_OK;
 
   O2Status.Working = 1;
 
