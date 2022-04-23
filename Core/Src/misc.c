@@ -20,12 +20,39 @@
 #include "defines.h"
 #include "interpolation.h"
 
+//#define O2_AMPLIFICATION_FACTOR_8
+#define O2_AMPLIFICATION_FACTOR_17
+
+#if defined(O2_AMPLIFICATION_FACTOR_8) && defined(O2_AMPLIFICATION_FACTOR_17)
+#error Only one of O2_AMPLIFICATION_FACTOR_8 or O2_AMPLIFICATION_FACTOR_17 can be defined
+#elif !defined(O2_AMPLIFICATION_FACTOR_8) && !defined(O2_AMPLIFICATION_FACTOR_17)
+#error One of O2_AMPLIFICATION_FACTOR_8 or O2_AMPLIFICATION_FACTOR_17 must be defined
+#endif
+
 #define O2_PID_P  0.5f
 #define O2_PID_I  0.1f
 #define O2_PID_D  0.001f
 
-static const float o2_ua_voltage[24] = { 0.51f, 0.707f, 0.884f, 1.041f, 1.104f, 1.177f, 1.299f, 1.409f, 1.448f, 1.48f, 1.5f, 1.507f, 1.548f, 1.596f, 1.624f, 1.663f, 1.832f, 1.964f, 2.069f, 2.186f, 2.342f, 2.49f, 2.565f, 2.614f };
+#define O2_IDENT_DEVICE_CJ125 0x60
+#define O2_IDENT_MASK_DEVICE 0xF8
+#define O2_IDENT_MASK_VERSION 0x07
+#define O2_IDENT_REG_RD 0x48
+#define O2_DIAG_REG_RD 0x78
+#define O2_INIT_REG1_RD 0x6C
+#define O2_INIT_REG1_WR 0x56
+#define O2_INIT_REG2_RD 0x7E
+#define O2_INIT_REG2_WR 0x5A
+
 static const float o2_lambda[24] = { 0.65f, 0.7f, 0.75f, 0.8f, 0.822f, 0.85f, 0.9f, 0.95f, 0.97f, 0.99f, 1.003f, 1.01f, 1.05f, 1.1f, 1.132f, 1.179f, 1.429f, 1.701f, 1.99f, 2.434f, 3.413f, 5.391f, 7.506f, 10.119f };
+#if defined(O2_AMPLIFICATION_FACTOR_8)
+#define O2_REG1_CALIBR 0x9C
+#define O2_REG1_NORMAL 0x88
+static const float o2_ua_voltage[24] = { 0.51f, 0.707f, 0.884f, 1.041f, 1.104f, 1.177f, 1.299f, 1.409f, 1.448f, 1.48f, 1.5f, 1.507f, 1.548f, 1.596f, 1.624f, 1.663f, 1.832f, 1.964f, 2.069f, 2.186f, 2.342f, 2.49f, 2.565f, 2.614f };
+#elif defined(O2_AMPLIFICATION_FACTOR_17)
+#define O2_REG1_CALIBR 0x9D
+#define O2_REG1_NORMAL 0x89
+static const float o2_ua_voltage[24] = { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f };
+#endif
 
 #define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
 #define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
@@ -204,19 +231,6 @@ static int8_t Knock_Cmd(uint8_t cmd, uint8_t *read)
 
   return 0;
 }
-
-#define O2_IDENT_DEVICE_CJ125 0x60
-#define O2_IDENT_MASK_DEVICE 0xF8
-#define O2_IDENT_MASK_VERSION 0x07
-#define O2_IDENT_REG_RD 0x48
-#define O2_DIAG_REG_RD 0x78
-#define O2_INIT_REG1_RD 0x6C
-#define O2_INIT_REG1_WR 0x56
-#define O2_INIT_REG2_RD 0x7E
-#define O2_INIT_REG2_WR 0x5A
-
-#define O2_REG1_CALIBR 0x9C
-#define O2_REG1_NORMAL 0x88
 
 static int8_t O2_Write(uint8_t cmd, uint8_t data)
 {
