@@ -7,6 +7,7 @@
 
 #include "adc.h"
 #include "delay.h"
+#include <string.h>
 
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_OFF() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_SET)
@@ -54,15 +55,14 @@ static const float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {
     2.0f,
 };
 
-static SPI_HandleTypeDef * hspi;
-static ADC_HandleTypeDef * hadc;
+static SPI_HandleTypeDef *hspi = NULL;
+static ADC_HandleTypeDef *hadc = NULL;
 
 static uint8_t tx[32] __attribute__((aligned(32)));
 static uint8_t rx[32] __attribute__((aligned(32)));
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
-static volatile uint8_t semAdcCplt = 0;
 static uint32_t AdcWritePos = 0;
 static uint8_t AdcChannel = 0;
 static uint8_t AdcFirstTime = 1;
@@ -110,6 +110,7 @@ void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
 
     if(McuFirstTime) {
       McuFirstTime = 0;
+      McuWritePos = 0;
       for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
         AdcBuffer[ADC_CHANNELS + 0][i] = data;
       }
@@ -146,15 +147,6 @@ static uint8_t waitTxRxCplt(void)
   if(semRx && semTx) {
     semRx = 0;
     semTx = 0;
-    return 1;
-  }
-  return 0;
-}
-
-static uint8_t waitAdcCplt(void)
-{
-  if(semAdcCplt) {
-    semAdcCplt = 0;
     return 1;
   }
   return 0;
@@ -348,7 +340,7 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
 
   switch(state) {
     case 0:
-      *((uint32_t *)tx) = 0;
+      memset(tx, 0, 4);
       SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
       SPI_NSS_ON();
       HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
@@ -364,6 +356,7 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
         if(!AdcFirstTime)
           AdcBuffer[AdcChannel][AdcWritePos] = data;
         else {
+          AdcWritePos = 0;
           for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
             AdcBuffer[AdcChannel][i] = data;
           }
@@ -377,13 +370,11 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
           AdcFirstTime = 0;
         }
 
-        //TODO: use this code and comment "state = 0" below.
-        //*((uint32_t *)tx) = 0;
-        //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-        //SPI_NSS_ON();
-        //HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
+        memset(tx, 0, 4);
+        SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+        SPI_NSS_ON();
+        HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
 
-        state = 0;
       }
       break;
 

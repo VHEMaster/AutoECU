@@ -282,7 +282,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_by_thr_sens, default_enrichment_by_thr_sens, sizeof(default_enrichment_by_thr_sens));
   memcpy(table->enrichment_by_thr_hpf, default_enrichment_by_thr_hpf, sizeof(default_enrichment_by_thr_hpf));
 
-
   table->fillings_count = ITEMSOF(default_fillings);
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
@@ -330,8 +329,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
     table->cy_corr_injection[i] = 0;
     table->cy_corr_ignition[i] = 0;
   }
-
-
 }
 
 void config_default_params(sEcuParams *table)

@@ -20,6 +20,7 @@
 #include "defines.h"
 #include "interpolation.h"
 #include "math_fast.h"
+#include <string.h>
 
 #define O2_PID_P  0.5f
 #define O2_PID_I  0.1f
@@ -1100,6 +1101,9 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
   HAL_GPIO_WritePin(SW_NRST_GPIO_Port, SW_NRST_Pin, GPIO_PIN_SET);
   DelayMs(1);
 
+  memset(tx, 0, sizeof(tx));
+  memset(rx, 0, sizeof(tx));
+
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
   hspi = _hspi;
@@ -1211,7 +1215,8 @@ inline uint8_t Knock_GetSoOutputMode(void)
 
 inline void O2_SetAmplificationFactor(eO2AmplificationFactor factor)
 {
-  O2Status.AmplificationFactor = factor;
+  if(factor < O2AmplificationFactorCount)
+    O2Status.AmplificationFactor = factor;
 }
 
 inline eO2AmplificationFactor O2_GetAmplificationFactor(void)

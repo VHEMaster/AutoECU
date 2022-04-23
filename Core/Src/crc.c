@@ -5,29 +5,21 @@
 
 static uint16_t CRC16_Generate_SW(uint8_t * input, uint32_t size)
 {
-    uint8_t i,j;
-    uint16_t data;
-    uint16_t crc = 0x0000;//0xFFFF;
-
-    for (j = 0; j < size; j++)
-    {
-        for (i=0, data=(uint8_t)0xff & input[j];
-                i < 8;
-                i++, data >>= 1)
-        {
-            if ((crc & 0x0001) ^ (data & 0x0001))
-            {
-                crc = (crc >> 1) ^ POLY;
-            }
-            else  crc >>= 1;
-        }
-    }
-
-    crc = ~crc;
-    data = crc;
-    crc = (crc << 8) | (data >> 8 & 0xff);
-
-    return (crc);
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < size; pos++)
+  {
+      crc ^= input[pos];
+      for (int i = 8; i != 0; i--)
+      {
+          if ((crc & 0x0001) != 0)
+          {
+              crc >>= 1;
+              crc ^= __RBIT(POLY) >> 16;
+          }
+          else crc >>= 1;
+      }
+  }
+  return crc;
 }
 
 static CRC_HandleTypeDef *handle_crc;
