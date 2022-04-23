@@ -311,9 +311,9 @@ static void O2_SetHeaterVoltage(float voltage)
     dutycycle = 1.0f;
   else if(voltage < 0.0f)
     dutycycle = 0.0f;
-  else dutycycle = fast_sqrt(voltage/power);
+  else dutycycle = voltage / power;
 
-  O2_SetHeaterDutyCycle(dutycycle);
+  O2_SetHeaterDutyCycle(dutycycle * dutycycle);
 
 }
 
@@ -322,7 +322,7 @@ static float O2_GetLambda(void)
   float lambda = 1.0f;
   float voltage = ADC_GetVoltage(AdcChO2UA);
 
-  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_ua_voltage));
+  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_lambda));
   lambda = math_interpolate_1d(ipVoltage, o2_lambda);
   if(lambda < 0)
     lambda = 0.0f;
@@ -503,7 +503,7 @@ static int8_t O2_Loop(void)
         state = 0;
         break;
       }
-      if(o2heater > 13.0f) {
+      if(o2heater >= 13.0f) {
         O2_SetHeaterVoltage(0);
         O2Status.ReferenceVoltage = ADC_GetVoltage(AdcChO2UR);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
@@ -1069,10 +1069,11 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Status.Lambda = 1;
   O2Status.Valid = 0;
   O2Status.Working = 0;
+  O2Status.AmplificationFactor = O2AmplificationFactor17;
 
   math_pid_init(&o2_pid);
   math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
-  math_pid_set_clamp(&o2_pid, 0.0f, 13.0f);
+  math_pid_set_clamp(&o2_pid, 0.0f, 12.0f);
 
   while(!O2_GetDevice(&device)) {};
 
