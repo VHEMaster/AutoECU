@@ -19,6 +19,7 @@
 #include "sensors.h"
 #include "defines.h"
 #include "interpolation.h"
+#include "math_fast.h"
 
 //#define O2_AMPLIFICATION_FACTOR_8
 #define O2_AMPLIFICATION_FACTOR_17
@@ -320,7 +321,7 @@ static void O2_SetHeaterVoltage(float voltage)
     dutycycle = 1.0f;
   else if(voltage < 0.0f)
     dutycycle = 0.0f;
-  else dutycycle = voltage/power;
+  else dutycycle = fast_sqrt(voltage/power);
 
   O2_SetHeaterDutyCycle(dutycycle);
 
