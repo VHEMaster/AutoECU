@@ -122,6 +122,7 @@ typedef struct {
     float injector_performance;
     float fuel_pressure;
     float fuel_mass_per_cc;
+    float fuel_afr;
 
     int32_t voltages_count;
     float voltages[TABLE_VOLTAGES_MAX];
@@ -298,6 +299,7 @@ typedef struct {
     float ReferenceVoltage;
     float PowerVoltage;
     float FuelRatio;
+    float Lambda;
     float LongTermCorrection;
     float IdleCorrection;
 

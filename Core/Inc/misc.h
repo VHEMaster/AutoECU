@@ -13,7 +13,7 @@
 
 typedef struct {
     volatile float ReferenceVoltage;
-    float FuelRatio;
+    float Lambda;
     volatile uint8_t Valid;
     uint8_t Available;
     uint8_t Working;

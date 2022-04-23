@@ -252,6 +252,7 @@ static void ecu_update(void)
   float rpm;
   float map;
   float fuel_ratio;
+  float lambda;
   float air_temp;
   float engine_temp;
   float throttle;
@@ -380,8 +381,11 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
     air_temp = 10.0f;
 
+  fuel_ratio = 14.7f;
+  lambda = 1.0f;
   if(gEcuParams.useLambdaSensor) {
-    gStatus.Sensors.Struct.Lambda = sens_get_o2_fuelratio(&fuel_ratio, &o2_valid);
+    gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&lambda, &o2_valid);
+    fuel_ratio = lambda * table->fuel_afr;
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
@@ -810,6 +814,7 @@ static void ecu_update(void)
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
   gParameters.FuelRatio = fuel_ratio;
+  gParameters.Lambda = lambda;
   gParameters.LongTermCorrection = gEcuCorrections.long_term_correction;
   gParameters.IdleCorrection = gEcuCorrections.idle_correction;
 

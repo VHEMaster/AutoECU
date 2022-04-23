@@ -116,11 +116,11 @@ static float getTemperatureByResistance_enginetemp(float resistance)
   return math_interpolate_1d(ipResistance, temperatures);
 }
 
-HAL_StatusTypeDef sens_get_o2_fuelratio(float *output, uint8_t *valid)
+HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid)
 {
   HAL_StatusTypeDef status = HAL_OK;
   sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.FuelRatio;
+  *output = o2status.Lambda;
   if(o2status.Available) {
     if(valid)
       *valid = o2status.Valid && o2status.Working;
