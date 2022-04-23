@@ -21,15 +21,6 @@
 #include "interpolation.h"
 #include "math_fast.h"
 
-//#define O2_AMPLIFICATION_FACTOR_8
-#define O2_AMPLIFICATION_FACTOR_17
-
-#if defined(O2_AMPLIFICATION_FACTOR_8) && defined(O2_AMPLIFICATION_FACTOR_17)
-#error Only one of O2_AMPLIFICATION_FACTOR_8 or O2_AMPLIFICATION_FACTOR_17 can be defined
-#elif !defined(O2_AMPLIFICATION_FACTOR_8) && !defined(O2_AMPLIFICATION_FACTOR_17)
-#error One of O2_AMPLIFICATION_FACTOR_8 or O2_AMPLIFICATION_FACTOR_17 must be defined
-#endif
-
 #define O2_PID_P  0.5f
 #define O2_PID_I  0.1f
 #define O2_PID_D  0.001f
@@ -44,16 +35,15 @@
 #define O2_INIT_REG2_RD 0x7E
 #define O2_INIT_REG2_WR 0x5A
 
-static const float o2_lambda[24] = { 0.65f, 0.7f, 0.75f, 0.8f, 0.822f, 0.85f, 0.9f, 0.95f, 0.97f, 0.99f, 1.003f, 1.01f, 1.05f, 1.1f, 1.132f, 1.179f, 1.429f, 1.701f, 1.99f, 2.434f, 3.413f, 5.391f, 7.506f, 10.119f };
-#if defined(O2_AMPLIFICATION_FACTOR_8)
 #define O2_REG1_CALIBR 0x9C
 #define O2_REG1_NORMAL 0x88
-static const float o2_ua_voltage[24] = { 0.51f, 0.707f, 0.884f, 1.041f, 1.104f, 1.177f, 1.299f, 1.409f, 1.448f, 1.48f, 1.5f, 1.507f, 1.548f, 1.596f, 1.624f, 1.663f, 1.832f, 1.964f, 2.069f, 2.186f, 2.342f, 2.49f, 2.565f, 2.614f };
-#elif defined(O2_AMPLIFICATION_FACTOR_17)
-#define O2_REG1_CALIBR 0x9D
-#define O2_REG1_NORMAL 0x89
-static const float o2_ua_voltage[24] = { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f };
-#endif
+
+static const float o2_lambda[24] = { 0.65f, 0.7f, 0.75f, 0.8f, 0.822f, 0.85f, 0.9f, 0.95f, 0.97f, 0.99f, 1.003f, 1.01f, 1.05f, 1.1f, 1.132f, 1.179f, 1.429f, 1.701f, 1.99f, 2.434f, 3.413f, 5.391f, 7.506f, 10.119f };
+
+static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
+    { 0.51f, 0.707f, 0.884f, 1.041f, 1.104f, 1.177f, 1.299f, 1.409f, 1.448f, 1.48f, 1.5f, 1.507f, 1.548f, 1.596f, 1.624f, 1.663f, 1.832f, 1.964f, 2.069f, 2.186f, 2.342f, 2.49f, 2.565f, 2.614f },
+    { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f }
+};
 
 #define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
 #define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
@@ -332,7 +322,7 @@ static float O2_GetLambda(void)
   float lambda = 1.0f;
   float voltage = ADC_GetVoltage(AdcChO2UA);
 
-  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage, ITEMSOF(o2_ua_voltage));
+  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_ua_voltage));
   lambda = math_interpolate_1d(ipVoltage, o2_lambda);
   if(lambda < 0)
     lambda = 0.0f;
@@ -350,14 +340,14 @@ static int8_t O2_GetDiag(uint8_t *diag)
   return O2_Read(O2_DIAG_REG_RD, diag);
 }
 
-static int8_t O2_Calibrate(void)
+static int8_t O2_Calibrate(eO2AmplificationFactor factor)
 {
-  return O2_Write(O2_INIT_REG1_WR, O2_REG1_CALIBR);
+  return O2_Write(O2_INIT_REG1_WR, O2_REG1_CALIBR + factor);
 }
 
-static int8_t O2_Enable(void)
+static int8_t O2_Enable(eO2AmplificationFactor factor)
 {
-  return O2_Write(O2_INIT_REG1_WR, O2_REG1_NORMAL);
+  return O2_Write(O2_INIT_REG1_WR, O2_REG1_NORMAL + factor);
 }
 
 static void O2_CriticalLoop(void)
@@ -390,6 +380,9 @@ static int8_t O2_Loop(void)
   static uint32_t calibrate_timestamp = 0;
   static float o2heater = 0.0f;
   static uint8_t device,diag;
+  static eO2AmplificationFactor factor = 0;
+  eO2AmplificationFactor factor_tmp;
+  static uint8_t need_reset_factor = 0;
   uint8_t is_engine_running = 0;
   uint32_t now = Delay_Tick;
   int8_t status;
@@ -398,6 +391,14 @@ static int8_t O2_Loop(void)
   is_engine_running = csps_isrunning();
   if(was_engine_running != is_engine_running) {
     was_engine_running = is_engine_running;
+  }
+
+  if(!need_reset_factor) {
+    factor_tmp = O2Status.AmplificationFactor;
+    if(factor_tmp != factor) {
+      factor = factor_tmp;
+      need_reset_factor = 1;
+    }
   }
 
   float engine_temperature;
@@ -417,7 +418,11 @@ static int8_t O2_Loop(void)
         state = 3;
       }
       else {
-        state = 0;
+        if(need_reset_factor) {
+          state = 7;
+        } else {
+          state = 0;
+        }
       }
       break;
     case 1 :
@@ -466,9 +471,10 @@ static int8_t O2_Loop(void)
       }
       break;
     case 4 :
-      status = O2_Calibrate();
+      status = O2_Calibrate(factor);
       retvalue = 0;
       if(status) {
+        need_reset_factor = 0;
         retvalue = 1;
         calibrate_timestamp = now;
         state++;
@@ -501,6 +507,7 @@ static int8_t O2_Loop(void)
         O2_SetHeaterVoltage(0);
         O2Status.ReferenceVoltage = ADC_GetVoltage(AdcChO2UR);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
+        calibrate_timestamp = now;
         state++;
       }
       if(DelayDiff(now, calibrate_timestamp) > 100000) {
@@ -510,16 +517,16 @@ static int8_t O2_Loop(void)
       }
       break;
     case 7 :
-      status = O2_Enable();
+      status = O2_Enable(factor);
       retvalue = 0;
       if(status) {
+        need_reset_factor = 0;
         retvalue = 1;
-        O2Status.Valid = 1;
-        calibrate_timestamp = now;
         state++;
       }
       break;
     case 8 :
+      O2Status.Valid = 1;
       state = 0;
       break;
     default:
@@ -1199,5 +1206,15 @@ inline uint8_t Knock_GetDiagnosticMode(void)
 inline uint8_t Knock_GetSoOutputMode(void)
 {
   return KnockConfig.so_output_mode;
+}
+
+inline void O2_SetAmplificationFactor(eO2AmplificationFactor factor)
+{
+  O2Status.AmplificationFactor = factor;
+}
+
+inline eO2AmplificationFactor O2_GetAmplificationFactor(void)
+{
+  return O2Status.AmplificationFactor;
 }
 

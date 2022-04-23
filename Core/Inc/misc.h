@@ -11,10 +11,17 @@
 #include "main.h"
 #include "structs.h"
 
+typedef enum {
+  O2AmplificationFactor8 = 0,
+  O2AmplificationFactor17 = 1,
+  O2AmplificationFactorCount,
+}eO2AmplificationFactor;
+
 typedef struct {
     volatile float ReferenceVoltage;
     float Lambda;
     volatile uint8_t Valid;
+    eO2AmplificationFactor AmplificationFactor;
     uint8_t Available;
     uint8_t Working;
     union {
@@ -76,5 +83,8 @@ uint8_t Knock_GetOscillatorFrequency(void);
 uint8_t Knock_GetChannel(void);
 uint8_t Knock_GetDiagnosticMode(void);
 uint8_t Knock_GetSoOutputMode(void);
+
+void O2_SetAmplificationFactor(eO2AmplificationFactor factor);
+eO2AmplificationFactor O2_GetAmplificationFactor(void);
 
 #endif /* INC_MISC_H_ */
