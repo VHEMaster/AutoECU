@@ -231,9 +231,9 @@ static void ecu_update(void)
   static float fuel_consumed = 0;
   static float km_driven = 0;
   static uint32_t updated_last = 0;
-  volatile uint32_t now = Delay_Tick;
-  volatile float adapt_diff = DelayDiff(now, adaptation_last);
-  volatile float diff = DelayDiff(now, updated_last);
+  uint32_t now = Delay_Tick;
+  float adapt_diff = DelayDiff(now, adaptation_last);
+  float diff = DelayDiff(now, updated_last);
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
@@ -268,7 +268,7 @@ static void ecu_update(void)
 
   float wish_fuel_ratio;
   float filling_map;
-  volatile float map_thr;
+  float map_thr;
   float effective_volume;
   float ignition_angle;
   float ignition_time;
@@ -320,13 +320,13 @@ static void ecu_update(void)
   float idle_angle_correction;
   float injection_dutycycle;
 
-  volatile float calib_cur_progress;
-  volatile float percentage;
-  volatile float filling_diff;
-  volatile float map_diff_thr;
-  volatile float lpf_calculation;
+  float calib_cur_progress;
+  float percentage;
+  float filling_diff;
+  float map_diff_thr;
+  float lpf_calculation;
   float fill_correction_map;
-  volatile float map_correction_thr;
+  float map_correction_thr;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
   float ignition_correction;
