@@ -277,7 +277,7 @@ int main(void)
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
 
-  //MX_IWDG_Init();
+  MX_IWDG_Init();
 
   DelayInit(&htim5);
 
@@ -357,7 +357,7 @@ int main(void)
     PK_SenderLoop();
     bluetooth_loop();
 
-    //HAL_IWDG_Refresh(&hiwdg);
+    HAL_IWDG_Refresh(&hiwdg);
   }
 }
 
