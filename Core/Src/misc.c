@@ -22,9 +22,9 @@
 #include "math_fast.h"
 #include <string.h>
 
-#define O2_PID_P  0.5f
-#define O2_PID_I  0.1f
-#define O2_PID_D  0.001f
+#define O2_PID_P  -0.1f
+#define O2_PID_I  -0.1f
+#define O2_PID_D  -0.001f
 
 #define O2_IDENT_DEVICE_CJ125 0x60
 #define O2_IDENT_MASK_DEVICE 0xF8
@@ -462,7 +462,9 @@ static int8_t O2_Loop(void)
         else if(is_engine_running) {
           state++;
         }
-        else state = 0;
+        else {
+          state = 0;
+        }
       }
       break;
     case 3 :
