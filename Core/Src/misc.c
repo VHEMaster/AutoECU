@@ -455,12 +455,12 @@ static int8_t O2_Loop(void)
       if(status) {
         retvalue = 1;
         O2Status.Diag.Byte = diag ^ 0xFF;
-        if(is_engine_running) {
-          O2Status.Working = 1;
-          if(O2Status.Valid) {
-            state = 8;
-          }
-          else state++;
+        O2Status.Working = 1;
+        if(O2Status.Valid) {
+          state = 8;
+        }
+        else if(is_engine_running) {
+          state++;
         }
         else state = 0;
       }
