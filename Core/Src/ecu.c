@@ -569,9 +569,18 @@ static void ecu_update(void)
     wish_fuel_ratio = start_mixture;
   }
 
+  injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
+
+  ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
+  ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
+
+  if(gForceParameters.Enable.IgnitionPulse)
+    ignition_time = gForceParameters.IgnitionPulse;
+
   if(shift_processing && !cutoff_processing) {
     ignition_angle = gEcuParams.shiftAngle;
     wish_fuel_ratio = gEcuParams.shiftMixture;
+    ignition_time *= 3.0f;
   }
 
   if(cutoff_processing) {
@@ -584,14 +593,6 @@ static void ecu_update(void)
 
   if(!gEcuParams.useLambdaSensor || !o2_valid)
     fuel_ratio = wish_fuel_ratio;
-
-  injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
-
-  ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
-  ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
-
-  if(gForceParameters.Enable.IgnitionPulse)
-    ignition_time = gForceParameters.IgnitionPulse;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
@@ -1134,7 +1135,6 @@ STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint
           retval = 2;
         }
       }
-      retval = 0;
     } else if(mode > 1) {
       switch(mode) {
         case 2 : tick_count = 20000; break;
@@ -1158,7 +1158,11 @@ STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint
   }
 
   if(retval > 0) {
-    shift_time_last = now;
+    if(tick_count > 0) {
+      shift_time_last += tick_count;
+    } else {
+      shift_time_last = now;
+    }
   }
 
   return retval;
