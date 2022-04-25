@@ -741,7 +741,7 @@ static void MX_TIM1_Init(void)
 static void MX_TIM2_Init(void)
 {
   /* USER CODE BEGIN TIM2_Init 0 */
-
+  uint32_t period = HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10;
   /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
@@ -753,7 +753,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0xFFFF;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10) - 1;
+  htim2.Init.Period = period - 1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
@@ -767,7 +767,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000 * 10 / 2) - 1;
+  sConfigOC.Pulse = period * 25 / 100 - 1;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
