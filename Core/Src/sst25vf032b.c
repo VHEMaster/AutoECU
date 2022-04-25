@@ -207,7 +207,8 @@ static uint8_t SPI_WaitForWrite(void)
               state = 0;
               return -1;
             }
-            state = 1;
+            avoid_nss_reset = 1;
+            HAL_SPI_Receive_IT(hspi, rx, 1);
           }
           else
           {
