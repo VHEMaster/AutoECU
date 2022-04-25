@@ -46,6 +46,9 @@ static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
     { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f }
 };
 
+static const float o2_ur_voltage[14] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f };
+static const float o2_temperature[14] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630 };
+
 #define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
 #define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
 
@@ -331,6 +334,19 @@ static float O2_GetLambda(void)
   return lambda;
 }
 
+static float O2_GetTemperature(void)
+{
+  float temperature;
+  float voltage = ADC_GetVoltage(AdcChO2UR);
+
+  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ur_voltage, ITEMSOF(o2_ur_voltage));
+  temperature = math_interpolate_1d(ipVoltage, o2_temperature);
+  if(temperature < 100)
+    temperature = 100.0f;
+
+  return temperature;
+}
+
 static int8_t O2_GetDevice(uint8_t *device)
 {
   return O2_Read(O2_IDENT_REG_RD, device);
@@ -358,6 +374,7 @@ static void O2_CriticalLoop(void)
   float o2heater;
   uint8_t now = Delay_Tick;
   O2Status.Lambda = O2_GetLambda();
+  O2Status.Temperature = O2_GetTemperature();
 
   if(O2Status.Available && O2Status.Working && O2Status.Valid) {
     if(DelayDiff(now, last_process) >= 5000) {

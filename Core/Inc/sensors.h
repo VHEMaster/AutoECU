@@ -31,6 +31,7 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output);
 HAL_StatusTypeDef sens_get_power_voltage(float *output);
 HAL_StatusTypeDef sens_get_reference_voltage(float *output);
 HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid);
+HAL_StatusTypeDef sens_get_o2_temperature(float *output);
 HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output);
 
 GPIO_PinState sens_get_charge(uint32_t *time);

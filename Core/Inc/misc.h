@@ -20,6 +20,7 @@ typedef enum {
 typedef struct {
     volatile float ReferenceVoltage;
     float Lambda;
+    float Temperature;
     volatile uint8_t Valid;
     eO2AmplificationFactor AmplificationFactor;
     uint8_t Available;

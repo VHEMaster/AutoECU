@@ -299,7 +299,8 @@ typedef struct {
     float ReferenceVoltage;
     float PowerVoltage;
     float FuelRatio;
-    float Lambda;
+    float LambdaValue;
+    float LambdaTemperature;
     float LongTermCorrection;
     float IdleCorrection;
 

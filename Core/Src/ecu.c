@@ -252,7 +252,8 @@ static void ecu_update(void)
   float rpm;
   float map;
   float fuel_ratio;
-  float lambda;
+  float lambda_value;
+  float lambda_temperature;
   float air_temp;
   float engine_temp;
   float throttle;
@@ -381,11 +382,13 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
     air_temp = 10.0f;
 
-  fuel_ratio = 14.7f;
-  lambda = 1.0f;
+  fuel_ratio = table->fuel_afr;
+  lambda_value = 1.0f;
+  lambda_temperature = engine_temp;
   if(gEcuParams.useLambdaSensor) {
-    gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&lambda, &o2_valid);
-    fuel_ratio = lambda * table->fuel_afr;
+    gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&lambda_value, &o2_valid);
+    sens_get_o2_temperature(&lambda_temperature);
+    fuel_ratio = lambda_value * table->fuel_afr;
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
@@ -815,7 +818,8 @@ static void ecu_update(void)
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
   gParameters.FuelRatio = fuel_ratio;
-  gParameters.Lambda = lambda;
+  gParameters.LambdaValue = lambda_value;
+  gParameters.LambdaTemperature = lambda_temperature;
   gParameters.LongTermCorrection = gEcuCorrections.long_term_correction;
   gParameters.IdleCorrection = gEcuCorrections.idle_correction;
 

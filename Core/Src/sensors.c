@@ -132,6 +132,17 @@ HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid)
   return status;
 }
 
+HAL_StatusTypeDef sens_get_o2_temperature(float *output)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  sO2Status o2status = Misc_O2_GetStatus();
+  *output = o2status.Temperature;
+  if(!o2status.Available) {
+    status = HAL_ERROR;
+  }
+  return status;
+}
+
 HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
