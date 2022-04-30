@@ -219,7 +219,7 @@ static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTAT
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
     20.0f, 18.0f, 17.0f, 15.0f, 14.2, 14.0f, 14.0f, 12.7f,
-    11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.2, 11.8, 12.0f
+    11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.2f, 11.8f, 12.0f
 };
 
 static const float default_idle_wish_ignition[TABLE_ROTATES_MAX] = {
@@ -228,13 +228,13 @@ static const float default_idle_wish_ignition[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
-    0, 10, 20, 30, 40, 50, 60, 70,
-    80, 90, 100, 110, 120, 130, 140, 150
+    0, 3, 10, 20, 30, 40, 50, 60,
+    70, 80, 90, 100, 110, 120, 130, 140
 };
 
 static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
-    0, 50, 100, 100, 100, 150, 150, 150,
-    150, 150, 200, 200, 200, 200, 200, 200
+    0, 50, 80, 100, 100, 120, 150, 150,
+    150, 150, 180, 200, 200, 200, 200, 200
 };
 
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
