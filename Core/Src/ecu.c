@@ -232,6 +232,7 @@ static void ecu_update(void)
   static float km_driven = 0;
   static uint32_t updated_last = 0;
   uint32_t now = Delay_Tick;
+  uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
   uint32_t table_number = gParameters.CurrentTable;
@@ -798,6 +799,79 @@ static void ecu_update(void)
     gEcuCriticalBackup.km_driven += km_driven;
     km_driven = 0;
   }
+
+  if(running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    float map_tps_relation = map / map_thr;
+    if(map_tps_relation > 1.25f || map_tps_relation < 0.75f) {
+      if(gStatus.MapTpsRelation.is_error) {
+        gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
+      } else {
+        gStatus.MapTpsRelation.error_time = 0;
+      }
+      gStatus.MapTpsRelation.is_error = 1;
+    } else {
+      gStatus.MapTpsRelation.is_error = 0;
+    }
+  } else {
+    gStatus.MapTpsRelation.error_time = 0;
+  }
+  gStatus.MapTpsRelation.error_last = hal_now;
+
+  if(gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && running) {
+    float fuel_relation = wish_fuel_ratio / fuel_ratio;
+    if(idle_flag) {
+      if(fuel_relation > 1.07f) {
+        if(gStatus.RichIdleMixture.is_error) {
+          gStatus.RichIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichIdleMixture.error_last);
+        } else {
+          gStatus.RichIdleMixture.error_time = 0;
+        }
+        gStatus.RichIdleMixture.is_error = 1;
+      } else {
+        gStatus.RichIdleMixture.is_error = 0;
+      }
+      if(fuel_relation < 0.93f) {
+        if(gStatus.LeanIdleMixture.is_error) {
+          gStatus.LeanIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanIdleMixture.error_last);
+        } else {
+          gStatus.LeanIdleMixture.error_time = 0;
+        }
+        gStatus.LeanIdleMixture.is_error = 1;
+      } else {
+        gStatus.LeanIdleMixture.is_error = 0;
+      }
+    } else {
+      if(fuel_relation > 1.07f) {
+        if(gStatus.RichMixture.is_error) {
+          gStatus.RichMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichMixture.error_last);
+        } else {
+          gStatus.RichMixture.error_time = 0;
+        }
+        gStatus.RichMixture.is_error = 1;
+      } else {
+        gStatus.RichMixture.is_error = 0;
+      }
+      if(fuel_relation < 0.93f) {
+        if(gStatus.LeanMixture.is_error) {
+          gStatus.LeanMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanMixture.error_last);
+        } else {
+          gStatus.LeanMixture.error_time = 0;
+        }
+        gStatus.LeanMixture.is_error = 1;
+      } else {
+        gStatus.LeanMixture.is_error = 0;
+      }
+    }
+  } else {
+    gStatus.RichMixture.error_time = 0;
+    gStatus.LeanMixture.error_time = 0;
+    gStatus.RichIdleMixture.error_time = 0;
+    gStatus.LeanIdleMixture.error_time = 0;
+  }
+  gStatus.RichMixture.error_last = hal_now;
+  gStatus.LeanMixture.error_last = hal_now;
+  gStatus.RichIdleMixture.error_last = hal_now;
+  gStatus.LeanIdleMixture.error_last = hal_now;
 
   gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
@@ -1602,8 +1676,8 @@ static void ecu_fan_process(void)
   }
 }
 
-#define CHECK_STATUS(status, iserror, cod, link) \
-  if(((status).link)) { \
+#define CHECK_STATUS(iserror, cod, link) \
+  if((link)) { \
     gCheckBitmap[cod >> 3] |= 1 << (cod & 7); \
     iserror |= 1; \
   }
@@ -1619,93 +1693,98 @@ static void ecu_checkengine_loop(void)
 
   memset(gCheckBitmap, 0, sizeof(gCheckBitmap));
 
-  CHECK_STATUS(gStatus, iserror, CheckFlashLoadFailure, Flash.Struct.Load != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckFlashSaveFailure, Flash.Struct.Save != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckFlashInitFailure, Flash.Struct.Init != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckBkpsramSaveFailure, Bkpsram.Struct.Save != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckBkpsramLoadFailure, Bkpsram.Struct.Load != HAL_OK);
+  CHECK_STATUS(iserror, CheckFlashLoadFailure, gStatus.Flash.Struct.Load != HAL_OK);
+  CHECK_STATUS(iserror, CheckFlashSaveFailure, gStatus.Flash.Struct.Save != HAL_OK);
+  CHECK_STATUS(iserror, CheckFlashInitFailure, gStatus.Flash.Struct.Init != HAL_OK);
+  CHECK_STATUS(iserror, CheckBkpsramSaveFailure, gStatus.Bkpsram.Struct.Save != HAL_OK);
+  CHECK_STATUS(iserror, CheckBkpsramLoadFailure, gStatus.Bkpsram.Struct.Load != HAL_OK);
 
-  CHECK_STATUS(gStatus, iserror, CheckSensorMapFailure, Sensors.Struct.Map != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorKnockFailure, Sensors.Struct.Knock != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorCspsFailure, Sensors.Struct.Csps != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorTspsFailure, Sensors.Struct.Tsps != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorAirTempFailure, Sensors.Struct.AirTemp != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorEngineTempFailure, Sensors.Struct.EngineTemp != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorTPSFailure, Sensors.Struct.ThrottlePos != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorRefVoltageFailure, Sensors.Struct.ReferenceVoltage != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorPwrVoltageFailure, Sensors.Struct.PowerVoltage != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckSensorLambdaFailure, Sensors.Struct.Lambda != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckOutputDriverFailure, OutputStatus != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorMapFailure, gStatus.Sensors.Struct.Map != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorKnockFailure, gStatus.Sensors.Struct.Knock != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorCspsFailure, gStatus.Sensors.Struct.Csps != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorTspsFailure, gStatus.Sensors.Struct.Tsps != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorAirTempFailure, gStatus.Sensors.Struct.AirTemp != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorEngineTempFailure, gStatus.Sensors.Struct.EngineTemp != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorTPSFailure, gStatus.Sensors.Struct.ThrottlePos != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorRefVoltageFailure, gStatus.Sensors.Struct.ReferenceVoltage != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorPwrVoltageFailure, gStatus.Sensors.Struct.PowerVoltage != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorLambdaFailure, gStatus.Sensors.Struct.Lambda != HAL_OK);
+  CHECK_STATUS(iserror, CheckOutputDriverFailure, gStatus.OutputStatus != HAL_OK);
 
-  CHECK_STATUS(gStatus, iserror, CheckInjector4OpenCircuit, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckInjector4ShortToBatOrOverheat, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckInjector4ShortToGND, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckInjector3OpenCircuit, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckInjector3ShortToBatOrOverheat, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckInjector3ShortToGND, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckInjector2OpenCircuit, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckInjector2ShortToBatOrOverheat, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckInjector2ShortToGND, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckInjector1OpenCircuit, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckInjector1ShortToBatOrOverheat, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckInjector1ShortToGND, OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckInjectorCommunicationFailure, OutputDiagnostic.Injectors.Availability != HAL_OK);
+  CHECK_STATUS(iserror, CheckInjector4OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckInjector4ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckInjector4ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckInjector3OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckInjector3ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckInjector3ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckInjector2OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckInjector2ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckInjector2ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckInjector1OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckInjector1ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckInjector1ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckInjectorCommunicationFailure, gStatus.OutputDiagnostic.Injectors.Availability != HAL_OK);
 
-  //CHECK_STATUS(gStatus, iserror, CheckCheckEngineOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckCheckEngineShortToBatOrOverheat, OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckCheckEngineShortToGND, OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToGnd);
-  //CHECK_STATUS(gStatus, iserror, CheckSpeedMeterOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckSpeedMeterShortToBatOrOverheat, OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckSpeedMeterShortToGND, OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToGnd);
-  //CHECK_STATUS(gStatus, iserror, CheckTachometerOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckTachometerShortToBatOrOverheat, OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckTachometerShortToGND, OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckFuelPumpOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckFuelPumpShortToBatOrOverheat, OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckFuelPumpShortToGND, OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckOutputs1CommunicationFailure, OutputDiagnostic.Outs1.Availability != HAL_OK);
+  //CHECK_STATUS(iserror, CheckCheckEngineOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckCheckEngineShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckCheckEngineShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToGnd);
+  //CHECK_STATUS(iserror, CheckSpeedMeterOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckSpeedMeterShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckSpeedMeterShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToGnd);
+  //CHECK_STATUS(iserror, CheckTachometerOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckTachometerShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckTachometerShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckFuelPumpOpenCirtuit, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckFuelPumpShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckFuelPumpShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckOutputs1CommunicationFailure, gStatus.OutputDiagnostic.Outs1.Availability != HAL_OK);
 
-  //CHECK_STATUS(gStatus, iserror, CheckOutIgnOpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckOutIgnShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckOutIgnShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToGnd);
-  //CHECK_STATUS(gStatus, iserror, CheckOutRsvd1OpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckOutRsvd1ShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(gStatus, iserror, CheckOutRsvd1ShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToGnd);
-  //CHECK_STATUS(gStatus, iserror, CheckStarterRelayOpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckStarterRelayShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToBatOrOvertemp);
-  //CHECK_STATUS(gStatus, iserror, CheckStarterRelayShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckFamRelayOpenCirtuit, OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagOpenCircuit);
-  CHECK_STATUS(gStatus, iserror, CheckFanRelayShortToBatOrOverheat, OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToBatOrOvertemp);
-  //CHECK_STATUS(gStatus, iserror, CheckFanRelayShortToGND, OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
-  CHECK_STATUS(gStatus, iserror, CheckOutputs2CommunicationFailure, OutputDiagnostic.Outs2.Availability != HAL_OK);
+  //CHECK_STATUS(iserror, CheckOutIgnOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckOutIgnShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckOutIgnShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToGnd);
+  //CHECK_STATUS(iserror, CheckOutRsvd1OpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckOutRsvd1ShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckOutRsvd1ShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToGnd);
+  //CHECK_STATUS(iserror, CheckStarterRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckStarterRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToBatOrOvertemp);
+  //CHECK_STATUS(iserror, CheckStarterRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckFamRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckFanRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToBatOrOvertemp);
+  //CHECK_STATUS(iserror, CheckFanRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckOutputs2CommunicationFailure, gStatus.OutputDiagnostic.Outs2.Availability != HAL_OK);
 
-  CHECK_STATUS(gStatus, iserror, CheckIdleValveFailure, OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckIdleValveDriverFailure, IdleValvePosition != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckInjectionUnderflow, InjectionUnderflow != HAL_OK);
-  CHECK_STATUS(gStatus, iserror, CheckAdcFailure, AdcStatus != HAL_OK);
+  CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
+  CHECK_STATUS(iserror, CheckIdleValveDriverFailure, gStatus.IdleValvePosition != HAL_OK);
+  CHECK_STATUS(iserror, CheckInjectionUnderflow, gStatus.InjectionUnderflow != HAL_OK);
+  CHECK_STATUS(iserror, CheckAdcFailure, gStatus.AdcStatus != HAL_OK);
 
   if(gEcuParams.useLambdaSensor) {
-    CHECK_STATUS(gStatus, iserror, CheckLambdaCommunicationFailure, O2Status != HAL_OK);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaVMShortToBat, O2Diagnostic.VM == O2DiagShortToBat);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaVMLowBattery, O2Diagnostic.VM == O2DiagNoPower);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaVMShortToGND, O2Diagnostic.VM == O2DiagShortToGnd);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaUNShortToBat, O2Diagnostic.UN == O2DiagShortToBat);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaUNLowBattery, O2Diagnostic.UN == O2DiagNoPower);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaUNShortToGND, O2Diagnostic.UN == O2DiagShortToGnd);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaIAIPShortToBat, O2Diagnostic.IAIP == O2DiagShortToBat);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaIAIPLowBattery, O2Diagnostic.IAIP == O2DiagNoPower);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaIAIPShortToGND, O2Diagnostic.IAIP == O2DiagShortToGnd);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaDIAHGDShortToBat, O2Diagnostic.DIAHGD == O2DiagShortToBat);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaDIAHGDOpenCirtuit, O2Diagnostic.DIAHGD == O2DiagNoPower);
-    CHECK_STATUS(gStatus, iserror, CheckLambdaDIAHGDShortToGND, O2Diagnostic.DIAHGD == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckLambdaCommunicationFailure, gStatus.O2Status != HAL_OK);
+    CHECK_STATUS(iserror, CheckLambdaVMShortToBat, gStatus.O2Diagnostic.VM == O2DiagShortToBat);
+    CHECK_STATUS(iserror, CheckLambdaVMLowBattery, gStatus.O2Diagnostic.VM == O2DiagNoPower);
+    CHECK_STATUS(iserror, CheckLambdaVMShortToGND, gStatus.O2Diagnostic.VM == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckLambdaUNShortToBat, gStatus.O2Diagnostic.UN == O2DiagShortToBat);
+    CHECK_STATUS(iserror, CheckLambdaUNLowBattery, gStatus.O2Diagnostic.UN == O2DiagNoPower);
+    CHECK_STATUS(iserror, CheckLambdaUNShortToGND, gStatus.O2Diagnostic.UN == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckLambdaIAIPShortToBat, gStatus.O2Diagnostic.IAIP == O2DiagShortToBat);
+    CHECK_STATUS(iserror, CheckLambdaIAIPLowBattery, gStatus.O2Diagnostic.IAIP == O2DiagNoPower);
+    CHECK_STATUS(iserror, CheckLambdaIAIPShortToGND, gStatus.O2Diagnostic.IAIP == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckLambdaDIAHGDShortToBat, gStatus.O2Diagnostic.DIAHGD == O2DiagShortToBat);
+    CHECK_STATUS(iserror, CheckLambdaDIAHGDOpenCirtuit, gStatus.O2Diagnostic.DIAHGD == O2DiagNoPower);
+    CHECK_STATUS(iserror, CheckLambdaDIAHGDShortToGND, gStatus.O2Diagnostic.DIAHGD == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckEngineLeanMixture, gStatus.LeanMixture.is_error && gStatus.LeanMixture.error_time > 5000);
+    CHECK_STATUS(iserror, CheckEngineRichMixture, gStatus.RichMixture.is_error && gStatus.RichMixture.error_time > 5000);
+    CHECK_STATUS(iserror, CheckEngineLeanIdleMixture, gStatus.LeanIdleMixture.is_error && gStatus.LeanIdleMixture.error_time > 5000);
+    CHECK_STATUS(iserror, CheckEngineRichIdleMixture, gStatus.RichIdleMixture.is_error && gStatus.RichIdleMixture.error_time > 5000);
   }
   if(gEcuParams.useKnockSensor) {
-    CHECK_STATUS(gStatus, iserror, CheckKnockDetonationFound, KnockStatus == KnockStatusDedonation);
-    CHECK_STATUS(gStatus, iserror, CheckKnockLowNoiseLevel, KnockStatus == KnockStatusLowNoise);
+    CHECK_STATUS(iserror, CheckKnockDetonationFound, gStatus.KnockStatus == KnockStatusDedonation);
+    CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, gStatus.KnockStatus == KnockStatusLowNoise);
   }
   if(gEcuParams.useTSPS) {
-    CHECK_STATUS(gStatus, iserror, CheckTspsDesynchronized, TspsSyncStatus != HAL_OK);
+    CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.TspsSyncStatus != HAL_OK);
   }
+  CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
 
   if(iserror) {
     was_error = 1;

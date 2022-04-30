@@ -86,6 +86,11 @@ typedef enum {
   CheckKnockLowNoiseLevel,
   CheckTspsDesynchronized,
   CheckHardFaultException,
+  CheckSensorMapTpsMismatch,
+  CheckEngineLeanMixture,
+  CheckEngineRichMixture,
+  CheckEngineLeanIdleMixture,
+  CheckEngineRichIdleMixture,
 }eCheckDataErrorCode;
 
 extern const char * const gCheckDataErrorString[];

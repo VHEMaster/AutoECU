@@ -93,6 +93,11 @@ const char * const gCheckDataErrorString[] = {
 
     "TSPS: Phase Desynchronized",
     "CPU: HardFault Exception",
+    "Sensor: MAP/TPS Mismatch",
+    "Sensor: Lean Mixture",
+    "Sensor: Rich Mixture",
+    "Sensor: Lean Idle Mixture",
+    "Sensor: Rich Idle Mixture",
 
 };
 

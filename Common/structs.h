@@ -427,7 +427,31 @@ typedef struct {
     HAL_StatusTypeDef TspsSyncStatus;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
-    uint32_t pad;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }MapTpsRelation;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }LeanMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }RichMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }LeanIdleMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }RichIdleMixture;
     //TODO: add more diagnostic fields
 }sStatus;
 
