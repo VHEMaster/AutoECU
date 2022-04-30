@@ -1369,7 +1369,7 @@ static void ecu_process(void)
   static uint8_t inj_was_phased = 0;
   static uint8_t ign_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
-  float angle_ignition[ECU_CYLINDERS_COUNT];
+  static float angle_ignition[ECU_CYLINDERS_COUNT];
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
@@ -1390,6 +1390,7 @@ static void ecu_process(void)
   float inj_angle;
   float cy_ignition[ECU_CYLINDERS_COUNT];
   float cy_injection[ECU_CYLINDERS_COUNT];
+  float var;
   uint8_t phased_ignition;
   uint8_t phased_injection;
   uint8_t cy_count_ignition;
@@ -1492,7 +1493,19 @@ static void ecu_process(void)
 
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
-      angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
+      var = csps_getphasedangle_cy(csps, i, angle);
+      if(!saturated[i] || ignited[i] || var < angle_ignition[i]) {
+        angle_ignition[i] = var;
+      }
+    }
+  } else if(!single_coil) {
+    var = csps_getangle14(csps);
+    if(!saturated[0] || ignited[0] || var < angle_ignition[0]) {
+      angle_ignition[0] = var;
+    }
+    var = csps_getangle23from14(var);
+    if(!saturated[1] || ignited[1] || var < angle_ignition[1]) {
+      angle_ignition[1] = var;
     }
   } else {
     angle_ignition[0] = csps_getangle14(csps);
