@@ -1359,6 +1359,7 @@ static void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   sCspsData csps = csps_data();
+  uint32_t now = Delay_Tick;
   static GPIO_PinState clutch = GPIO_PIN_RESET;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
@@ -1370,6 +1371,8 @@ static void ecu_process(void)
   static uint8_t ign_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
   static float angle_ignition[ECU_CYLINDERS_COUNT];
+  static float ignition_saturate[ECU_CYLINDERS_COUNT];
+  static uint32_t ignition_saturate_time[ECU_CYLINDERS_COUNT];
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
@@ -1454,6 +1457,8 @@ static void ecu_process(void)
     angles_ignition_per_turn = 360.0f;
     saturated[2] = ignited[2] = 1;
     saturated[3] = ignited[3] = 1;
+    ignition_saturate_time[2] = 0;
+    ignition_saturate_time[3] = 0;
     cy_ignition[0] = (table->cy_corr_ignition[0] + table->cy_corr_ignition[3]) * 0.5f + angle_ignite;
     cy_ignition[1] = (table->cy_corr_ignition[1] + table->cy_corr_ignition[2]) * 0.5f + angle_ignite;
   }
@@ -1553,21 +1558,26 @@ static void ecu_process(void)
 
           if(single_coil) {
             ecu_coil_saturate(1, 0);
+            ignition_saturate_time[i] = 0;
           } else {
             shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
             cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
             if(shift_ign_act && cutoff_ign_act)
               ecu_coil_saturate(cy_count_ignition, i);
+
+            ignition_saturate_time[i] = now;
+            ignition_saturate[i] = time_sat * 0.8f;
           }
         }
       }
 
       if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
       {
-        if(!ignited[i] && saturated[i])
+        if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) > ignition_saturate[i]))
         {
           ignited[i] = 1;
           saturated[i] = 0;
+          ignition_saturate_time[i] = 0;
 
           if(single_coil) {
             shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
