@@ -800,7 +800,8 @@ static void ecu_update(void)
     km_driven = 0;
   }
 
-  if(running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+  if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 40.0f) || (rpm < idle_reg_rpm && engine_temp > 70.0f)) &&
+      running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     float map_tps_relation = map / map_thr;
     if(map_tps_relation > 1.25f || map_tps_relation < 0.75f) {
       if(gStatus.MapTpsRelation.is_error) {
