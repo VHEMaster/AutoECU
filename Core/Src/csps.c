@@ -353,7 +353,8 @@ inline void csps_exti(uint32_t timestamp)
     HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_RESET);
   */
 
-  htim->Instance->PSC = (uint32_t)((float)(60 * 100000) / csps_rpm * 2.0f);
+  uint32_t value = (uint32_t)((float)(60 * 100000) / csps_rpm * 0.5f);
+  htim->Instance->PSC = value > 0xFFFF ? 0xFFFF : value;
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
 }

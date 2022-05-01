@@ -1361,6 +1361,10 @@ static void ecu_process(void)
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   sCspsData csps = csps_data();
   uint32_t now = Delay_Tick;
+  static uint32_t last = 0;
+  uint32_t diff = DelayDiff(now, last);
+  last = now;
+
   static GPIO_PinState clutch = GPIO_PIN_RESET;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
@@ -1371,9 +1375,11 @@ static void ecu_process(void)
   static uint8_t inj_was_phased = 0;
   static uint8_t ign_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
-  static float angle_ignition[ECU_CYLINDERS_COUNT];
+  float angle_ignition[ECU_CYLINDERS_COUNT];
   static float ignition_saturate[ECU_CYLINDERS_COUNT];
+  static float ignition_ignite[ECU_CYLINDERS_COUNT];
   static uint32_t ignition_saturate_time[ECU_CYLINDERS_COUNT];
+  static uint32_t ignition_ignite_time[ECU_CYLINDERS_COUNT];
   float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
@@ -1381,18 +1387,22 @@ static void ecu_process(void)
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
   float found = csps_isfound();
-  float uspa = csps_getuspa(csps);
+  float uspa_koff = 0.8f;
+  static float uspa = 1000.0f;
+  float uspa_raw = csps_getuspa(csps);
   float period = csps_getperiod(csps);
   float time_sat;
   float time_pulse;
-  float angle_ignite;
+  float angle_ignite_koff = 0.5f;
+  float angle_ignite_param;
+  static float angle_ignite = 10.0f;
   float saturate;
   float angles_injection_per_turn;
   float angles_ignition_per_turn;
   float inj_phase;
   float inj_pulse;
   float inj_angle;
-  float cy_ignition[ECU_CYLINDERS_COUNT];
+  static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
   float cy_injection[ECU_CYLINDERS_COUNT];
   float var;
   uint8_t phased_ignition;
@@ -1426,7 +1436,6 @@ static void ecu_process(void)
   if(!shiftEnabled)
     clutch = GPIO_PIN_RESET;
 
-
   injector_channel = table->inj_channel;
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
@@ -1435,14 +1444,25 @@ static void ecu_process(void)
   phased_ignition = phased_injection && individual_coils && !single_coil;
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
-  angle_ignite = gParameters.IgnitionAngle;
+  angle_ignite_param = gParameters.IgnitionAngle;
+
+  angle_ignite_koff = diff / 5000.0f;
+  if(angle_ignite_koff > 0.8f)
+    angle_ignite_koff = 0.8f;
+  if(angle_ignite_koff < 0)
+    angle_ignite_koff = 0.000001f;
+
+  uspa_koff = diff / 500.0f;
+
+  uspa = uspa_raw * uspa_koff + uspa * (1.0f - uspa_koff);
+  angle_ignite = angle_ignite_param * angle_ignite_koff + angle_ignite * (1.0f - angle_ignite_koff);
 
   if(single_coil) {
     time_sat = period * 0.5f * 0.65f;
     time_pulse = period * 0.5f * 0.35f;
   } else {
     time_sat = gParameters.IgnitionPulse;
-    time_pulse = 2000;
+    time_pulse = 2500;
   }
 
   inj_phase = gParameters.InjectionPhase;
@@ -1450,10 +1470,12 @@ static void ecu_process(void)
 
   if(phased_ignition) {
     angles_ignition_per_turn = 720.0f;
-    cy_ignition[0] = table->cy_corr_ignition[0] + angle_ignite;
-    cy_ignition[1] = table->cy_corr_ignition[1] + angle_ignite;
-    cy_ignition[2] = table->cy_corr_ignition[2] + angle_ignite;
-    cy_ignition[3] = table->cy_corr_ignition[3] + angle_ignite;
+    for(int i = 0; i < cy_count_ignition; i++) {
+      var = table->cy_corr_ignition[i] + angle_ignite;
+      if(!saturated[i] || ignited[i] || var < cy_ignition[i]) {
+        cy_ignition[i] = var;
+      }
+    }
   } else {
     angles_ignition_per_turn = 360.0f;
     saturated[2] = ignited[2] = 1;
@@ -1490,6 +1512,8 @@ static void ecu_process(void)
     ign_was_phased = phased_ignition;
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       oldanglesbeforeignite[i] = 0.0f;
+      ignition_saturate_time[i] = 0;
+      ignition_ignite_time[i] = 0;
     }
   }
 
@@ -1499,19 +1523,7 @@ static void ecu_process(void)
 
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
-      var = csps_getphasedangle_cy(csps, i, angle);
-      if(!saturated[i] || ignited[i] || var < angle_ignition[i]) {
-        angle_ignition[i] = var;
-      }
-    }
-  } else if(!single_coil) {
-    var = csps_getangle14(csps);
-    if(!saturated[0] || ignited[0] || var < angle_ignition[0]) {
-      angle_ignition[0] = var;
-    }
-    var = csps_getangle23from14(var);
-    if(!saturated[1] || ignited[1] || var < angle_ignition[1]) {
-      angle_ignition[1] = var;
+      angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
     }
   } else {
     angle_ignition[0] = csps_getangle14(csps);
@@ -1553,22 +1565,23 @@ static void ecu_process(void)
 
       if(anglesbeforeignite[i] - saturate < 0.0f)
       {
-        if(!saturated[i] && !ignited[i])
+        if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) > ignition_ignite[i]))
         {
+          ignition_ignite_time[i] = 0;
+          ignition_ignite[i] = 0;
           saturated[i] = 1;
 
           if(single_coil) {
             ecu_coil_saturate(1, 0);
-            ignition_saturate_time[i] = 0;
           } else {
             shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
             cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
             if(shift_ign_act && cutoff_ign_act)
               ecu_coil_saturate(cy_count_ignition, i);
-
-            ignition_saturate_time[i] = now;
-            ignition_saturate[i] = time_sat * 0.8f;
           }
+
+          ignition_saturate_time[i] = now;
+          ignition_saturate[i] = time_sat * 0.8f;
         }
       }
 
@@ -1579,6 +1592,7 @@ static void ecu_process(void)
           ignited[i] = 1;
           saturated[i] = 0;
           ignition_saturate_time[i] = 0;
+          ignition_saturate[i] = 0;
 
           if(single_coil) {
             shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
@@ -1588,6 +1602,8 @@ static void ecu_process(void)
           } else {
             ecu_coil_ignite(cy_count_ignition, i);
           }
+          ignition_ignite[i] = time_pulse * 0.8f;
+          ignition_ignite_time[i] = now;
         }
       }
       else ignited[i] = 0;
@@ -1622,6 +1638,7 @@ static void ecu_process(void)
       {
         if(!injected[i] && injection[i])
         {
+          //TODO: this is probably a bug, but works well, without extra pulses on duty cycle >= 1.0
           injection[i] = 0;
           injector_isenabled(i, &injected[i]);
           injected[i] ^= 1;
@@ -1632,6 +1649,16 @@ static void ecu_process(void)
       oldanglesbeforeinject[i] = anglesbeforeinject[i];
     }
   } else {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      oldanglesbeforeignite[i] = 0.0f;
+      ignition_saturate_time[i] = 0;
+      ignition_ignite_time[i] = 0;
+      saturated[i] = 1;
+      ignited[i] = 1;
+      injection[i] = 0;
+      injected[i] = 0;
+    }
+
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin;
     for(int i = 0; i < ITEMSOF(gInjChPins); i++)
       gInjChPorts[i]->BSRR = gInjChPins[i] << 16;
