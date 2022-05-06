@@ -312,6 +312,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_ign_to_rpm_pid_i = 0.0200f;
   table->idle_ign_to_rpm_pid_d = 0.0001f;
 
+  table->short_term_corr_pid_p = 0.0000f;
+  table->short_term_corr_pid_i = 0.0000f;
+  table->short_term_corr_pid_d = 0.0000f;
+
   table->idle_ign_deviation_min = -14.0f;
   table->idle_ign_deviation_max = 14.0f;
 

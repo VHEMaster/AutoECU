@@ -81,6 +81,7 @@ static volatile uint8_t gEcuIsError = 0;
 
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
+static sMathPid gPidShortTermCorr = {0};
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -200,6 +201,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
   math_pid_set_clamp(&gPidIdleAirFlow, -256, 256);
+  math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   if(isidle) {
     math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, table->idle_ign_to_rpm_pid_i, table->idle_ign_to_rpm_pid_d);
@@ -208,12 +210,14 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
     math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, 0, 0);
     math_pid_set_koffs(&gPidIdleAirFlow, table->idle_valve_to_massair_pid_p, 0, 0);
   }
+  math_pid_set_koffs(&gPidShortTermCorr, table->short_term_corr_pid_p, table->short_term_corr_pid_i, table->short_term_corr_pid_d);
 }
 
 static void ecu_pid_init(void)
 {
   math_pid_init(&gPidIdleIgnition);
   math_pid_init(&gPidIdleAirFlow);
+  math_pid_init(&gPidShortTermCorr);
   ecu_pid_update(0);
 }
 
@@ -295,6 +299,8 @@ static void ecu_update(void)
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_status_map = 0.0f;
   static float enrichment_status_thr = 0.0f;
+  float short_term_correction_pid = 0.0f;
+  static float short_term_correction = 0.0f;
   float enrichment_map_value;
   float enrichment_thr_value;
   float enrichment_by_map_hpf;
@@ -733,6 +739,8 @@ static void ecu_update(void)
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionPulse) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
+          short_term_correction = 0.0f;
+          short_term_correction_pid = 0.0f;
 
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
@@ -773,6 +781,7 @@ static void ecu_update(void)
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
+          //TODO: short term correction HERE, or maybe somewhere else....
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           if(!idle_flag && throttle > 20.0f) {
@@ -785,6 +794,16 @@ static void ecu_update(void)
       }
     }
   }
+
+  if(gEcuCorrections.long_term_correction > 0.25f)
+    gEcuCorrections.long_term_correction = 0.25f;
+  if(gEcuCorrections.long_term_correction < -0.25f)
+    gEcuCorrections.long_term_correction = -0.25f;
+
+  if(gEcuCorrections.idle_correction > 0.25f)
+    gEcuCorrections.idle_correction = 0.25f;
+  if(gEcuCorrections.idle_correction < -0.25f)
+    gEcuCorrections.idle_correction = -0.25f;
 
   idle_valve_position = out_get_idle_valve();
 
@@ -895,6 +914,7 @@ static void ecu_update(void)
   gParameters.FuelRatio = fuel_ratio;
   gParameters.LambdaValue = lambda_value;
   gParameters.LambdaTemperature = lambda_temperature;
+  gParameters.ShortTermCorrection = short_term_correction;
   gParameters.LongTermCorrection = gEcuCorrections.long_term_correction;
   gParameters.IdleCorrection = gEcuCorrections.idle_correction;
 

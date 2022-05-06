@@ -177,6 +177,10 @@ typedef struct {
     float idle_ign_to_rpm_pid_i;
     float idle_ign_to_rpm_pid_d;
 
+    float short_term_corr_pid_p;
+    float short_term_corr_pid_i;
+    float short_term_corr_pid_d;
+
     float idle_ign_deviation_max;
     float idle_ign_deviation_min;
 
@@ -301,6 +305,7 @@ typedef struct {
     float FuelRatio;
     float LambdaValue;
     float LambdaTemperature;
+    float ShortTermCorrection;
     float LongTermCorrection;
     float IdleCorrection;
 
