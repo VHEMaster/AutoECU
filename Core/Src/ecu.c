@@ -295,12 +295,13 @@ static void ecu_update(void)
   float min, max;
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
+  uint32_t halfturns_performed = 0;
   static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_status_map = 0.0f;
   static float enrichment_status_thr = 0.0f;
-  float short_term_correction_pid = 0.0f;
   static float short_term_correction = 0.0f;
+  float short_term_correction_pid = 0.0f;
   float enrichment_map_value;
   float enrichment_thr_value;
   float enrichment_by_map_hpf;
@@ -466,6 +467,7 @@ static void ecu_update(void)
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
   while(halfturns != prev_halfturns) {
+    halfturns_performed++;
     prev_halfturns++;
     for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--)
     {
@@ -601,8 +603,23 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishFuelRatio)
     wish_fuel_ratio = gForceParameters.WishFuelRatio;
 
-  if(!gEcuParams.useLambdaSensor || !o2_valid)
+  math_pid_set_target(&gPidShortTermCorr, wish_fuel_ratio);
+
+  if(!gEcuParams.useLambdaSensor || !o2_valid) {
     fuel_ratio = wish_fuel_ratio;
+    short_term_correction = 0.0f;
+  } else {
+    for(int i = 0; i < halfturns_performed; i++) {
+      short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
+
+    }
+    if(!calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
+      short_term_correction = short_term_correction_pid;
+    } else {
+      math_pid_reset(&gPidShortTermCorr);
+      short_term_correction = 0;
+    }
+  }
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
@@ -611,6 +628,7 @@ static void ecu_update(void)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
   else
     injection_time *= gEcuCorrections.long_term_correction + 1.0f;
+  injection_time *= short_term_correction + 1.0f;
   injection_time += injector_lag;
 
   if(gForceParameters.Enable.InjectionPulse)
@@ -784,11 +802,11 @@ static void ecu_update(void)
           //TODO: short term correction HERE, or maybe somewhere else....
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
-          if(!idle_flag && throttle > 20.0f) {
-            gEcuCorrections.long_term_correction += filling_diff * lpf_calculation;
+          if(!idle_flag && throttle > 10.0f) {
+            gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
           }
           else if(idle_flag || throttle < 5.0f) {
-            gEcuCorrections.idle_correction += filling_diff * lpf_calculation;
+            gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
           }
         }
       }
