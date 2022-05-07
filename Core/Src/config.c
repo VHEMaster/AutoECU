@@ -20,8 +20,8 @@
 static sEcuCorrectionsBackup tableBackupCorrections = {0};
 
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
-    0, 7300, 14700, 22000, 29300, 36700, 44000, 51300,
-    58600, 66000, 73300, 80600, 88000, 95300, 102700, 110000
+    10000, 16200, 22400, 28600, 34800, 41000, 47200, 53400,
+    59600, 65800, 72000, 78200, 84400, 90600, 96800, 103000
 };
 
 static const float default_rotates[TABLE_ROTATES_MAX] = {
