@@ -188,9 +188,14 @@ static const float default_warmup_mix_koffs[TABLE_TEMPERATURES_MAX] = {
     0.6f, 0.4f, 0.2f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 };
 
+static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
+    6.0f, 5.4f, 4.5f, 3.2f, 1.9f, 0.9f, 0.3f, 0.1f,
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+};
+
 static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
-    3.0f, 4.0f, 5.0f, 6.0f, 6.5f, 7.0f, 7.5f, 8.0f,
-    8.0f, 8.5f, 9.0f, 9.5f, 10.0f, 11.0f, 12.0f, 12.0f
+    9.0f, 9.1f, 9.3, 9.6f, 10.0f, 10.5f, 11.1f, 11.8f,
+    12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f
 };
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
@@ -302,6 +307,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->warmup_mixtures, default_warmup_mixtures, sizeof(default_warmup_mixtures));
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));
+  memcpy(table->warmup_mix_corrs, default_warmup_mix_corrs, sizeof(default_warmup_mix_corrs));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
 
   table->idle_valve_to_massair_pid_p = 3.000f;

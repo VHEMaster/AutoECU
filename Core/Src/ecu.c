@@ -314,6 +314,7 @@ static void ecu_update(void)
 
   float warmup_mixture;
   float warmup_mix_koff;
+  float warmup_mix_corr;
 
   float fuel_pressure;
   float fuel_abs_pressure;
@@ -394,12 +395,14 @@ static void ecu_update(void)
 
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
-  lambda_temperature = engine_temp;
+  lambda_temperature = 0;
   lambda_temperaturevoltage = 0;
   lambda_heatervoltage = 0;
   if(gEcuParams.useLambdaSensor) {
     gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&lambda_value, &o2_valid);
-    sens_get_o2_temperature(&lambda_temperature);
+    if(gStatus.Sensors.Struct.Lambda == HAL_OK) {
+      sens_get_o2_temperature(&lambda_temperature);
+    }
     sens_get_o2_temperaturevoltage(&lambda_temperaturevoltage);
     sens_get_o2_heatervoltage(&lambda_heatervoltage);
     fuel_ratio = lambda_value * table->fuel_afr;
@@ -575,15 +578,16 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
 
-  if(running) {
-    warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
-    if(warmup_mix_koff > 0.0f) {
-      warmup_mixture = math_interpolate_1d(ipTemp, table->warmup_mixtures);
-      if(warmup_mixture < wish_fuel_ratio) {
-        wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
-      }
+  warmup_mix_corr = math_interpolate_1d(ipTemp, table->warmup_mix_corrs);
+  warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
+  if(warmup_mix_koff > 0.0f) {
+    warmup_mixture = math_interpolate_1d(ipTemp, table->warmup_mixtures);
+    if(warmup_mixture < wish_fuel_ratio) {
+      wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
     }
-  } else {
+  }
+
+  if(!running) {
     wish_fuel_ratio = start_mixture;
   }
 
@@ -629,6 +633,7 @@ static void ecu_update(void)
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
+  injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= enrichment + 1.0f;
   if(idle_flag)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
