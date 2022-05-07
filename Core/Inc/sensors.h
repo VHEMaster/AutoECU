@@ -33,6 +33,8 @@ HAL_StatusTypeDef sens_get_reference_voltage(float *output);
 HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid);
 HAL_StatusTypeDef sens_get_o2_temperature(float *output);
 HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output);
+HAL_StatusTypeDef sens_get_o2_heatervoltage(float *output);
+HAL_StatusTypeDef sens_get_o2_temperaturevoltage(float *output);
 
 GPIO_PinState sens_get_charge(uint32_t *time);
 GPIO_PinState sens_get_handbrake(uint32_t *time);

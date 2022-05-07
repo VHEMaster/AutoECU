@@ -231,7 +231,7 @@ typedef struct {
     float progress_fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     float progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
-}sEcuCorrectionsProgress;;
+}sEcuCorrectionsProgress;
 
 typedef struct {
     float engineVolume;
@@ -305,6 +305,8 @@ typedef struct {
     float FuelRatio;
     float LambdaValue;
     float LambdaTemperature;
+    float LambdaHeaterVoltage;
+    float LambdaTemperatureVoltage;
     float ShortTermCorrection;
     float LongTermCorrection;
     float IdleCorrection;

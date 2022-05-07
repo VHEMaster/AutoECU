@@ -143,6 +143,28 @@ HAL_StatusTypeDef sens_get_o2_temperature(float *output)
   return status;
 }
 
+HAL_StatusTypeDef sens_get_o2_heatervoltage(float *output)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  sO2Status o2status = Misc_O2_GetStatus();
+  *output = o2status.HeaterVoltage;
+  if(!o2status.Available) {
+    status = HAL_ERROR;
+  }
+  return status;
+}
+
+HAL_StatusTypeDef sens_get_o2_temperaturevoltage(float *output)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  sO2Status o2status = Misc_O2_GetStatus();
+  *output = o2status.TemperatureVoltage;
+  if(!o2status.Available) {
+    status = HAL_ERROR;
+  }
+  return status;
+}
+
 HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
@@ -171,7 +193,7 @@ HAL_StatusTypeDef sens_get_knock(float *output)
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float voltage = ADC_GetVoltage(AdcChManifoldAbsolutePressure);;
+  float voltage = ADC_GetVoltage(AdcChManifoldAbsolutePressure);
   float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
   if(voltage >= power_voltage * 0.985f)
     status = HAL_ERROR;

@@ -22,8 +22,8 @@
 #include "math_fast.h"
 #include <string.h>
 
-#define O2_PID_P  -0.1f
-#define O2_PID_I  -0.1f
+#define O2_PID_P  -2.0f
+#define O2_PID_I  -2.0f
 #define O2_PID_D  -0.001f
 
 #define O2_IDENT_DEVICE_CJ125 0x60
@@ -311,20 +311,24 @@ static void O2_SetHeaterVoltage(float voltage)
   float dutycycle;
   float power = ADC_GetVoltage(AdcChPowerVoltage);
 
-  if(voltage > power)
+  if(voltage > power) {
     dutycycle = 1.0f;
-  else if(voltage < 0.0f)
+    O2Status.HeaterVoltage = power;
+  } else if(voltage < 0.0f) {
     dutycycle = 0.0f;
-  else dutycycle = voltage / power;
+    O2Status.HeaterVoltage = 0.0f;
+  } else {
+    dutycycle = voltage / power;
+    O2Status.HeaterVoltage = voltage;
+  }
 
   O2_SetHeaterDutyCycle(dutycycle * dutycycle);
 
 }
 
-static float O2_GetLambda(void)
+static float O2_GetLambda(float voltage)
 {
   float lambda = 1.0f;
-  float voltage = ADC_GetVoltage(AdcChO2UA);
 
   sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_lambda));
   lambda = math_interpolate_1d(ipVoltage, o2_lambda);
@@ -334,10 +338,9 @@ static float O2_GetLambda(void)
   return lambda;
 }
 
-static float O2_GetTemperature(void)
+static float O2_GetTemperature(float voltage)
 {
   float temperature;
-  float voltage = ADC_GetVoltage(AdcChO2UR);
 
   sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ur_voltage, ITEMSOF(o2_ur_voltage));
   temperature = math_interpolate_1d(ipVoltage, o2_temperature);
@@ -370,17 +373,18 @@ static int8_t O2_Enable(eO2AmplificationFactor factor)
 static void O2_CriticalLoop(void)
 {
   static uint32_t last_process = 0;
-  float voltage;
+  float temperaturevoltage = ADC_GetVoltage(AdcChO2UR);
+  float lambdavoltage = ADC_GetVoltage(AdcChO2UA);
   float o2heater;
   uint8_t now = Delay_Tick;
-  O2Status.Lambda = O2_GetLambda();
-  O2Status.Temperature = O2_GetTemperature();
+  O2Status.Lambda = O2_GetLambda(lambdavoltage);
+  O2Status.Temperature = O2_GetTemperature(temperaturevoltage);
+  O2Status.TemperatureVoltage = temperaturevoltage;
 
   if(O2Status.Available && O2Status.Working && O2Status.Valid) {
     if(DelayDiff(now, last_process) >= 5000) {
       last_process = now;
-      voltage = ADC_GetVoltage(AdcChO2UR);
-      o2heater = math_pid_update(&o2_pid, voltage, now);
+      o2heater = math_pid_update(&o2_pid, temperaturevoltage, now);
       O2_SetHeaterVoltage(o2heater);
     }
   } else {

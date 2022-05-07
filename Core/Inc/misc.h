@@ -19,6 +19,8 @@ typedef enum {
 
 typedef struct {
     volatile float ReferenceVoltage;
+    float HeaterVoltage;
+    float TemperatureVoltage;
     float Lambda;
     float Temperature;
     volatile uint8_t Valid;
