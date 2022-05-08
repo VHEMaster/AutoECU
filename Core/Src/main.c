@@ -16,6 +16,7 @@
 #include "sst25vf032b.h"
 #include "bluetooth.h"
 #include "usb_device.h"
+#include "can.h"
 
 ADC_HandleTypeDef hadc1;
 
@@ -232,6 +233,13 @@ INLINE void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
   }
 }
 
+INLINE void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_rxfifo0pendingcallback(hcan);
+  }
+}
+
 int main(void)
 {
   SCB_EnableICache();
@@ -301,6 +309,8 @@ int main(void)
   //outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
 
   CRC16_Init(&hcrc);
+
+  can_init(&hcan1);
 
   PK_SenderInit();
   xFifosInit();
@@ -462,11 +472,11 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 36;
+  hcan1.Init.Prescaler = 12;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_1TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_4TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
@@ -1323,11 +1333,11 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA,
-      O2_NRST_Pin | CAN1_LBK_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
+      O2_NRST_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
           | OUT_STARTER_Pin, GPIO_PIN_RESET);
 
   HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
-      | OUT_STARTER_Pin, GPIO_PIN_SET);
+      | OUT_STARTER_Pin | CAN1_LBK_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB,

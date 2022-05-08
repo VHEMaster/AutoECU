@@ -26,6 +26,8 @@ typedef enum {
   CheckSensorPwrVoltageFailure,
   CheckSensorLambdaFailure,
   CheckOutputDriverFailure,
+  CheckCanInitFailure,
+  CheckCanTestFailure,
   CheckInjector4OpenCircuit,
   CheckInjector4ShortToBatOrOverheat,
   CheckInjector4ShortToGND,

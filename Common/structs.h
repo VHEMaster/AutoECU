@@ -433,6 +433,8 @@ typedef struct {
     HAL_StatusTypeDef InjectionUnderflow;
     HAL_StatusTypeDef AdcStatus;
     HAL_StatusTypeDef TspsSyncStatus;
+    HAL_StatusTypeDef CanInitStatus;
+    HAL_StatusTypeDef CanTestStatus;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
     struct {

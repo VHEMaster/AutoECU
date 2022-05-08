@@ -26,6 +26,7 @@
 #include "pid.h"
 #include "crc.h"
 #include "failures.h"
+#include "can.h"
 
 #include <string.h>
 #include "arm_math.h"
@@ -78,6 +79,7 @@ static volatile uint8_t gEcuIdleValveCalibrate = 0;
 static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
+static uint8_t gCanTestStarted = 0;
 
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
@@ -91,6 +93,8 @@ static sShift Shift = {0};
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnCanShutdown = 0;
 static volatile uint8_t gIgnShutdownReady = 0;
+
+static void ecu_can_process_message(const sCanMessage *message);
 
 static uint8_t ecu_get_table(void)
 {
@@ -1813,6 +1817,9 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckSensorLambdaFailure, gStatus.Sensors.Struct.Lambda != HAL_OK);
   CHECK_STATUS(iserror, CheckOutputDriverFailure, gStatus.OutputStatus != HAL_OK);
 
+  CHECK_STATUS(iserror, CheckCanInitFailure, gStatus.CanInitStatus != HAL_OK);
+  CHECK_STATUS(iserror, CheckCanTestFailure, gStatus.CanTestStatus != HAL_OK);
+
   CHECK_STATUS(iserror, CheckInjector4OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckInjector4ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckInjector4ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToGnd);
@@ -2246,6 +2253,34 @@ static void ecu_ign_process(void)
   }
 }
 
+void ecu_can_init(void)
+{
+  gStatus.CanInitStatus = can_start(0, 0);
+  if(gStatus.CanInitStatus == HAL_OK) {
+    gCanTestStarted = 1;
+  }
+}
+
+void ecu_can_loop(void)
+{
+  static sCanMessage message = {0};
+  int8_t status;
+  if(gStatus.CanInitStatus == HAL_OK) {
+    if(gCanTestStarted) {
+      status = can_test();
+      if(status != 0) {
+        gCanTestStarted = 0;
+        gStatus.CanTestStatus = status > 0 ? HAL_OK : HAL_ERROR;
+      }
+    } else {
+      status = can_receive(&message);
+      if(status > 0) {
+        ecu_can_process_message(&message);
+      }
+    }
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -2255,6 +2290,8 @@ void ecu_init(void)
   ecu_pid_init();
 
   ecu_init_post_init();
+
+  ecu_can_init();
 
   gParameters.StartAllowed = 1;
   gEcuInitialized = 1;
@@ -2295,6 +2332,7 @@ void ecu_loop(void)
   ecu_diagnostic_loop();
   ecu_checkengine_loop();
   ecu_corrections_loop();
+  ecu_can_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)
@@ -2751,6 +2789,11 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     default:
       break;
   }
+}
+
+static void ecu_can_process_message(const sCanMessage *message)
+{
+
 }
 
 void ecu_hardfault_handle(void)

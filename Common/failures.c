@@ -24,8 +24,9 @@ const char * const gCheckDataErrorString[] = {
     "Sensor: PwrVoltage failure",
     "Sensor: Lambda failure",
 
-    "Sensor: Lambda failure",
     "Output: Driver failure",
+    "CAN: Init failure",
+    "CAN: Test failure",
 
     "Injector 4: OpenCircuit",
     "Injector 4: ShortToBatOrOverheat",
