@@ -236,7 +236,14 @@ INLINE void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
 INLINE void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
   if(hcan == &hcan1) {
-    can_rxfifo0pendingcallback(hcan);
+    can_rxfifopendingcallback(hcan, CAN_RX_FIFO0);
+  }
+}
+
+INLINE void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_rxfifopendingcallback(hcan, CAN_RX_FIFO1);
   }
 }
 
@@ -474,9 +481,9 @@ static void MX_CAN1_Init(void)
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 12;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
-  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_4TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_2TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_6TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;

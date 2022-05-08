@@ -2277,6 +2277,7 @@ void ecu_can_loop(void)
       if(status > 0) {
         ecu_can_process_message(&message);
       }
+      can_loop();
     }
   }
 }

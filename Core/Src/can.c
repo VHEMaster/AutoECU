@@ -14,21 +14,24 @@
 static CAN_HandleTypeDef *hcan;
 static CAN_FilterTypeDef can_filter;
 
-#define CAN_RX_BUFFER_SIZE 32
+#define CAN_RX_BUFFER_SIZE 64
+#define CAN_TX_BUFFER_SIZE 64
 
 static sProFIFO canrxfifo;
+static sProFIFO cantxfifo;
 static sCanMessage canrxbuffer[CAN_RX_BUFFER_SIZE];
+static sCanMessage cantxbuffer[CAN_TX_BUFFER_SIZE];
 
 #define CAN_LOOPBACK() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_SET)
 #define CAN_NORMAL() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_RESET)
 
-void can_rxfifo0pendingcallback(CAN_HandleTypeDef *_hcan)
+void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
 {
   CAN_RxHeaderTypeDef header;
   sCanMessage message = {0};
   HAL_StatusTypeDef status;
   if(_hcan == hcan) {
-    status = HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, message.data);
+    status = HAL_CAN_GetRxMessage(hcan, fifo, &header, message.data);
     if(status == HAL_OK) {
       message.id = header.StdId;
       message.length = header.DLC;
@@ -46,6 +49,7 @@ HAL_StatusTypeDef can_init(CAN_HandleTypeDef *_hcan)
 
   CAN_LOOPBACK();
   protInit(&canrxfifo, canrxbuffer, sizeof(canrxbuffer[0]), ITEMSOF(canrxbuffer));
+  protInit(&cantxfifo, cantxbuffer, sizeof(cantxbuffer[0]), ITEMSOF(cantxbuffer));
 
   return status;
 }
@@ -69,7 +73,7 @@ HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask)
   if(status != HAL_OK)
     return status;
 
-  status = HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+  status = HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING);
   if(status != HAL_OK)
     return status;
 
@@ -162,6 +166,41 @@ int8_t can_test(void)
     return -15;
 
   return status;
+}
+
+int8_t can_send(const sCanMessage *message)
+{
+  int8_t status = 0;
+  if(protGetAvail(&cantxfifo)) {
+    if(protPush(&cantxfifo, &message)) {
+      status = 1;
+    }
+  }
+
+  return status;
+}
+
+void can_loop(void)
+{
+  static uint8_t state = 0;
+  int8_t status;
+  static sCanMessage message = {0};
+  switch(state) {
+    case 0:
+      if(protPull(&cantxfifo, &message)) {
+        state++;
+      }
+      break;
+    case 1:
+      status = can_transmit(message.id, message.rtr, message.length, message.data, NULL);
+      if(status != 0) {
+        state = 0;
+      }
+      break;
+    default:
+      state = 0;
+      break;
+  }
 }
 
 int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *data, uint32_t *p_tx_mailbox)
