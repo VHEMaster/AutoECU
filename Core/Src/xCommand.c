@@ -13,6 +13,7 @@
 #include "delay.h"
 #include "defines.h"
 #include "usbd_cdc_if.h"
+#include "can.h"
 
 #ifndef taskENTER_CRITICAL
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 5
@@ -145,6 +146,7 @@ STATIC_INLINE sGetterHandle * findHandleForChannel(eTransChannels xChannel)
 
 STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint16_t xMsgLen, eTransChannels xChaDest, uint16_t aPacketId) {
 
+    sCanMessage can_message;
     if (xHandle && xMsgLen<MAX_PACK_LEN)
     {
         uint16_t aCrc15 = 0;
@@ -191,7 +193,22 @@ STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint
               else
                 HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, aTotLen);
             } else {
-              CDC_Transmit(xHandle->BufTx, aTotLen);
+              if(xChaDest > etrCAN && xChaDest < etrCount) {
+                xHandle->TxBusy = 1;
+                uint32_t left = aTotLen;
+                can_message.id = SOURCE;
+                can_message.rtr = CAN_RTR_DATA;
+                while(left) {
+                  can_message.length = left > 8 ? 8 : left;
+                  memcpy(can_message.data, &xHandle->BufTx[aTotLen - left], can_message.length);
+                  while(can_send(&can_message) == 0) {}
+                  left -= can_message.length;
+                }
+                xHandle->TxBusy = 0;
+              }
+              else {
+                CDC_Transmit(xHandle->BufTx, aTotLen);
+              }
             }
           }
           else taskEXIT_CRITICAL();
@@ -209,6 +226,7 @@ STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint
 
 STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChannels xChaDest) {
 
+    sCanMessage can_message = {0};
     if (xHandle)
     {
         uint16_t aTotLen = 8;
@@ -241,7 +259,22 @@ STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
               else
                 HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, 8);
             } else {
-              CDC_Transmit(xHandle->BufTx, 8);
+              if(xChaDest > etrCAN && xChaDest < etrCount) {
+                xHandle->TxBusy = 1;
+                uint32_t left = aTotLen;
+                can_message.id = SOURCE;
+                can_message.rtr = CAN_RTR_DATA;
+                while(left) {
+                  can_message.length = left > 8 ? 8 : left;
+                  memcpy(can_message.data, &xHandle->BufTx[aTotLen - left], can_message.length);
+                  while(can_send(&can_message) == 0) {}
+                  left -= can_message.length;
+                }
+                xHandle->TxBusy = 0;
+              }
+              else {
+                CDC_Transmit(xHandle->BufTx, 8);
+              }
             }
           }
           else taskEXIT_CRITICAL();
@@ -256,6 +289,7 @@ STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
 
 void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen)
 {
+  sCanMessage can_message = {0};
   sGetterHandle * xHandle = NULL;
   xHandle = findHandleForChannel(xChaDest);
 
@@ -280,7 +314,22 @@ void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLe
         else
           HAL_UART_Transmit_IT(xHandle->xUart, xHandle->BufTx, xMsgLen);
       } else {
-        CDC_Transmit(xHandle->BufTx, xMsgLen);
+        if(xChaDest > etrCAN && xChaDest < etrCount) {
+          xHandle->TxBusy = 1;
+          uint32_t left = xMsgLen;
+          can_message.id = SOURCE;
+          can_message.rtr = CAN_RTR_DATA;
+          while(left) {
+            can_message.length = left > 8 ? 8 : left;
+            memcpy(can_message.data, &xHandle->BufTx[xMsgLen - left], can_message.length);
+            while(can_send(&can_message) == 0) {}
+            left -= can_message.length;
+          }
+          xHandle->TxBusy = 0;
+        }
+        else {
+          CDC_Transmit(xHandle->BufTx, xMsgLen);
+        }
       }
     }
     else taskEXIT_CRITICAL();
@@ -358,6 +407,7 @@ int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen
 
 STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen, eTransChannels xChaSrc, eTransChannels xChaDest) {
 
+  sCanMessage can_message = {0};
   uint32_t aCount;
   uint8_t data, idis = 0;
   uint32_t sCount;
@@ -428,6 +478,20 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
           break;
       }
 
+      default:
+      {
+        if(xChaDest <= etrCAN || xChaDest >= etrCount)
+        {
+          sCount = (xDataLen > 10) ? xDataLen : 8;
+          for (aCount = 0; aCount < sCount; aCount++)
+          {
+            protPull(xFifo, &data);
+          }
+          break;
+        }
+      }
+      /* no break */
+
       case etrCTRL:
       case etrPC:
       case etrIMMO:
@@ -461,7 +525,22 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 else
                   HAL_UART_Transmit_IT(hDest->xUart, hDest->BufTx, sCount);
               } else {
-                CDC_Transmit(hDest->BufTx, sCount);
+                if(xChaDest > etrCAN && xChaDest < etrCount) {
+                  hDest->TxBusy = 1;
+                  uint32_t left = sCount;
+                  can_message.id = SOURCE;
+                  can_message.rtr = CAN_RTR_DATA;
+                  while(left) {
+                    can_message.length = left > 8 ? 8 : left;
+                    memcpy(can_message.data, &hDest->BufTx[sCount - left], can_message.length);
+                    while(can_send(&can_message) == 0) {}
+                    left -= can_message.length;
+                  }
+                  hDest->TxBusy = 0;
+                }
+                else {
+                  CDC_Transmit(hDest->BufTx, sCount);
+                }
               }
             }
             else taskEXIT_CRITICAL();
@@ -480,16 +559,6 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
         }
       }
       /* no break */
-
-      default:
-      {
-        sCount = (xDataLen > 10) ? xDataLen : 8;
-        for (aCount = 0; aCount < sCount; aCount++)
-        {
-          protPull(xFifo, &data);
-        }
-        break;
-      }
   }
 }
 
@@ -597,6 +666,7 @@ void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
           else
             HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
         } else {
+          //No need to support CAN here
           CDC_Transmit(handle->BufTx, length);
         }
       }
@@ -640,6 +710,7 @@ void CDC_ReceiveCallback(uint8_t *buffer, uint32_t length)
     }
   }
 }
+
 void xDmaRxIrqHandler(UART_HandleTypeDef *huart)
 {
   sGetterHandle * handle;
@@ -652,6 +723,23 @@ void xDmaRxIrqHandler(UART_HandleTypeDef *huart)
       HAL_UART_Receive_IT(handle->xUart, &handle->BufRx[0], 1);
     }
   }
+}
+
+uint8_t xCanRxHandle(const sCanMessage *message)
+{
+  sGetterHandle *handle;
+  if(message->id > etrCAN && message->id < etrCount)
+  {
+    for(int i = 0; i < ITEMSOF(xHandles); i++)
+    {
+      handle = findHandleForChannel(message->id);
+      if(handle) {
+        protPushSequence(&handle->xRxFifo, message->data, message->length);
+      }
+    }
+    return 1;
+  }
+  return 0;
 }
 
 void xDmaErIrqHandler(UART_HandleTypeDef *huart)
@@ -760,6 +848,7 @@ void xGetterLoop(void)
         else
           HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
       } else {
+        //No need to support CAN here
         CDC_Transmit(handle->BufTx, length);
       }
     }

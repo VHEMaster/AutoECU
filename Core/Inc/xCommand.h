@@ -15,12 +15,15 @@
 #define MAX_PACK_LEN (768)
 
 typedef enum {
-    etrNone,
+    etrNone = 0,
     etrPC,
     etrECU,
     etrIMMO,
     etrCTRL,
     etrBT,
+
+    etrCAN = 64,
+
     etrCount
 } eTransChannels;
 

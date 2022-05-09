@@ -9,18 +9,19 @@
 #include "delay.h"
 #include "defines.h"
 #include "xProFIFO.h"
+#include "xCommand.h"
 #include <string.h>
 
 static CAN_HandleTypeDef *hcan;
 static CAN_FilterTypeDef can_filter;
 
-#define CAN_RX_BUFFER_SIZE 64
-#define CAN_TX_BUFFER_SIZE 64
+#define CAN_TX_BUFFER_COUNT (64)
+#define CAN_RX_BUFFER_COUNT (64)
 
-static sProFIFO canrxfifo;
 static sProFIFO cantxfifo;
-static sCanMessage canrxbuffer[CAN_RX_BUFFER_SIZE];
-static sCanMessage cantxbuffer[CAN_TX_BUFFER_SIZE];
+static sProFIFO canrxfifo;
+static sCanMessage cantxbuffer[CAN_TX_BUFFER_COUNT];
+static sCanMessage canrxbuffer[CAN_RX_BUFFER_COUNT];
 
 #define CAN_LOOPBACK() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_SET)
 #define CAN_NORMAL() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_RESET)
