@@ -53,6 +53,8 @@ STATIC_INLINE void exitcritical(void)
 #define RETRIES_TIMEOUT_CTRL 10000
 #define RETRIES_MAX 20
 
+#define SOURCE etrECU
+
 typedef struct
 {
     uint8_t BufRx[UART_DMA_BUFFER];
@@ -92,9 +94,6 @@ static sGetterHandle xHandles[] = {
     {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, NULL, {etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
 };
-
-STATIC_INLINE int Msg_GetSrc(uint8_t xValue) { return (xValue & 7); }
-STATIC_INLINE int Msg_GetDest(uint8_t xValue) { return ((xValue >> 3) & 7); }
 
 STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)
 {
@@ -150,12 +149,10 @@ STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint
     {
         uint16_t aCrc15 = 0;
         uint16_t aTotLen = xMsgLen ? xMsgLen + 8 + 2 : 8;
-        uint8_t aHeadByte = etrECU | ( xChaDest << 3 );
-
 
         xHandle->BufSender[0] = 0x55;
-        xHandle->BufSender[1] = 0x55;
-        xHandle->BufSender[2] = aHeadByte;
+        xHandle->BufSender[1] = SOURCE;
+        xHandle->BufSender[2] = xChaDest;
         xHandle->BufSender[3] = aTotLen & 0xFF;
         xHandle->BufSender[4] = (aTotLen >> 8) & 0xFF;
         xHandle->BufSender[5] = aPacketId & 0xFF;
@@ -215,12 +212,11 @@ STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
     if (xHandle)
     {
         uint16_t aTotLen = 8;
-        uint8_t aHeadByte = (( etrECU | ( xChaDest << 3 ) ) | HEADER_ACK_BIT);
         uint8_t header[8];
 
         header[0] = 0x55;
-        header[1] = 0x55;
-        header[2] = aHeadByte;
+        header[1] = SOURCE;
+        header[2] = xChaDest;
         header[3] = aTotLen & 0xFF;
         header[4] = (aTotLen >> 8) & 0xFF;
         header[5] = aPacketId & 0xFF;
@@ -532,7 +528,7 @@ static void Getter(sGetterHandle * handle)
         if (countCRC16(handle,dataLen) == lookByte(xFifo,dataLen-2) + (lookByte(xFifo,dataLen-1) << 8))
         {
             // Got True package
-            parser(xFifo,packetId,dataLen,Msg_GetSrc(lookByte(xFifo,2)),Msg_GetDest(lookByte(xFifo,2)));
+            parser(xFifo,packetId,dataLen,lookByte(xFifo,1),lookByte(xFifo,2));
         }
         else { dataSkip=1; } // Wrong CRC16, so skip 1 byte
         dataReceiving = 0;
@@ -543,7 +539,7 @@ static void Getter(sGetterHandle * handle)
   {
     if (protGetSize(xFifo) > 7)
     {
-      if(lookByte(xFifo,0) == 0x55 && lookByte(xFifo,1) == 0x55)
+      if(lookByte(xFifo,0) == 0x55)
       {
         if (countCRC8(handle) == lookByte(xFifo,7))
         {
@@ -558,7 +554,7 @@ static void Getter(sGetterHandle * handle)
               else
               {
                   // Got ShortPackage (Header Only)
-                  parser(xFifo,packetId,0,Msg_GetSrc(lookByte(xFifo,2)),Msg_GetDest(lookByte(xFifo,2)));
+                  parser(xFifo,packetId,0,lookByte(xFifo,1),lookByte(xFifo,2));
               }
           }
           else { dataSkip=1; } // Wrong data length or packet id, so skip 1 byte

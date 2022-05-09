@@ -82,15 +82,17 @@ void PK_Sender_RegisterDestination(eTransChannels xDest,
 void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size)
 {
   sProFIFO *fifo = NULL;
-  for(int i = 0; i < SENDERS_MAX_COUNT; i++) {
-    if(txDests[i]) {
-      if(txDests[i] == xDest) {
-        fifo = &fifoSendingQueue[i];
-        protPushSequence(fifo, (uint8_t *)buffer, size);
+  if(size > 0) {
+    for(int i = 0; i < SENDERS_MAX_COUNT; i++) {
+      if(txDests[i]) {
+        if(txDests[i] == xDest) {
+          fifo = &fifoSendingQueue[i];
+          protPushSequence(fifo, (uint8_t *)buffer, size);
+          break;
+        }
+      } else {
         break;
       }
-    } else {
-      break;
     }
   }
 }
