@@ -248,7 +248,8 @@ static void ecu_update(void)
   uint8_t calibration = gEcuParams.performAdaptation;
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipMap = {0};
-  sMathInterpolateInput ipTemp = {0};
+  sMathInterpolateInput ipEngineTemp = {0};
+  sMathInterpolateInput ipAirTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
   sMathInterpolateInput ipThr = {0};
   sMathInterpolateInput ipVoltages = {0};
@@ -319,6 +320,7 @@ static void ecu_update(void)
   float warmup_mixture;
   float warmup_mix_koff;
   float warmup_mix_corr;
+  float air_temp_mix_corr;
 
   float fuel_pressure;
   float fuel_abs_pressure;
@@ -395,7 +397,7 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 40.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
-    air_temp = 10.0f;
+    air_temp = -20.0f;
 
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
@@ -460,7 +462,8 @@ static void ecu_update(void)
   fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
   fuel_flow_per_us *= fuel_abs_pressure / fuel_pressure;
 
-  ipTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
+  ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
+  ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
   ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
   ipMap = math_interpolate_input(map, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
@@ -539,8 +542,8 @@ static void ecu_update(void)
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
 
-  idle_wish_rpm = math_interpolate_1d(ipTemp, table->idle_wish_rotates);
-  idle_wish_massair = math_interpolate_1d(ipTemp, table->idle_wish_massair);
+  idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
+  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
   idle_wish_ignition = math_interpolate_1d(ipRpm, table->idle_wish_ignition);
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
@@ -576,16 +579,16 @@ static void ecu_update(void)
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+  air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
 
-  start_mixture = math_interpolate_1d(ipTemp, table->start_mixtures);
+  start_mixture = math_interpolate_1d(ipEngineTemp, table->start_mixtures);
 
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
-
-  warmup_mix_corr = math_interpolate_1d(ipTemp, table->warmup_mix_corrs);
-  warmup_mix_koff = math_interpolate_1d(ipTemp, table->warmup_mix_koffs);
+  warmup_mix_corr = math_interpolate_1d(ipEngineTemp, table->warmup_mix_corrs);
+  warmup_mix_koff = math_interpolate_1d(ipEngineTemp, table->warmup_mix_koffs);
   if(warmup_mix_koff > 0.0f) {
-    warmup_mixture = math_interpolate_1d(ipTemp, table->warmup_mixtures);
+    warmup_mixture = math_interpolate_1d(ipEngineTemp, table->warmup_mixtures);
     if(warmup_mixture < wish_fuel_ratio) {
       wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
     }
@@ -638,6 +641,7 @@ static void ecu_update(void)
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= warmup_mix_corr + 1.0f;
+  injection_time *= air_temp_mix_corr;
   injection_time *= enrichment + 1.0f;
   if(idle_flag)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
@@ -664,8 +668,8 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
-  idle_table_valve_pos = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
-  idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+  idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
+  idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
 
   idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
   idle_wish_valve_pos = idle_table_valve_pos;
@@ -804,13 +808,13 @@ static void ecu_update(void)
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
-          math_interpolate_2d_set(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+          math_interpolate_2d_set(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
 
           percentage = (idle_valve_pos_dif + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
-          calib_cur_progress = math_interpolate_2d(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
+          calib_cur_progress = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          math_interpolate_2d_set(ipRpm, ipTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
+          math_interpolate_2d_set(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
