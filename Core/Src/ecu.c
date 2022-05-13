@@ -631,7 +631,7 @@ static void ecu_update(void)
 
     }
     if(!calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
-      short_term_correction = short_term_correction_pid;
+      short_term_correction = -short_term_correction_pid;
     } else {
       math_pid_reset(&gPidShortTermCorr);
       short_term_correction = 0;
