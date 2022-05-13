@@ -641,7 +641,7 @@ static void ecu_update(void)
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= warmup_mix_corr + 1.0f;
-  injection_time *= air_temp_mix_corr;
+  injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= enrichment + 1.0f;
   if(idle_flag)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
