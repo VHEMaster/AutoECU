@@ -409,6 +409,9 @@ void config_default_params(sEcuParams *table)
   table->tspsRelPos = -154.0f;
   table->tspsDesyncThr = 3.0f;
 
+  table->useShortTermCorr = 1;
+  table->useLongTermCorr = 1;
+
 }
 
 void config_default_corrections(sEcuCorrections *table)

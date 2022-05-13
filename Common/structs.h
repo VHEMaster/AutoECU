@@ -275,7 +275,10 @@ typedef struct {
     float tspsRelPos;
     float tspsDesyncThr;
 
-    int32_t Reserved32[987];
+    int32_t useShortTermCorr;
+    int32_t useLongTermCorr;
+
+    int32_t Reserved32[985];
 }sEcuParams;
 
 typedef struct {

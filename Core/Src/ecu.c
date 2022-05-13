@@ -630,7 +630,7 @@ static void ecu_update(void)
       short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
 
     }
-    if(!calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
+    if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
       short_term_correction = -short_term_correction_pid;
     } else {
       math_pid_reset(&gPidShortTermCorr);
@@ -821,11 +821,16 @@ static void ecu_update(void)
           //TODO: short term correction HERE, or maybe somewhere else....
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
-          if(!idle_flag && throttle > 10.0f) {
-            gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
-          }
-          else if(idle_flag || throttle < 5.0f) {
-            gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
+          if(gEcuParams.useLongTermCorr) {
+            if(!idle_flag && throttle > 10.0f) {
+              gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
+            }
+            else if(idle_flag || throttle < 5.0f) {
+              gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
+            }
+          } else {
+            gEcuCorrections.long_term_correction = 0;
+            gEcuCorrections.idle_correction = 0;
           }
         }
       }
