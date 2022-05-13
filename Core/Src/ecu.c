@@ -622,13 +622,13 @@ static void ecu_update(void)
 
   math_pid_set_target(&gPidShortTermCorr, wish_fuel_ratio);
 
-  if(!gEcuParams.useLambdaSensor || !o2_valid) {
+  if(!running || !gEcuParams.useLambdaSensor || !o2_valid) {
     fuel_ratio = wish_fuel_ratio;
     short_term_correction = 0.0f;
+    math_pid_reset(&gPidShortTermCorr);
   } else {
     for(int i = 0; i < halfturns_performed; i++) {
       short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
-
     }
     if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
       short_term_correction = -short_term_correction_pid;
