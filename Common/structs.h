@@ -157,10 +157,9 @@ typedef struct {
     int32_t engine_temp_count;
     float engine_temps[TABLE_TEMPERATURES_MAX];
 
-    //TODO: maybe not needed?..
-    //int32_t air_temp_count;
-    //float air_temps[TABLE_TEMPERATURES_MAX];
-    //float air_temp_mix_corr[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    int32_t air_temp_count;
+    float air_temps[TABLE_TEMPERATURES_MAX];
+    float air_temp_mix_corr[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX];
 
     float idle_wish_rotates[TABLE_TEMPERATURES_MAX];
     float idle_wish_massair[TABLE_TEMPERATURES_MAX];
@@ -202,7 +201,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1103];
+    int32_t Reserved[830];
 }sEcuTable;
 
 typedef struct {
