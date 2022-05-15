@@ -625,8 +625,12 @@ static void ecu_update(void)
 
   math_pid_set_target(&gPidShortTermCorr, wish_fuel_ratio);
 
-  if(!running || !gEcuParams.useLambdaSensor || !o2_valid) {
+  if(!gEcuParams.useLambdaSensor || !o2_valid) {
     fuel_ratio = wish_fuel_ratio;
+    lambda_value = wish_fuel_ratio / table->fuel_afr;
+  }
+
+  if(!running || !gEcuParams.useLambdaSensor || !o2_valid) {
     short_term_correction = 0.0f;
     math_pid_reset(&gPidShortTermCorr);
   } else {
