@@ -26,7 +26,7 @@ int8_t can_send(const sCanMessage *message);
 int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *data, uint32_t *p_tx_mailbox);
 int8_t can_receive(sCanMessage *message);
 
-void can_rxfifo0pendingcallback(CAN_HandleTypeDef *_hcan);
+void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo);
 
 
 #endif /* INC_CAN_H_ */
