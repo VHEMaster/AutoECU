@@ -1476,6 +1476,7 @@ static void ecu_process(void)
   static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
   float cy_injection[ECU_CYLINDERS_COUNT];
   float var;
+  uint8_t injection_phase_by_end;
   uint8_t phased_ignition;
   uint8_t phased_injection;
   uint8_t cy_count_ignition;
@@ -1516,6 +1517,7 @@ static void ecu_process(void)
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   angle_ignite_param = gParameters.IgnitionAngle;
+  injection_phase_by_end = table->is_fuel_phase_by_end;
 
   angle_ignite_koff = diff / 5000.0f;
   if(angle_ignite_koff > 0.8f)
@@ -1621,7 +1623,11 @@ static void ecu_process(void)
     }
 
     saturate = time_sat / uspa;
-    inj_angle = inj_pulse / uspa;
+    if(injection_phase_by_end) {
+      inj_angle = inj_pulse / uspa;
+    } else {
+      inj_angle = 0.0f;
+    }
 
     //Ignition part
     for(int i = 0; i < cy_count_ignition; i++)
