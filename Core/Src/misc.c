@@ -97,6 +97,7 @@ static uint8_t knock_channel_select = 0;
 static uint8_t knock_diagnostic_mode = 0;
 static uint8_t knock_so_output_mode = 0;
 
+static volatile sLambdaConfig LambdaConfig = {0};
 static volatile sKnockConfig KnockConfig = {0};
 static volatile uint8_t KnockConfigChanged = 0;
 
@@ -407,10 +408,13 @@ static int8_t O2_Loop(void)
   static uint8_t need_reset_factor = 0;
   uint8_t is_engine_running = 0;
   uint32_t now = Delay_Tick;
+  uint32_t diff;
   int8_t status;
   int8_t retvalue = 1;
+  uint8_t force = LambdaConfig.isLambdaForceEnabled;
+  float engine_temperature;
 
-  is_engine_running = csps_isrunning();
+  is_engine_running = force || csps_isrunning();
   if(was_engine_running != is_engine_running) {
     was_engine_running = is_engine_running;
   }
@@ -422,8 +426,6 @@ static int8_t O2_Loop(void)
       need_reset_factor = 1;
     }
   }
-
-  float engine_temperature;
 
   if(O2InitState != HAL_OK) {
     return retvalue;
@@ -490,7 +492,7 @@ static int8_t O2_Loop(void)
       break;
     case 3 :
       sens_get_engine_temperature(&engine_temperature);
-      if(engine_temperature > 30.0f) {
+      if(force || engine_temperature > 30.0f) {
         state++;
       }
       break;
@@ -513,7 +515,12 @@ static int8_t O2_Loop(void)
       }
       O2_SetHeaterVoltage(1.5f);
       sens_get_engine_temperature(&engine_temperature);
-      if(DelayDiff(now, calibrate_timestamp) > 10*1000*1000 || engine_temperature > 60.0f) {
+      diff = DelayDiff(now, calibrate_timestamp);
+      if(diff > 15000000 ||
+          (engine_temperature > 75.0f && diff > 5000000) ||
+          (engine_temperature > 50.0f && diff > 8000000) ||
+          (engine_temperature > 30.0f && diff > 10000000) ||
+          (engine_temperature > 10.0f && diff > 12000000)) {
         o2heater = 8.5f;
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
@@ -535,7 +542,7 @@ static int8_t O2_Loop(void)
         state++;
       }
       if(DelayDiff(now, calibrate_timestamp) > 100000) {
-        o2heater += 0.4f / 10.0f;
+        o2heater += 0.4f * 0.1f;
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
       }
@@ -1245,5 +1252,10 @@ inline void O2_SetAmplificationFactor(eO2AmplificationFactor factor)
 inline eO2AmplificationFactor O2_GetAmplificationFactor(void)
 {
   return O2Status.AmplificationFactor;
+}
+
+inline void O2_SetLambdaForceEnabled(uint8_t enabled)
+{
+  LambdaConfig.isLambdaForceEnabled = enabled;
 }
 

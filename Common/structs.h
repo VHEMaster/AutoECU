@@ -254,6 +254,7 @@ typedef struct {
     float speedCorrection;
 
     int32_t useLambdaSensor;
+    int32_t isLambdaForceEnabled;
     int32_t useTSPS;
     int32_t useKnockSensor;
     int32_t performAdaptation;
@@ -280,7 +281,7 @@ typedef struct {
     int32_t useShortTermCorr;
     int32_t useLongTermCorr;
 
-    int32_t Reserved32[985];
+    int32_t Reserved32[984];
 }sEcuParams;
 
 typedef struct {

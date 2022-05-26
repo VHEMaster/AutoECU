@@ -43,6 +43,10 @@ typedef struct {
     uint8_t so_output_mode;
 }sKnockConfig;
 
+typedef struct {
+    uint8_t isLambdaForceEnabled;
+}sLambdaConfig;
+
 typedef enum {
   MiscDiagChInjectors = 0,
   MiscDiagChOutputs1,
@@ -71,6 +75,8 @@ void Misc_Loop(void);
 
 HAL_StatusTypeDef Knock_GetValueByRPM(float *value);
 HAL_StatusTypeDef Knock_GetValueRaw(float *value);
+
+void O2_SetLambdaForceEnabled(uint8_t enabled);
 
 void Knock_SetBandpassFilterFrequency(uint8_t value);
 void Knock_SetGainValue(uint8_t value);

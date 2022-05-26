@@ -2275,7 +2275,13 @@ static void ecu_ign_process(void)
   }
 }
 
-void ecu_can_init(void)
+static void ecu_config_process(void)
+{
+  O2_SetLambdaForceEnabled(gEcuParams.isLambdaForceEnabled);
+  //TODO: Live Knock configuration
+}
+
+static void ecu_can_init(void)
 {
   gStatus.CanInitStatus = can_start(0, 0);
   if(gStatus.CanInitStatus == HAL_OK) {
@@ -2283,7 +2289,7 @@ void ecu_can_init(void)
   }
 }
 
-void ecu_can_loop(void)
+static void ecu_can_loop(void)
 {
   static sCanMessage message = {0};
   int8_t status;
@@ -2343,6 +2349,7 @@ void ecu_irq_slow_loop(void)
   ecu_backup_save_process();
   ecu_fuelpump_process();
   ecu_fan_process();
+  ecu_config_process();
 
   //TODO: uncomment on real ECU
   //ecu_ign_process();
