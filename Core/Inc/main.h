@@ -166,6 +166,8 @@ void Error_Handler(void);
 #define INJ_1_GPIO_Port GPIOB
 #define INJ_2_Pin GPIO_PIN_9
 #define INJ_2_GPIO_Port GPIOB
+#define KLINE_LO_Pin GPIO_PIN_3
+#define KLINE_LO_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 
@@ -179,8 +181,8 @@ void Error_Handler(void);
 #define NVIC_PRIO_SPI4_MISC 8
 #define NVIC_PRIO_SPI4_MISC_DMA_TX 9
 #define NVIC_PRIO_SPI4_MISC_DMA_RX 9
-#define NVIC_PRIO_UART4_IMMO 8
-#define NVIC_PRIO_UART4_IMMO_DMA_RX 15
+#define NVIC_PRIO_UART4_KLINE 8
+#define NVIC_PRIO_UART4_KLINE_DMA_RX 15
 #define NVIC_PRIO_UART5_COMM 8
 #define NVIC_PRIO_UART5_COMM_DMA_TX 14
 #define NVIC_PRIO_UART5_COMM_DMA_RX 15

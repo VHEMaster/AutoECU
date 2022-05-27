@@ -86,7 +86,7 @@ static void MX_RNG_Init(void);
 #define SENDING_QUEUE_SIZE (MAX_PACK_LEN*4)
 #define SENDING_BUFFER_SIZE (MAX_PACK_LEN)
 
-static eTransChannels PK_ECU_TxDests[] = {etrPC, etrCTRL, etrIMMO, etrBT};
+static eTransChannels PK_ECU_TxDests[] = {etrPC, etrCTRL, etrKLINE, etrBT};
 static uint8_t PK_ECU_TxQueueBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_QUEUE_SIZE] = {{0}};
 static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_SIZE] = {{0}};
 
@@ -1174,7 +1174,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 10400;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -1275,7 +1275,7 @@ static void MX_DMA_Init(void)
   HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, NVIC_PRIO_UART5_COMM_DMA_RX, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
   /* DMA1_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, NVIC_PRIO_UART4_IMMO_DMA_RX, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, NVIC_PRIO_UART4_KLINE_DMA_RX, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
   /* DMA1_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, NVIC_PRIO_SPI2_FLASH_DMA_RX, 0);
@@ -1400,6 +1400,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = KLINE_LO_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(KLINE_LO_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SPI4_NSS_KNOCK_Pin O2_NRST_Pin CAN1_LBK_Pin OUT_FAN_Pin
    OUT_RSVD1_Pin OUT_IGN_Pin OUT_STARTER_Pin */

@@ -91,7 +91,7 @@ extern UART_HandleTypeDef huart8;
 
 static sGetterHandle xHandles[] = {
     {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrNone}, 1,0,0,0,0,0, etrNone },
-    {{0},{0},{0},{0},{0},{0}, &huart4, {etrIMMO,etrNone}, 1,0,0,0,0,0, etrNone },
+    {{0},{0},{0},{0},{0},{0}, &huart4, {etrKLINE,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, NULL, {etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
 };
@@ -494,7 +494,7 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
 
       case etrCTRL:
       case etrPC:
-      case etrIMMO:
+      case etrKLINE:
       case etrBT:
       {
         sCount = (xDataLen > 10) ? xDataLen : 8;
