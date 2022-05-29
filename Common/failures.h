@@ -65,7 +65,7 @@ typedef enum {
   CheckStarterRelayOpenCirtuit,
   CheckStarterRelayShortToBatOrOverheat,
   CheckStarterRelayShortToGND,
-  CheckFamRelayOpenCirtuit,
+  CheckFanRelayOpenCirtuit,
   CheckFanRelayShortToBatOrOverheat,
   CheckFanRelayShortToGND,
   CheckOutputs2CommunicationFailure,

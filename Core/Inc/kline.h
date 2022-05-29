@@ -27,8 +27,10 @@ typedef struct {
 } sKlineMessage;
 
 HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart);
+HAL_StatusTypeDef kline_start(void);
 int8_t kline_send(sKlineMessage *message);
 int8_t kline_receive(sKlineMessage *message);
+HAL_StatusTypeDef kline_setbaud(uint32_t baudrate);
 void kline_loop(void);
 sKlineStatus kline_getstatus(void);
 

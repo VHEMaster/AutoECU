@@ -33,6 +33,7 @@ static uint8_t kline_rx_buffer[KLINE_RX_BUFFER_SIZE];
 
 static volatile uint8_t kline_tx_busy = 0;
 static volatile uint8_t kline_er_flag = 0;
+static volatile uint32_t kline_rxpointer = 0xFFFFFFFF;
 
 static sKlineStatus kline_status = {0};
 
@@ -135,6 +136,27 @@ HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
   protInit(&klinetxfifo, kline_tx_fifo_buffer, sizeof(kline_tx_buffer[0]), ITEMSOF(kline_tx_buffer));
   protInit(&klinerxfifo, kline_rx_fifo_buffer, sizeof(kline_rx_buffer[0]), ITEMSOF(kline_rx_buffer));
 
+  kline_rxpointer = 0xFFFFFFFF;
+  status = HAL_UART_Receive_DMA(huart, kline_rx_buffer, KLINE_RX_BUFFER_SIZE);
+
+  return status;
+}
+
+HAL_StatusTypeDef kline_setbaud(uint32_t baudrate)
+{
+  HAL_UART_Abort(huart);
+  huart->Init.BaudRate = baudrate;
+  kline_rxpointer = 0xFFFFFFFF;
+  return HAL_UART_Init(huart);
+}
+
+HAL_StatusTypeDef kline_start(void)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+
+  kline_rxpointer = 0xFFFFFFFF;
+  kline_er_flag = 0;
+  kline_tx_busy = 0;
   status = HAL_UART_Receive_DMA(huart, kline_rx_buffer, KLINE_RX_BUFFER_SIZE);
 
   return status;
@@ -142,7 +164,6 @@ HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
 
 void kline_loop(void)
 {
-  static uint32_t rxpointer = 0xFFFFFFFF;
   static uint32_t rx_last = 0;
   static uint32_t tx_last = 0;
   static sKlineMessage rx_message = {0};
@@ -159,10 +180,10 @@ void kline_loop(void)
 
     dmacnt = huart->hdmarx->Instance->NDTR;
     dmasize = huart->RxXferSize;
-    if(rxpointer == 0xFFFFFFFF) rxpointer = dmacnt;
-    if(dmacnt > rxpointer)
-      length = (dmasize-dmacnt)+rxpointer;
-    else length = rxpointer-dmacnt;
+    if(kline_rxpointer == 0xFFFFFFFF) kline_rxpointer = dmacnt;
+    if(dmacnt > kline_rxpointer)
+      length = (dmasize-dmacnt)+kline_rxpointer;
+    else length = kline_rxpointer-dmacnt;
 
     if(length + rx_message.length > KLINE_MSG_LEN_MAX) length = KLINE_MSG_LEN_MAX - rx_message.length;
     if(length > 0)
@@ -170,9 +191,9 @@ void kline_loop(void)
       CacheInvalidate(kline_rx_buffer, sizeof(kline_rx_buffer));
       for(int i=0;i<length;i++)
       {
-        rx_message.data[rx_message.length++] = kline_rx_buffer[dmasize-rxpointer];
-        if(rxpointer == 1) rxpointer = dmasize;
-        else rxpointer--;
+        rx_message.data[rx_message.length++] = kline_rx_buffer[dmasize-kline_rxpointer];
+        if(kline_rxpointer == 1) kline_rxpointer = dmasize;
+        else kline_rxpointer--;
       }
 
       rx_last = now;

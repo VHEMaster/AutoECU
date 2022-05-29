@@ -56,6 +56,75 @@ typedef volatile struct {
 
 }sShift;
 
+union {
+    struct {
+        uint8_t is_not_running : 1;
+        uint8_t is_idle : 1;
+        uint8_t is_enrichment : 1;
+        uint8_t is_fuel_cutoff : 1;
+        uint8_t is_use_lambda : 1;
+        uint8_t is_knock_zone : 1;
+        uint8_t is_adsorber : 1;
+        uint8_t is_lambda_teach : 1;
+
+        uint8_t not_used1 : 1;
+        uint8_t is_idle_last : 1;
+        uint8_t is_idle_lock_last : 1;
+        uint8_t is_knock_zone_last : 1;
+        uint8_t is_adsorber_last : 1;
+        uint8_t is_knock : 1;
+        uint8_t is_lambda_last : 1;
+        uint8_t is_lambda_now : 1;
+    } Bits;
+    struct {
+        uint8_t byte[2];
+    } Bytes;
+} gDiagWorkingMode;
+
+union {
+    struct {
+        uint8_t csps_error : 1;
+        uint8_t not_used1 : 1;
+        uint8_t eeprom_error : 1;
+        uint8_t lambda_heater : 1;
+        uint8_t tsps_error : 1;
+        uint8_t reset_error : 1;
+        uint8_t ram_error : 1;
+        uint8_t flash_error : 1;
+
+        uint8_t low_voltage : 1;
+        uint8_t not_used2 : 1;
+        uint8_t not_used3 : 1;
+        uint8_t engine_temp_low : 1;
+        uint8_t lambda_low : 1;
+        uint8_t tps_low : 1;
+        uint8_t maf_low : 1;
+        uint8_t low_noise : 1;
+
+        uint8_t high_voltage : 1;
+        uint8_t not_used4 : 1;
+        uint8_t not_used5 : 1;
+        uint8_t engine_temp_high : 1;
+        uint8_t lambda_high : 1;
+        uint8_t tps_high : 1;
+        uint8_t maf_high : 1;
+        uint8_t high_noise : 1;
+
+        uint8_t knock_error : 1;
+        uint8_t no_immo : 1;
+        uint8_t not_used6 : 1;
+        uint8_t lambda_no_activity : 1;
+        uint8_t lambda_no_on_lean : 1;
+        uint8_t lambda_no_on_rich : 1;
+        uint8_t speed_error : 1;
+        uint8_t idle_error : 1;
+
+    } Bits;
+    struct {
+        uint8_t byte[4];
+    } Bytes;
+} gDiagErrors;
+
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -326,6 +395,7 @@ static void ecu_update(void)
   float fuel_pressure;
   float fuel_abs_pressure;
   float fuel_consumption_per_distance;
+  float fuel_consumption_hourly;
   float km_drive = 0;
   float fuel_consumption = 0;
 
@@ -661,6 +731,8 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPulse)
     injection_time = gForceParameters.InjectionPulse;
 
+  fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
+
   idle_wish_rpm += idle_rpm_shift;
 
   if(gForceParameters.Enable.WishIdleRPM)
@@ -733,14 +805,16 @@ static void ecu_update(void)
     ignition_time = 0;
     effective_volume = 0;
     fuel_consumption_per_distance = 0;
+    fuel_consumption_hourly = 0;
   } else {
     km_drive = speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
     km_driven += km_drive;
-    if(fuel_amount_per_cycle < 1000.0f) {
-      fuel_consumption = fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / period) * 0.001f;
-      fuel_consumed += fuel_consumption;
-    }
+
+    fuel_consumption = fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / period) * 0.001f * 2.0f;
+    fuel_consumed += fuel_consumption;
+
     fuel_consumption_per_distance = fuel_consumption / km_drive * 100.0f;
+    fuel_consumption_hourly = fuel_consumption * 3600000.0f;
   }
 
   if(!running) {
@@ -995,9 +1069,10 @@ static void ecu_update(void)
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
 
-  gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven;
-  gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed;
+  gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven + km_driven;
+  gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed + fuel_consumed;
   gParameters.FuelConsumption = fuel_consumption_per_distance;
+  gParameters.FuelHourly = fuel_consumption_hourly;
   gParameters.TspsRelativePosition = tsps_rel_pos;
 
   gParameters.LambdaValid = o2_valid > 0;
@@ -1021,6 +1096,20 @@ static void ecu_update(void)
   gParameters.InjectorChannel = table->inj_channel;
 
   strcpy(gParameters.CurrentTableName, table->name);
+
+  gDiagWorkingMode.Bits.is_enrichment = enrichment > 0.02f;
+  gDiagWorkingMode.Bits.is_idle = idle_flag && running;
+  gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
+  gDiagWorkingMode.Bits.is_idle_lock_last = 0;
+  gDiagWorkingMode.Bits.is_knock = gStatus.KnockStatus == KnockStatusDedonation;
+  gDiagWorkingMode.Bits.is_knock_zone = !idle_flag && running;
+  gDiagWorkingMode.Bits.is_knock_zone_last = !idle_flag && running;
+
+  gDiagWorkingMode.Bits.is_lambda_last = o2_valid;
+  gDiagWorkingMode.Bits.is_lambda_now = o2_valid;
+  gDiagWorkingMode.Bits.is_lambda_teach = o2_valid && calibration;
+  gDiagWorkingMode.Bits.is_not_running = !running;
+  gDiagWorkingMode.Bits.is_use_lambda = o2_valid;
 
   updated_last = now;
 }
@@ -1258,7 +1347,9 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
   float cutoffrpm = gEcuParams.cutoffRPM;
 
   //Just for safety purpose...
+  gDiagWorkingMode.Bits.is_fuel_cutoff = 0;
   if(rpm >= cutoffrpm + 300) {
+    gDiagWorkingMode.Bits.is_fuel_cutoff = 1;
     return 0;
   }
 
@@ -1882,7 +1973,7 @@ static void ecu_checkengine_loop(void)
   //CHECK_STATUS(iserror, CheckStarterRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckStarterRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToBatOrOvertemp);
   //CHECK_STATUS(iserror, CheckStarterRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToGnd);
-  CHECK_STATUS(iserror, CheckFamRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckFanRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckFanRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToBatOrOvertemp);
   //CHECK_STATUS(iserror, CheckFanRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckOutputs2CommunicationFailure, gStatus.OutputDiagnostic.Outs2.Availability != HAL_OK);
@@ -1919,6 +2010,44 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.TspsSyncStatus != HAL_OK);
   }
   CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
+
+  gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
+
+  gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
+  gDiagErrors.Bits.not_used1 = 0;
+  gDiagErrors.Bits.eeprom_error = gStatus.Flash.Byte > 0;
+  gDiagErrors.Bits.lambda_heater = gStatus.O2Diagnostic.DIAHGD > 0;
+  gDiagErrors.Bits.tsps_error = gStatus.Sensors.Struct.Tsps != HAL_OK;
+  gDiagErrors.Bits.reset_error = 0;
+  gDiagErrors.Bits.ram_error = 0;
+  gDiagErrors.Bits.flash_error = 0;
+
+  gDiagErrors.Bits.low_voltage = gParameters.PowerVoltage < 7.0f;
+  gDiagErrors.Bits.not_used2 = 0;
+  gDiagErrors.Bits.not_used3 = 0;
+  gDiagErrors.Bits.engine_temp_low = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
+  gDiagErrors.Bits.lambda_low = gStatus.Sensors.Struct.Lambda != HAL_OK;
+  gDiagErrors.Bits.tps_low = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
+  gDiagErrors.Bits.maf_low = gStatus.Sensors.Struct.Map != HAL_OK;
+  gDiagErrors.Bits.low_noise = gStatus.KnockStatus == KnockStatusLowNoise;
+
+  gDiagErrors.Bits.high_voltage = gParameters.PowerVoltage > 16.0f;
+  gDiagErrors.Bits.not_used4 = 0;
+  gDiagErrors.Bits.not_used5 = 0;
+  gDiagErrors.Bits.engine_temp_high = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
+  gDiagErrors.Bits.lambda_high = gStatus.Sensors.Struct.Lambda != HAL_OK;
+  gDiagErrors.Bits.tps_high = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
+  gDiagErrors.Bits.maf_high = gStatus.Sensors.Struct.Map != HAL_OK;
+  gDiagErrors.Bits.high_noise = gStatus.KnockStatus == KnockStatusDedonation;
+
+  gDiagErrors.Bits.knock_error = gStatus.Sensors.Struct.Knock != HAL_OK;
+  gDiagErrors.Bits.no_immo = 0;
+  gDiagErrors.Bits.not_used6 = 0;
+  gDiagErrors.Bits.lambda_no_activity = gStatus.Sensors.Struct.Lambda != HAL_OK;
+  gDiagErrors.Bits.lambda_no_on_lean = gStatus.Sensors.Struct.Lambda != HAL_OK;
+  gDiagErrors.Bits.lambda_no_on_rich = gStatus.Sensors.Struct.Lambda != HAL_OK;
+  gDiagErrors.Bits.speed_error = 0;
+  gDiagErrors.Bits.idle_error = gStatus.IdleValvePosition != HAL_OK || gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK;
 
   if(iserror) {
     was_error = 1;
@@ -2292,6 +2421,11 @@ static void ecu_can_init(void)
   }
 }
 
+static void ecu_kline_init(void)
+{
+  kline_start();
+}
+
 static void ecu_can_loop(void)
 {
   static sCanMessage message = {0};
@@ -2315,8 +2449,20 @@ static void ecu_can_loop(void)
   }
 }
 
+static void kline_send_error(sKlineMessage *tx_message, uint8_t req_code, uint8_t err_code)
+{
+  tx_message->data[0] = 0x7F;
+  tx_message->data[1] = req_code;
+  tx_message->data[2] = err_code;
+  tx_message->length = 3;
+}
+
 static void ecu_kline_loop(void)
 {
+  static uint32_t tester_last = 0;
+  static uint8_t session_on = 0;
+  const char *string = NULL;
+  uint32_t now = Delay_Tick;
   sKlineStatus kline_status = kline_getstatus();
   sKlineMessage rx_message;
   sKlineMessage tx_message;
@@ -2326,13 +2472,217 @@ static void ecu_kline_loop(void)
   gStatus.KlineLoopbackStatus = kline_status.error_loopback;
 
   status = kline_receive(&rx_message);
-  if(status > 0) {
+  if(status > 0 && rx_message.length > 0) {
     if(rx_message.dst == 0x10) {
       tx_message.dst = rx_message.src;
       tx_message.src = rx_message.dst;
+      tx_message.length = 0;
+
+      do {
+        if(rx_message.data[0] == 0x81) { //startCommunication
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = 0x6B;
+          tx_message.data[tx_message.length++] = 0x8F;
+        } else if(rx_message.data[0] == 0x82) { //stopCommunication
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+        } else if(rx_message.data[0] == 0x10) { //startDiagnosticSession
+          if(rx_message.data[1] != 0x81) { kline_send_error(&tx_message, rx_message.data[0], 0x12); break; }
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = rx_message.data[1];
+          switch(rx_message.data[2]) {
+            case 0x0A:
+              kline_setbaud(10400);
+              kline_start();
+              session_on = 1;
+              break;
+            case 0x26:
+              kline_setbaud(38400);
+              kline_start();
+              session_on = 2;
+              break;
+            case 0x39:
+              kline_setbaud(57600);
+              kline_start();
+              session_on = 2;
+              break;
+            case 0x73:
+              kline_setbaud(115200);
+              kline_start();
+              session_on = 2;
+              break;
+            default:
+              kline_send_error(&tx_message, rx_message.data[0], 0x12);
+              break;
+          }
+        } else if(rx_message.data[0] == 0x20) { //stopDiagnosticSession
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          if(session_on > 1) {
+            kline_setbaud(10400);
+            kline_start();
+          }
+          session_on = 0;
+        } else if(rx_message.data[0] == 0x3E) { //testerPresent
+          if(rx_message.data[1] == 1) {
+            tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          }
+        } else if(rx_message.data[0] == 0x11) { //ecuReset
+          if(rx_message.data[1] == 1) {
+            tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+            //TODO: Delay before reset?
+            NVIC_SystemReset();
+          } else {
+            kline_send_error(&tx_message, rx_message.data[0], 0x12);
+          }
+        } else if(rx_message.data[0] == 0x1A) { //readEcuIdentification
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = rx_message.data[1];
+          if(rx_message.data[1] == 0x80) { //ECUIdentificationDataTable
+            string = "AutoECU";
+          } else if(rx_message.data[1] == 0x90) { //VIN(Vehicle Identification Number)
+            string = "VINNOTSET012345";
+          } else if(rx_message.data[1] == 0x91) { //vehicleManufacturerECUHardwareNumber
+            string = "AutoECU v0.1";
+          } else if(rx_message.data[1] == 0x92) { //systemSupplierECUHardwareNumber
+            string = "AutoECU v1.0";
+          } else if(rx_message.data[1] == 0x94) { //systemSupplierECUSoftwareNumber
+            string = "AutoECU v1.0";
+          } else if(rx_message.data[1] == 0x97) { //systemNameOrEngineType
+            string = "AutoECU v1.0";
+          } else if(rx_message.data[1] == 0x98) { //repairShopCode
+            string = "AutoECU v1.0";
+          } else if(rx_message.data[1] == 0x99) { //ProgrammingDate
+            string = "05.2022";
+          } else if(rx_message.data[1] == 0x9A) { //vehicleManufacturerECUIdentifier
+            string = "AutoECU v1.0";
+          } else {
+            kline_send_error(&tx_message, rx_message.data[0], 0x12);
+            break;
+          }
+
+          if(string) {
+            strcpy((char *)&tx_message.data[tx_message.length], string);
+            tx_message.length += strlen(string);
+          }
+        } else if(rx_message.data[0] == 0x14) { //clearDiagnosticInformation
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = rx_message.data[1];
+          tx_message.data[tx_message.length++] = rx_message.data[2];
+
+          memset(&gStatus, 0, sizeof(gStatus));
+          memset(&gCheckBitmap, 0, sizeof(gCheckBitmap));
+          memset(&gEcuCriticalBackup.CheckBitmapRecorded, 0, sizeof(gEcuCriticalBackup.CheckBitmapRecorded));
+
+        } else if(rx_message.data[0] == 0x18) { //readDTCByStatus
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = 0;
+          for(int i = 0; i < CHECK_BITMAP_SIZE * 8 && tx_message.length < 200; i++) {
+            if((gCheckBitmap[i >> 3] & (1 << (i & 7))) || (gEcuCriticalBackup.CheckBitmapRecorded[i >> 3] & (1 << (i & 7)))) {
+              tx_message.data[1]++;
+              tx_message.data[tx_message.length++] = (i >> 8) & 0xFF;
+              tx_message.data[tx_message.length++] = i & 0xFF;
+              tx_message.data[tx_message.length++] = 0xE0;
+            }
+          }
+
+        } else if(rx_message.data[0] == 0x21) { //readDataByLocalIdentifier
+          tx_message.data[tx_message.length++] = rx_message.data[0] | 0x40;
+          tx_message.data[tx_message.length++] = rx_message.data[1];
+          if(rx_message.data[1] == 0x01) { //afterSalesServiceRecordLocalIdentifier
+            tx_message.data[tx_message.length++] = 0x39; //Слово комплектации 1
+            tx_message.data[tx_message.length++] = 0x18; //Слово комплектации 2
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[0]; //Слово режима работы 1
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[1]; //Слово режима работы 2
+            tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[0]; //Слово флагов текущих неисправностей 1
+            tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[1]; //Слово флагов текущих неисправностей 2
+            tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[2]; //Слово флагов текущих неисправностей 3
+            tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[3]; //Слово флагов текущих неисправностей 4
+            tx_message.data[tx_message.length++] = gParameters.EngineTemp <= -40 ? 0 : gParameters.EngineTemp + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = (gParameters.FuelRatio < 7.5f ? 7.5f : gParameters.FuelRatio > 21 ? 21 : gParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = gParameters.ThrottlePosition > 100 ? 100 : gParameters.ThrottlePosition < 0 ? 0 : gParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = gParameters.RPM / 40.0f; //Скорость вращения двигателя
+            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
+            tx_message.data[tx_message.length++] = gParameters.WishIdleValvePosition > 255 ? 255 : gParameters.WishIdleValvePosition < 0 ? 0 : gParameters.WishIdleValvePosition; //Желаемое положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = gParameters.IdleValvePosition > 255 ? 255 : gParameters.IdleValvePosition < 0 ? 0 : gParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = gParameters.LongTermCorrection + gParameters.ShortTermCorrection * 256.0f + 128; //Коэффициент коррекции времени впрыска
+            tx_message.data[tx_message.length++] = (int8_t)(gParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = gParameters.Speed; //Скорость автомобиля
+            tx_message.data[tx_message.length++] = ((gParameters.PowerVoltage > 17.5f ? 17.5f : gParameters.PowerVoltage < 5.5f ? 5.5f : gParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Желаемые обороты холостого хода
+            tx_message.data[tx_message.length++] = (gParameters.AdcLambdaUA > 4.9f ? 4.9f : gParameters.AdcLambdaUA) / 5.0f * 256.0f; //Напряжение на датчике кислорода
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
+            tx_message.data[tx_message.length++] = 0; //Контрольная сумма ПЗУ (младший байт)
+            tx_message.data[tx_message.length++] = 0; //Контрольная сумма ПЗУ (старший байт)
+          } else if(rx_message.data[1] == 0x02) { //endOfLineServiceRecordLocalIdentifier
+            tx_message.data[tx_message.length++] = 0x39; //Слово комплектации 1
+            tx_message.data[tx_message.length++] = 0x18; //Слово комплектации 2
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[0]; //Слово режима работы 1
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[1]; //Слово режима работы 2
+            tx_message.data[tx_message.length++] = gParameters.EngineTemp <= -40 ? 0 : gParameters.EngineTemp + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = (gParameters.FuelRatio < 7.5f ? 7.5f : gParameters.FuelRatio > 21 ? 21 : gParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = gParameters.ThrottlePosition > 100 ? 100 : gParameters.ThrottlePosition < 0 ? 0 : gParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = gParameters.RPM / 40.0f; //Скорость вращения двигателя
+            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
+            tx_message.data[tx_message.length++] = gParameters.IdleValvePosition > 255 ? 255 : gParameters.IdleValvePosition < 0 ? 0 : gParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = (int8_t)(gParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = gParameters.Speed; //Скорость автомобиля
+            tx_message.data[tx_message.length++] = ((gParameters.PowerVoltage > 17.5f ? 17.5f : gParameters.PowerVoltage < 5.5f ? 5.5f : gParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
+          } else if(rx_message.data[1] == 0x03) { //  factoryTestRecordLocalIdentifier
+            tx_message.data[tx_message.length++] = (gParameters.KnockSensor > 4.95f) ? 255 : (gParameters.KnockSensor / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gParameters.AdcEngineTemp > 4.95f) ? 255 : (gParameters.AdcEngineTemp / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gParameters.AdcManifoldAirPressure > 4.95f) ? 255 : (gParameters.AdcManifoldAirPressure / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gParameters.PowerVoltage > 4.95f) ? 255 : (gParameters.PowerVoltage / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gParameters.AdcLambdaUA > 4.95f) ? 255 : (gParameters.AdcLambdaUA / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gParameters.AdcThrottlePosition > 4.95f) ? 255 : (gParameters.AdcThrottlePosition / 5.0f * 256);
+            tx_message.data[tx_message.length++] = 0;
+            tx_message.data[tx_message.length++] = 0;
+            tx_message.data[tx_message.length++] = 0;
+            tx_message.data[tx_message.length++] = 0;
+          } else {
+            kline_send_error(&tx_message, rx_message.data[0], 0x12);
+            break;
+          }
 
 
+        } else {
+          kline_send_error(&tx_message, rx_message.data[0], 0x12);
+        }
+
+      } while(0);
+
+      if(tx_message.length > 0) {
+        kline_send(&tx_message);
+        tester_last = now;
+      }
     }
+  }
+
+  if(session_on && DelayDiff(now, tester_last) > 3000000) {
+    if(session_on > 1) {
+      kline_setbaud(10400);
+      kline_start();
+    }
+    session_on = 0;
   }
 }
 
@@ -2347,6 +2697,11 @@ void ecu_init(void)
   ecu_init_post_init();
 
   ecu_can_init();
+
+  ecu_kline_init();
+
+  memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
+  memset(&gDiagErrors, 0, sizeof(gDiagErrors));
 
   gParameters.StartAllowed = 1;
   gEcuInitialized = 1;

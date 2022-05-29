@@ -345,6 +345,7 @@ typedef struct {
     float DrivenKilometers;
     float FuelConsumed;
     float FuelConsumption;
+    float FuelHourly;
     float TspsRelativePosition;
 
     int32_t LambdaValid;
