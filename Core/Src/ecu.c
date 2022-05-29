@@ -27,6 +27,7 @@
 #include "crc.h"
 #include "failures.h"
 #include "can.h"
+#include "kline.h"
 
 #include <string.h>
 #include "arm_math.h"
@@ -1841,6 +1842,8 @@ static void ecu_checkengine_loop(void)
 
   CHECK_STATUS(iserror, CheckCanInitFailure, gStatus.CanInitStatus != HAL_OK);
   CHECK_STATUS(iserror, CheckCanTestFailure, gStatus.CanTestStatus != HAL_OK);
+  CHECK_STATUS(iserror, CheckKlineProtocolFailure, gStatus.KlineProtocolStatus != HAL_OK);
+  CHECK_STATUS(iserror, CheckKlineLoopbackFailure, gStatus.KlineLoopbackStatus != HAL_OK);
 
   CHECK_STATUS(iserror, CheckInjector4OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckInjector4ShortToBatOrOverheat, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagShortToBatOrOvertemp);
@@ -2312,6 +2315,27 @@ static void ecu_can_loop(void)
   }
 }
 
+static void ecu_kline_loop(void)
+{
+  sKlineStatus kline_status = kline_getstatus();
+  sKlineMessage rx_message;
+  sKlineMessage tx_message;
+  int8_t status;
+
+  gStatus.KlineProtocolStatus = kline_status.error_protocol;
+  gStatus.KlineLoopbackStatus = kline_status.error_loopback;
+
+  status = kline_receive(&rx_message);
+  if(status > 0) {
+    if(rx_message.dst == 0x10) {
+      tx_message.dst = rx_message.src;
+      tx_message.src = rx_message.dst;
+
+
+    }
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -2365,6 +2389,7 @@ void ecu_loop(void)
   ecu_checkengine_loop();
   ecu_corrections_loop();
   ecu_can_loop();
+  ecu_kline_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)

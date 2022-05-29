@@ -14,6 +14,7 @@
 #include "defines.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
+#include "defines.h"
 
 #ifndef taskENTER_CRITICAL
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 5
@@ -85,32 +86,14 @@ typedef struct
     uint32_t RxPointer;
 }sGetterHandle __attribute__((aligned(32)));
 
-extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart5;
 extern UART_HandleTypeDef huart8;
 
 static sGetterHandle xHandles[] = {
     {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrNone}, 1,0,0,0,0,0, etrNone },
-    {{0},{0},{0},{0},{0},{0}, &huart4, {etrKLINE,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, NULL, {etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
 };
-
-STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)
-{
-  uint32_t aligned = (uint32_t)buffer % 32;
-  if(aligned == 0)
-    SCB_InvalidateDCache_by_Addr((uint32_t*)buffer, size);
-  else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
-}
-
-STATIC_INLINE void CacheClean(void * buffer, uint32_t size)
-{
-  uint32_t aligned = (uint32_t)buffer % 32;
-  if(aligned == 0)
-    SCB_CleanDCache_by_Addr((uint32_t*)buffer, size);
-  else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
-}
 
 STATIC_INLINE uint16_t calculatePacketId(void)
 {
@@ -494,7 +477,6 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
 
       case etrCTRL:
       case etrPC:
-      case etrKLINE:
       case etrBT:
       {
         sCount = (xDataLen > 10) ? xDataLen : 8;

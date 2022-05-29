@@ -17,6 +17,7 @@
 #include "bluetooth.h"
 #include "usb_device.h"
 #include "can.h"
+#include "kline.h"
 
 ADC_HandleTypeDef hadc1;
 
@@ -86,7 +87,7 @@ static void MX_RNG_Init(void);
 #define SENDING_QUEUE_SIZE (MAX_PACK_LEN*4)
 #define SENDING_BUFFER_SIZE (MAX_PACK_LEN)
 
-static eTransChannels PK_ECU_TxDests[] = {etrPC, etrCTRL, etrKLINE, etrBT};
+static eTransChannels PK_ECU_TxDests[] = {etrPC, etrCTRL, etrBT};
 static uint8_t PK_ECU_TxQueueBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_QUEUE_SIZE] = {{0}};
 static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_SIZE] = {{0}};
 
@@ -165,7 +166,9 @@ INLINE void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 INLINE void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
-  if(huart == &huart4 || huart == &huart5) {
+  if(huart == &huart4) {
+    kline_uart_error_callback(huart);
+  } else if(huart == &huart5) {
     xDmaErIrqHandler(huart);
   } else if(huart == &huart8) {
 
@@ -174,7 +177,9 @@ INLINE void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 INLINE void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-  if(huart == &huart4 || huart == &huart5) {
+  if(huart == &huart4) {
+    kline_uart_tx_callback(huart);
+  }else if(huart == &huart5) {
     xDmaTxIrqHandler(huart);
   } else if(huart == &huart8) {
 
@@ -318,6 +323,7 @@ int main(void)
   CRC16_Init(&hcrc);
 
   can_init(&hcan1);
+  kline_init(&huart4);
 
   PK_SenderInit();
   xFifosInit();
@@ -373,6 +379,7 @@ int main(void)
     xGetterLoop();
     PK_SenderLoop();
     bluetooth_loop();
+    kline_loop();
 
     HAL_IWDG_Refresh(&hiwdg);
   }

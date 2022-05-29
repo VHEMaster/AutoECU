@@ -19,7 +19,6 @@ typedef enum {
     etrNone = 0,
     etrPC,
     etrECU,
-    etrKLINE,
     etrCTRL,
     etrBT,
 

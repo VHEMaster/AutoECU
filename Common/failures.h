@@ -28,6 +28,8 @@ typedef enum {
   CheckOutputDriverFailure,
   CheckCanInitFailure,
   CheckCanTestFailure,
+  CheckKlineProtocolFailure,
+  CheckKlineLoopbackFailure,
   CheckInjector4OpenCircuit,
   CheckInjector4ShortToBatOrOverheat,
   CheckInjector4ShortToGND,

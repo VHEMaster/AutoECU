@@ -27,6 +27,8 @@ const char * const gCheckDataErrorString[] = {
     "Output: Driver failure",
     "CAN: Init failure",
     "CAN: Test failure",
+    "KLine: Protocol failure",
+    "KLine: Loopback failure",
 
     "Injector 4: OpenCircuit",
     "Injector 4: ShortToBatOrOverheat",

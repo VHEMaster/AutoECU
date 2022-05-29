@@ -440,6 +440,8 @@ typedef struct {
     HAL_StatusTypeDef TspsSyncStatus;
     HAL_StatusTypeDef CanInitStatus;
     HAL_StatusTypeDef CanTestStatus;
+    HAL_StatusTypeDef KlineProtocolStatus;
+    HAL_StatusTypeDef KlineLoopbackStatus;
     sO2Diagnostic O2Diagnostic;
     eKnockStatus KnockStatus;
     struct {

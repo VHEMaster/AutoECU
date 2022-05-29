@@ -8,9 +8,12 @@
 #ifndef DEFINES_H_
 #define DEFINES_H_
 
+#include <stdint.h>
+#include "stm32f7xx.h"
+
 #define ECU_CYLINDERS_COUNT 4
 
-#define TABLE_SETUPS_MAX 4
+#define TABLE_SETUPS_MAX 3
 #define TABLE_PRESSURES_MAX 16
 #define TABLE_THROTTLES_MAX 16
 #define TABLE_FILLING_MAX 16
@@ -36,5 +39,21 @@
 
 #define STATIC_INLINE __attribute__((always_inline)) static inline
 #define INLINE __attribute__((always_inline)) inline
+
+STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)
+{
+  uint32_t aligned = (uint32_t)buffer % 32;
+  if(aligned == 0)
+    SCB_InvalidateDCache_by_Addr((uint32_t*)buffer, size);
+  else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
+}
+
+STATIC_INLINE void CacheClean(void * buffer, uint32_t size)
+{
+  uint32_t aligned = (uint32_t)buffer % 32;
+  if(aligned == 0)
+    SCB_CleanDCache_by_Addr((uint32_t*)buffer, size);
+  else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
+}
 
 #endif /* DEFINES_H_ */
