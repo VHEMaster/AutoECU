@@ -11,10 +11,9 @@
 #include "xProFIFO.h"
 #include <string.h>
 
-#define KLINE_TX_TIMEOUT 500
-#define KLINE_RX_TIMEOUT 5000
+#define KLINE_TX_TIMEOUT 8000
+#define KLINE_RX_TIMEOUT 10000
 
-#define KLINE_TX_BUFFER_SIZE KLINE_MSG_LEN_MAX
 #define KLINE_RX_BUFFER_SIZE 256
 
 #define KLINE_RX_BUFFER_COUNT 16
@@ -28,8 +27,7 @@ static sProFIFO klinerxfifo;
 static sKlineMessage kline_tx_fifo_buffer[KLINE_TX_BUFFER_COUNT];
 static sKlineMessage kline_rx_fifo_buffer[KLINE_RX_BUFFER_COUNT];
 
-static uint8_t kline_tx_buffer[KLINE_TX_BUFFER_SIZE];
-static uint8_t kline_rx_buffer[KLINE_RX_BUFFER_SIZE];
+static uint8_t kline_rx_buffer[KLINE_RX_BUFFER_SIZE] __attribute__((aligned(32)));
 
 static volatile uint8_t kline_tx_busy = 0;
 static volatile uint8_t kline_er_flag = 0;
@@ -51,7 +49,7 @@ void kline_uart_error_callback(UART_HandleTypeDef *_huart)
   }
 }
 
-static int8_t kline_parse(sKlineMessage *message, uint8_t *p_is_lbk, const sKlineMessage *lbk_msg) {
+static int8_t kline_parse(sKlineMessage *message, uint8_t is_lbk, const sKlineMessage *lbk_msg) {
   int8_t status = 0;
   uint8_t fmt;
   uint8_t dst;
@@ -63,18 +61,15 @@ static int8_t kline_parse(sKlineMessage *message, uint8_t *p_is_lbk, const sKlin
   uint8_t *data;
   uint8_t addr_mode;
 
-  if(*p_is_lbk) {
+  if(is_lbk) {
     if(message->length == lbk_msg->length) {
       if(memcmp(message->data, lbk_msg->data, message->length) == 0) {
         status = 0;
       } else {
         status = -1;
       }
-      message->length = 0;
-      *p_is_lbk = 0;
     } else if(message->length > lbk_msg->length) {
       status = -1;
-      *p_is_lbk = 0;
     }
   } else {
     if(message->length >= 4) {
@@ -127,17 +122,23 @@ static int8_t kline_parse(sKlineMessage *message, uint8_t *p_is_lbk, const sKlin
 
 HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   HAL_StatusTypeDef status = HAL_OK;
   huart = _huart;
 
   if(!huart)
     return HAL_ERROR;
 
-  protInit(&klinetxfifo, kline_tx_fifo_buffer, sizeof(kline_tx_buffer[0]), ITEMSOF(kline_tx_buffer));
-  protInit(&klinerxfifo, kline_rx_fifo_buffer, sizeof(kline_rx_buffer[0]), ITEMSOF(kline_rx_buffer));
-
+  protInit(&klinetxfifo, kline_tx_fifo_buffer, sizeof(kline_tx_fifo_buffer[0]), ITEMSOF(kline_tx_fifo_buffer));
+  protInit(&klinerxfifo, kline_rx_fifo_buffer, sizeof(kline_rx_fifo_buffer[0]), ITEMSOF(kline_rx_fifo_buffer));
   kline_rxpointer = 0xFFFFFFFF;
-  status = HAL_UART_Receive_DMA(huart, kline_rx_buffer, KLINE_RX_BUFFER_SIZE);
+
+  // Short K-Line to GND while initialization is ongoing
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   return status;
 }
@@ -152,12 +153,20 @@ HAL_StatusTypeDef kline_setbaud(uint32_t baudrate)
 
 HAL_StatusTypeDef kline_start(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   HAL_StatusTypeDef status = HAL_OK;
+
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   kline_rxpointer = 0xFFFFFFFF;
   kline_er_flag = 0;
   kline_tx_busy = 0;
-  status = HAL_UART_Receive_DMA(huart, kline_rx_buffer, KLINE_RX_BUFFER_SIZE);
+  status = HAL_UART_Receive_DMA(huart, kline_rx_buffer, sizeof(kline_rx_buffer));
 
   return status;
 }
@@ -185,6 +194,11 @@ void kline_loop(void)
       length = (dmasize-dmacnt)+kline_rxpointer;
     else length = kline_rxpointer-dmacnt;
 
+    if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_SET) {
+      rx_last = now;
+      receiving = 1;
+    }
+
     if(length + rx_message.length > KLINE_MSG_LEN_MAX) length = KLINE_MSG_LEN_MAX - rx_message.length;
     if(length > 0)
     {
@@ -199,29 +213,34 @@ void kline_loop(void)
       rx_last = now;
       receiving = 1;
     } else {
-      if(receiving && ((!transmitting && DelayDiff(now, rx_last) > KLINE_RX_TIMEOUT) ||
-          (transmitting && DelayDiff(now, rx_last) > KLINE_TX_TIMEOUT))) {
+      if(receiving) {
+        if((!transmitting && DelayDiff(now, rx_last) > KLINE_RX_TIMEOUT) ||
+            (transmitting && DelayDiff(now, rx_last) > KLINE_TX_TIMEOUT)) {
+          status = kline_parse(&rx_message, transmitting, &tx_message);
 
-        status = kline_parse(&rx_message, &transmitting, &tx_message);
-
-        if(status) {
-          if(status > 0) {
-            protPush(&klinerxfifo, &rx_message);
-          } else if(status < 0) {
-            kline_status.error_protocol++;
-            kline_status.last_protocol = now;
+          if(status) {
+            if(status > 0 && rx_message.length > 0) {
+              protPush(&klinerxfifo, &rx_message);
+            } else {
+              if(transmitting) {
+                kline_status.error_protocol++;
+                kline_status.last_protocol = now;
+              } else {
+                kline_status.error_loopback++;
+                kline_status.last_loopback = now;
+              }
+            }
           }
-          rx_message.length = 0;
-        }
 
-        if(transmitting) {
           transmitting = 0;
-          kline_status.error_loopback++;
-          kline_status.last_loopback = now;
+          receiving = 0;
+          rx_message.length = 0;
+          rx_last = now;
         }
-        receiving = 0;
-        rx_message.length = 0;
-        rx_last = now;
+      } else if(transmitting && DelayDiff(now, rx_last) > KLINE_TX_TIMEOUT) {
+        transmitting = 0;
+        kline_status.error_loopback++;
+        kline_status.last_loopback = now;
       }
     }
   } while(length > 0);
@@ -231,7 +250,7 @@ void kline_loop(void)
       if(protGetSize(&klinetxfifo) > 0) {
         if(protPull(&klinetxfifo, &tx_message)) {
           kline_tx_busy = 1;
-          if(HAL_UART_Transmit_DMA(huart, tx_message.data, tx_message.length) == HAL_OK) {
+          if(HAL_UART_Transmit_IT(huart, tx_message.data, tx_message.length) == HAL_OK) {
             tx_last = now;
             rx_last = now;
             transmitting = 1;
@@ -244,6 +263,7 @@ void kline_loop(void)
   } else if(DelayDiff(now, tx_last) > 1000000) {
     HAL_UART_AbortTransmit(huart);
     kline_tx_busy = 0;
+    transmitting = 0;
   }
 
   if(kline_status.error_loopback && DelayDiff(now, kline_status.last_loopback) > 2000000) {
@@ -261,13 +281,17 @@ int8_t kline_send(sKlineMessage *message)
 {
   int8_t status = 0;
   uint8_t len = 0;
+  uint8_t inc = 3;
 
   if(!message || !message->length || message->length > 255)
     return -1;
 
   if(protGetAvail(&klinetxfifo) > 0) {
+    if(message->length >= 64)
+      inc = 4;
+
     for(int i = message->length - 1; i >= 0; i--)
-      message->data[i + 4] = message->data[i];
+      message->data[i + inc] = message->data[i];
 
     message->data[len++] = 0x80 + (message->length < 64 ? message->length : 0);
     message->data[len++] = message->dst;

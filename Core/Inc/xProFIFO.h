@@ -14,7 +14,7 @@ typedef struct {
     uint32_t capacity;
     uint32_t read;
     uint32_t write;
-    uint8_t elemsize;
+    uint32_t elemsize;
     uint8_t overflow;
 } sProInfo;
 
@@ -23,7 +23,7 @@ typedef struct {
 	sProInfo info;
 } sProFIFO;
 
-extern void protInit(sProFIFO* fifo, void* xBuffer, uint8_t xElemSize, int xCapacity);
+extern void protInit(sProFIFO* fifo, void* xBuffer, int xElemSize, int xCapacity);
 extern void protClear(sProFIFO* fifo);
 extern uint32_t protPush(sProFIFO* fifo, const void* xData);
 extern uint32_t protPushSequence(sProFIFO* fifo, const void* xData, uint32_t xCount);

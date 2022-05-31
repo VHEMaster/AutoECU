@@ -36,7 +36,7 @@ INLINE uint32_t protGetAvail(sProFIFO* fifo) {
     return value;
 }
 
-void protInit(sProFIFO* fifo, void* xBuffer, uint8_t xElemSize, int xCapacity) {
+void protInit(sProFIFO* fifo, void* xBuffer, int xElemSize, int xCapacity) {
     fifo->buffer = xBuffer;
     fifo->info.capacity = xCapacity;
     fifo->info.read = 0;
