@@ -731,8 +731,6 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPulse)
     injection_time = gForceParameters.InjectionPulse;
 
-  fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
-
   idle_wish_rpm += idle_rpm_shift;
 
   if(gForceParameters.Enable.WishIdleRPM)
@@ -780,6 +778,12 @@ static void ecu_update(void)
 
   injection_dutycycle = injection_time / (period * 2.0f);
 
+  if(injection_dutycycle > 1.0f) {
+    injection_time = period * 2.0f;
+  }
+
+  fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
+
   if(idle_wish_valve_pos > 255.0f)
     idle_wish_valve_pos = 255.0f;
   else if(idle_wish_valve_pos < 0.0f)
@@ -796,6 +800,9 @@ static void ecu_update(void)
     rotates = 0;
   }
 
+  km_drive = speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
+  km_driven += km_drive;
+
   if(!rotates) {
     running = 0;
     injection_time = 0;
@@ -807,9 +814,6 @@ static void ecu_update(void)
     fuel_consumption_per_distance = 0;
     fuel_consumption_hourly = 0;
   } else {
-    km_drive = speed * 2.77777778e-10f * diff; // speed / (60 * 60 * 1.000.000) * diff
-    km_driven += km_drive;
-
     fuel_consumption = fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / period) * 0.001f * 2.0f;
     fuel_consumed += fuel_consumption;
 
@@ -829,7 +833,7 @@ static void ecu_update(void)
     injection_phase_duration = 0;
   }
 
-  if(injection_dutycycle > 0.85f) {
+  if(injection_dutycycle > 0.90f) {
     gStatus.InjectionUnderflow = HAL_ERROR;
   } else {
     gStatus.InjectionUnderflow = HAL_OK;
