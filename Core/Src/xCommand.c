@@ -12,9 +12,11 @@
 #include "ecu.h"
 #include "delay.h"
 #include "defines.h"
-#include "usbd_cdc_if.h"
 #include "can.h"
 #include "defines.h"
+#ifdef VIRTUALCOMPORT
+#include "usbd_cdc_if.h"
+#endif
 
 #ifndef taskENTER_CRITICAL
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY 5
@@ -90,9 +92,14 @@ extern UART_HandleTypeDef huart5;
 extern UART_HandleTypeDef huart8;
 
 static sGetterHandle xHandles[] = {
+#ifdef VIRTUALCOMPORT
     {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, NULL, {etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
+#else
+    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
+    {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
+#endif
 };
 
 STATIC_INLINE uint16_t calculatePacketId(void)
@@ -190,7 +197,9 @@ STATIC_INLINE void packager(sGetterHandle* xHandle, const uint8_t* xMsgPtr, uint
                 xHandle->TxBusy = 0;
               }
               else {
+#ifdef VIRTUALCOMPORT
                 CDC_Transmit(xHandle->BufTx, aTotLen);
+#endif
               }
             }
           }
@@ -256,7 +265,9 @@ STATIC_INLINE void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
                 xHandle->TxBusy = 0;
               }
               else {
+#ifdef VIRTUALCOMPORT
                 CDC_Transmit(xHandle->BufTx, 8);
+#endif
               }
             }
           }
@@ -311,7 +322,9 @@ void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLe
           xHandle->TxBusy = 0;
         }
         else {
+#ifdef VIRTUALCOMPORT
           CDC_Transmit(xHandle->BufTx, xMsgLen);
+#endif
         }
       }
     }
@@ -521,7 +534,9 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                   hDest->TxBusy = 0;
                 }
                 else {
+#ifdef VIRTUALCOMPORT
                   CDC_Transmit(hDest->BufTx, sCount);
+#endif
                 }
               }
             }
@@ -649,7 +664,9 @@ void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
             HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
         } else {
           //No need to support CAN here
+#ifdef VIRTUALCOMPORT
           CDC_Transmit(handle->BufTx, length);
+#endif
         }
       }
       else handle->TxBusy = 0;
@@ -658,6 +675,8 @@ void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
   }
 }
 
+
+#ifdef VIRTUALCOMPORT
 void CDC_TxCpltCallback(void)
 {
   sGetterHandle * handle;
@@ -680,7 +699,6 @@ void CDC_TxCpltCallback(void)
   }
 }
 
-
 void CDC_ReceiveCallback(uint8_t *buffer, uint32_t length)
 {
   sGetterHandle * handle;
@@ -692,6 +710,7 @@ void CDC_ReceiveCallback(uint8_t *buffer, uint32_t length)
     }
   }
 }
+#endif
 
 void xDmaRxIrqHandler(UART_HandleTypeDef *huart)
 {
@@ -831,7 +850,9 @@ void xGetterLoop(void)
           HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
       } else {
         //No need to support CAN here
+#ifdef VIRTUALCOMPORT
         CDC_Transmit(handle->BufTx, length);
+#endif
       }
     }
     else taskEXIT_CRITICAL();

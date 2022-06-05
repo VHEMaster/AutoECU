@@ -55,6 +55,7 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
+#ifdef SIMULATION
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
   static uint8_t phase = 0;
@@ -88,6 +89,7 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 
   }
 }
+#endif
 
 void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {

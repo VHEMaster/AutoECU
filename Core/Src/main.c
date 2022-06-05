@@ -15,9 +15,12 @@
 #include "injector.h"
 #include "sst25vf032b.h"
 #include "bluetooth.h"
-#include "usb_device.h"
 #include "can.h"
 #include "kline.h"
+
+#ifdef VIRTUALCOMPORT
+#include "usb_device.h"
+#endif
 
 ADC_HandleTypeDef hadc1;
 
@@ -100,10 +103,12 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
   }
 }
 
+#ifdef SIMULATION
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased);
 
 float gDebugRpm = 3000;
 uint8_t gPhased = 1;
+#endif
 
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -116,7 +121,9 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   } else if(htim == &htim14) {
     injector_irq(InjectorCy3);
   } else if (htim == &htim3) {
+#ifdef SIMULATION
     csps_emulate(Delay_Tick, gDebugRpm, gPhased);
+#endif
     ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();
@@ -132,20 +139,22 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-  uint32_t timestamp;
   if (htim == &htim5) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
-      //timestamp = htim->Instance->CCR1;
-      //csps_exti(timestamp);
+#ifndef SIMULATION
+#ifndef CSPS_EXTI
+      csps_exti(htim->Instance->CCR1);
+#endif
+#endif
     }
   }
   else if (htim == &htim8) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
-      timestamp = Delay_Tick;
-      speed_exti(timestamp);
+      speed_exti(Delay_Tick);
     } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-      //timestamp = Delay_Tick;
-      //csps_tsps_exti(timestamp);
+#ifndef SIMULATION
+      csps_tsps_exti(Delay_Tick);
+#endif
     }
   }
 }
@@ -160,7 +169,11 @@ INLINE void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 INLINE void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == TIM5_CH1_SENS_CSPS_Pin) {
-    //csps_exti(Delay_Tick, DelayMask);
+#ifndef SIMULATION
+#ifdef CSPS_EXTI
+    csps_exti(Delay_Tick, DelayMask);
+#endif
+#endif
   }
 }
 
@@ -314,11 +327,11 @@ int main(void)
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 1, GPIO_PIN_RESET);
-  //Commented to not to disturb USB
-  //outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
   outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 1, GPIO_PIN_RESET);
-  //Commented to not to disturb USB
-  //outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
+#ifndef VIRTUALCOMPORT
+  outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
+#endif
 
   CRC16_Init(&hcrc);
 
@@ -350,7 +363,9 @@ int main(void)
 
   Misc_O2_Init(htim9.Init.Period, &o2_pwm_period);
 
+#ifndef CSPS_EXTI
   HAL_TIM_IC_Start_IT(&htim5, TIM_CHANNEL_1);
+#endif
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_3);
   HAL_TIM_Base_Start_IT(&htim3);
@@ -370,7 +385,9 @@ int main(void)
 
   ecu_init();
 
+#ifdef VIRTUALCOMPORT
   MX_USB_DEVICE_Init();
+#endif
 
   while (1) {
     speed_loop();
@@ -1480,14 +1497,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = INJ_4_Pin;
   HAL_GPIO_Init(INJ_4_GPIO_Port, &GPIO_InitStruct);
 
-
+#ifdef CSPS_EXTI
   /*Configure GPIO pin : TIM5_CH1_SENS_CSPS_Pin */
-  //GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
-  //GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  //GPIO_InitStruct.Pull = GPIO_PULLUP;
-  //HAL_GPIO_Init(TIM5_CH1_SENS_CSPS_GPIO_Port, &GPIO_InitStruct);
-  //HAL_NVIC_SetPriority(EXTI0_IRQn, NVIC_PRIO_EXTI0_CSPS, 0);
-  //HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+  GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(TIM5_CH1_SENS_CSPS_GPIO_Port, &GPIO_InitStruct);
+
+  HAL_NVIC_SetPriority(EXTI0_IRQn, NVIC_PRIO_EXTI0_CSPS, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+#endif
 }
 
 /* USER CODE BEGIN 4 */

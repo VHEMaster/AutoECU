@@ -374,16 +374,22 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     PB14     ------> SPI2_MISO
     PB15     ------> SPI2_MOSI
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
-    //HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+#ifndef SIMULATION
+    GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+#endif
 
-    //TODO: REMOVE IT BEFORE TESTING ON REAL ECU BOARD!!!!!!
-    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3; HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-    GPIO_InitStruct.Pin = GPIO_PIN_9; HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#ifdef SIMULATION
+    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#endif
 
     /* SPI2 DMA Init */
     /* SPI2_TX Init */
@@ -687,6 +693,8 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /**TIM5 GPIO Configuration
     PA0/WKUP     ------> TIM5_CH1
     */
+
+#ifndef CSPS_EXTI
     GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -696,6 +704,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 
     HAL_NVIC_SetPriority(TIM5_IRQn, NVIC_PRIO_TIM5_CSPS, 0);
     HAL_NVIC_EnableIRQ(TIM5_IRQn);
+#endif
 
   /* USER CODE BEGIN TIM5_MspInit 1 */
 
@@ -903,7 +912,9 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     /**TIM5 GPIO Configuration
     PA0/WKUP     ------> TIM5_CH1
     */
+#ifndef CSPS_EXTI
     HAL_GPIO_DeInit(TIM5_CH1_SENS_CSPS_GPIO_Port, TIM5_CH1_SENS_CSPS_Pin);
+#endif
 
   /* USER CODE BEGIN TIM5_MspDeInit 1 */
 

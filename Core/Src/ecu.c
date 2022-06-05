@@ -160,9 +160,11 @@ static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
 
+#ifndef SIMULATION
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
-static volatile uint8_t gIgnCanShutdown = 0;
 static volatile uint8_t gIgnShutdownReady = 0;
+#endif
+static volatile uint8_t gIgnCanShutdown = 0;
 
 static void ecu_can_process_message(const sCanMessage *message);
 
@@ -295,13 +297,14 @@ static void ecu_pid_init(void)
   ecu_pid_update(0);
 }
 
-
+#ifdef SIMULATION
 float gDebugMap = 20000;
 float gDebugAirTemp = 20.0f;
 float gDebugEngineTemp = 90.0f;
 float gDebugThrottle = 5;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
+#endif
 
 static void ecu_update(void)
 {
@@ -448,20 +451,24 @@ static void ecu_update(void)
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
   acceleration = speed_getacceleration();
-  //gStatus.Sensors.Struct.Map = sens_get_map(&map);
-  map = gDebugMap;
   knock_status = sens_get_knock(&knock);
   sens_get_knock_raw(&knock_raw);
-  //gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
+
+#ifdef SIMULATION
+  map = gDebugMap;
   air_temp = gDebugAirTemp;
-  //gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
   engine_temp = gDebugEngineTemp;
-  //gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
   throttle = gDebugThrottle;
-  //gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
   reference_voltage = gDebugReferenceVoltage;
-  //gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   power_voltage = gDebugPowerVoltage;
+#else
+  gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
+  gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
+  gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
+  gStatus.Sensors.Struct.Map = sens_get_map(&map);
+  gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
+  gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
+#endif
 
   tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
 
@@ -2375,6 +2382,7 @@ static void ecu_corrections_loop(void)
   }
 }
 
+#ifndef SIMULATION
 static void ecu_ign_process(void)
 {
   static uint32_t tick_ready = 0;
@@ -2410,6 +2418,7 @@ static void ecu_ign_process(void)
     gIgnShutdownReady = 1;
   }
 }
+#endif
 
 static void ecu_config_process(void)
 {
@@ -2734,8 +2743,9 @@ void ecu_irq_slow_loop(void)
   ecu_fan_process();
   ecu_config_process();
 
-  //TODO: uncomment on real ECU
-  //ecu_ign_process();
+#ifndef SIMULATION
+  ecu_ign_process();
+#endif
 
 }
 

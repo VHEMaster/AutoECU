@@ -83,7 +83,10 @@ extern DMA_HandleTypeDef hdma_uart5_tx;
 extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart5;
 extern UART_HandleTypeDef huart8;
+
+#ifdef VIRTUALCOMPORT
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+#endif
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -228,6 +231,7 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32f7xx.s).                    */
 /******************************************************************************/
 
+#ifdef VIRTUALCOMPORT
 /**
   * @brief This function handles USB On The Go FS global interrupt.
   */
@@ -241,6 +245,7 @@ void OTG_FS_IRQHandler(void)
 
   /* USER CODE END OTG_FS_IRQn 1 */
 }
+#endif
 /**
 * @brief This function handles ADC1, ADC2 and ADC3 global interrupts.
 */
