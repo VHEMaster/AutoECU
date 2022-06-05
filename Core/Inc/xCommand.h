@@ -22,7 +22,7 @@ typedef enum {
     etrCTRL,
     etrBT,
 
-    etrCAN = 64,
+    etrCAN = 128,
 
     etrCount
 } eTransChannels;
