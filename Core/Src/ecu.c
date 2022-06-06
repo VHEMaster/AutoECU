@@ -475,7 +475,7 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 40.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
-    air_temp = -20.0f;
+    air_temp = 0.0f;
 
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
