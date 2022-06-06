@@ -1693,10 +1693,6 @@ static void ecu_process(void)
     }
   }
 
-  while(inj_phase > angles_injection_per_turn * 0.5f) {
-    inj_phase -= angles_injection_per_turn;
-  }
-
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
       angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
@@ -1726,10 +1722,14 @@ static void ecu_process(void)
     }
 
     saturate = time_sat / uspa;
-    if(injection_phase_by_end) {
-      inj_angle = inj_pulse / uspa;
-    } else {
-      inj_angle = 0.0f;
+    inj_angle = inj_pulse / uspa;
+
+    if(!injection_phase_by_end) {
+      inj_phase += inj_angle;
+    }
+
+    while(inj_phase > angles_injection_per_turn * 0.5f) {
+      inj_phase -= angles_injection_per_turn;
     }
 
     //Ignition part
