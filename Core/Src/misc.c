@@ -19,7 +19,6 @@
 #include "sensors.h"
 #include "defines.h"
 #include "interpolation.h"
-#include "math_fast.h"
 #include <string.h>
 
 #define O2_PID_P  -2.0f

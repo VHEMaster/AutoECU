@@ -31,6 +31,7 @@
 
 #include <string.h>
 #include "arm_math.h"
+#include "math_fast.h"
 
 #define ENRICHMENT_STATES_COUNT 6
 
@@ -540,7 +541,7 @@ static void ecu_update(void)
   fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
   if(table->is_fuel_pressure_const) {
     fuel_abs_pressure += (1.0f - map * 0.00001f);
-    fuel_flow_per_us *= fuel_abs_pressure / fuel_pressure;
+    fuel_flow_per_us *= fast_sqrt(fuel_abs_pressure / fuel_pressure);
   }
 
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
