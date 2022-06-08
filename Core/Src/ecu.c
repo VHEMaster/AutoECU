@@ -310,6 +310,7 @@ float gDebugPowerVoltage = 14.4f;
 static void ecu_update(void)
 {
   static uint32_t adaptation_last = 0;
+  static uint32_t phased_last = 0;
   static float fuel_consumed = 0;
   static float km_driven = 0;
   static uint32_t updated_last = 0;
@@ -433,6 +434,7 @@ static void ecu_update(void)
   uint8_t phased;
   uint8_t idle_flag;
   uint8_t o2_valid = 0;
+  uint8_t use_tsps = gEcuParams.useTSPS;
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
@@ -495,13 +497,17 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
 
-  if(running && gEcuParams.useTSPS && !phased) {
-    gStatus.Sensors.Struct.Tsps = HAL_ERROR;
+  if(running && use_tsps && !phased) {
+    if(DelayDiff(now, phased_last) > 500000) {
+      gStatus.Sensors.Struct.Tsps = HAL_ERROR;
+      phased_last = now;
+    }
   } else {
+    phased_last = now;
     gStatus.Sensors.Struct.Tsps = HAL_OK;
   }
 
-  if(running && gEcuParams.useTSPS && phased && fabsf(tsps_rel_pos) >= gEcuParams.tspsDesyncThr) {
+  if(running && use_tsps && phased && fabsf(tsps_rel_pos) >= gEcuParams.tspsDesyncThr) {
     gStatus.TspsSyncStatus = HAL_ERROR;
   } else {
     gStatus.TspsSyncStatus = HAL_OK;
@@ -1541,6 +1547,10 @@ static void ecu_process(void)
   last = now;
 
   static GPIO_PinState clutch = GPIO_PIN_RESET;
+  static uint8_t was_found = 0;
+  static uint8_t last_start_triggered = 0;
+  static uint32_t last_start = 0;
+  static uint32_t turns_count_last = 0;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
@@ -1593,9 +1603,13 @@ static void ecu_process(void)
   uint8_t cutoff_inj_act, cutoff_ign_act;
   uint8_t shift_inj_act, shift_ign_act;
   uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
+  uint8_t is_phased = csps_isphased(csps);
+  uint8_t is_running = csps_isrunning();
   HAL_StatusTypeDef throttleStatus = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
+  uint32_t phase_seek_time;
+  uint32_t turns_count = csps_getturns();;
 
   if(shiftEnabled) {
     clutch_pin = sens_get_clutch(&clutch_time);
@@ -1616,12 +1630,32 @@ static void ecu_process(void)
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
-  phased_injection = use_tsps && csps_isphased(csps);
+  phased_injection = use_tsps && is_phased;
   phased_ignition = phased_injection && individual_coils && !single_coil;
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   angle_ignite_param = gParameters.IgnitionAngle;
   injection_phase_by_end = table->is_fuel_phase_by_end;
+
+
+  if(found != was_found) {
+    was_found = found;
+    last_start_triggered = 1;
+    last_start = now;
+    turns_count_last = turns_count;
+  }
+
+  if(last_start_triggered) {
+    if(found && use_tsps && !is_phased) {
+      if(DelayDiff(now, last_start) < 1000000 && turns_count - turns_count_last < 3) {
+        start_allowed = 0;
+      } else {
+        last_start_triggered = 0;
+      }
+    } else {
+      last_start_triggered = 0;
+    }
+  }
 
   angle_ignite_koff = diff / 5000.0f;
   if(angle_ignite_koff > 0.8f)

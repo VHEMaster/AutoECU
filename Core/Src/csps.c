@@ -41,6 +41,7 @@ static volatile float csps_rpm = 0;
 static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
 static volatile uint32_t csps_turns = 0;
+static volatile uint32_t csps_turns_phase = 0;
 static volatile uint32_t csps_halfturns = 0;
 static volatile uint32_t *csps_timebase = NULL;
 static volatile float csps_tsps_rel_pos = 0;
@@ -302,8 +303,13 @@ inline void csps_exti(uint32_t timestamp)
     if(csps_phase_found) {
       csps_phase_found = 0;
       csps_phased = 1;
+      csps_turns_phase = csps_turns;
       csps_angle_phased = csps_angle14;
       cs_phased_p = cs14_p;
+    } else {
+      if(csps_turns - csps_turns_phase > 5) {
+        csps_phased = 0;
+      }
     }
 
     data.PhasedActive = csps_phased;
