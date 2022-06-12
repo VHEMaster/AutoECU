@@ -179,8 +179,8 @@ static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_warmup_mixtures[TABLE_TEMPERATURES_MAX] = {
-    12.0f, 12.0f, 12.0f, 12.1f, 12.3f, 12.6f, 13.0f, 13.5f,
-    14.0f, 14.4f, 14.6f, 14.7f, 14.7f, 14.7f, 14.7f, 14.7f
+    13.0f, 13.0f, 13.1f, 13.2f, 13.3f, 13.5f, 13.8f, 14.1f,
+    14.3f, 14.4f, 14.5f, 14.6f, 14.7f, 14.7f, 14.7f, 14.7f
 };
 
 static const float default_warmup_mix_koffs[TABLE_TEMPERATURES_MAX] = {
