@@ -1604,11 +1604,9 @@ static void ecu_process(void)
   uint8_t shift_inj_act, shift_ign_act;
   uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
   uint8_t is_phased = csps_isphased(csps);
-  uint8_t is_running = csps_isrunning();
   HAL_StatusTypeDef throttleStatus = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
-  uint32_t phase_seek_time;
   uint32_t turns_count = csps_getturns();;
 
   if(shiftEnabled) {
