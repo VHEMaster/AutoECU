@@ -167,7 +167,7 @@ static volatile uint8_t gIgnShutdownReady = 0;
 #endif
 static volatile uint8_t gIgnCanShutdown = 0;
 
-static void ecu_can_process_message(const sCanMessage *message);
+static int8_t ecu_can_process_message(const sCanMessage *message);
 
 static uint8_t ecu_get_table(void)
 {
@@ -2461,7 +2461,7 @@ static void ecu_config_process(void)
 
 static void ecu_can_init(void)
 {
-  gStatus.CanInitStatus = can_start(0, 0);
+  gStatus.CanInitStatus = can_start(0x100, 0x7F0);
   if(gStatus.CanInitStatus == HAL_OK) {
     gCanTestStarted = 1;
   }
@@ -3248,9 +3248,55 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
   }
 }
 
-static void ecu_can_process_message(const sCanMessage *message)
+static int8_t ecu_can_process_message(const sCanMessage *message)
 {
+  sCanMessage transmit = {0};
+  int8_t status = 0;
 
+  if(message->id == 0x100) { //Loopback
+    if(message->rtr == CAN_RTR_REMOTE) {
+      transmit.id = message->id + 0x10;
+      transmit.rtr = CAN_RTR_DATA;
+      transmit.length = message->length;
+      memcpy(transmit.data.bytes, message->data.bytes, message->length);
+    }
+  } else if(message->id == 0x102) { //Parameter request
+    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+      if(message->data.dwords[0] < sizeof(gParameters) / sizeof(uint32_t)) {
+        transmit.id = message->id + 0x10;
+        transmit.rtr = CAN_RTR_DATA;
+        transmit.length = 8;
+        transmit.data.dwords[0] = message->data.dwords[0];
+        transmit.data.dwords[1] = ((uint32_t *)&gParameters)[message->data.dwords[0]];
+      }
+    }
+  } else if(message->id == 0x103) { //Table memory request
+    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+      if(message->data.dwords[0] < sizeof(gEcuTable) / sizeof(uint32_t)) {
+        transmit.id = message->id + 0x10;
+        transmit.rtr = CAN_RTR_DATA;
+        transmit.length = 8;
+        transmit.data.dwords[0] = message->data.dwords[0];
+        transmit.data.dwords[1] = ((uint32_t *)&gEcuTable[0])[message->data.dwords[0]];
+      }
+    }
+  } else if(message->id == 0x104) { //Config memory request
+    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+      if(message->data.dwords[0] < sizeof(gEcuParams) / sizeof(uint32_t)) {
+        transmit.id = message->id + 0x10;
+        transmit.rtr = CAN_RTR_DATA;
+        transmit.length = 8;
+        transmit.data.dwords[0] = message->data.dwords[0];
+        transmit.data.dwords[1] = ((uint32_t *)&gEcuParams)[message->data.dwords[0]];
+      }
+    }
+  }
+
+  if(transmit.id > 0 || transmit.length > 0) {
+    status = can_send(&transmit);
+  }
+
+  return status;
 }
 
 void ecu_hardfault_handle(void)

@@ -11,11 +11,17 @@
 #include "main.h"
 
 typedef struct {
+    union {
+        uint8_t bytes[8];
+        uint16_t words[4];
+        uint32_t dwords[2];
+        uint64_t qword;
+    } data;
     uint32_t rtr;
     uint16_t id;
     uint8_t length;
-    uint8_t data[8];
-}sCanMessage;
+    uint8_t pad;
+}sCanMessage __attribute__((aligned(8)));
 
 HAL_StatusTypeDef can_init(CAN_HandleTypeDef *_hcan);
 HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask);

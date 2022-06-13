@@ -32,7 +32,7 @@ void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
   sCanMessage message = {0};
   HAL_StatusTypeDef status;
   if(_hcan == hcan) {
-    status = HAL_CAN_GetRxMessage(hcan, fifo, &header, message.data);
+    status = HAL_CAN_GetRxMessage(hcan, fifo, &header, message.data.bytes);
     if(status == HAL_OK) {
       message.id = header.StdId;
       message.length = header.DLC;
@@ -147,7 +147,7 @@ int8_t can_test(void)
         break;
 
       if(status > 0) {
-        if(txid != message.id || txrtr != message.rtr || txlength != message.length || memcmp(txdata, message.data, txlength) != 0)
+        if(txid != message.id || txrtr != message.rtr || txlength != message.length || memcmp(txdata, message.data.bytes, txlength) != 0)
           status = -100;
       }
     }
@@ -193,7 +193,7 @@ void can_loop(void)
       }
       break;
     case 1:
-      status = can_transmit(message.id, message.rtr, message.length, message.data, NULL);
+      status = can_transmit(message.id, message.rtr, message.length, message.data.bytes, NULL);
       if(status != 0) {
         state = 0;
       }
