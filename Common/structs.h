@@ -8,7 +8,6 @@
 #ifndef STRUCTS_H_
 #define STRUCTS_H_
 
-#include "main.h"
 #include "defines.h"
 
 typedef struct {

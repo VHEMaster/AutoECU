@@ -8,8 +8,7 @@
 #ifndef DEFINES_H_
 #define DEFINES_H_
 
-#include <stdint.h>
-#include "stm32f7xx.h"
+#include "main.h"
 
 #define ECU_CYLINDERS_COUNT 4
 
@@ -40,6 +39,7 @@
 #define STATIC_INLINE __attribute__((always_inline)) static inline
 #define INLINE __attribute__((always_inline)) inline
 
+#if __CORTEX_M == (7)
 STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)
 {
   uint32_t aligned = (uint32_t)buffer % 32;
@@ -55,5 +55,6 @@ STATIC_INLINE void CacheClean(void * buffer, uint32_t size)
     SCB_CleanDCache_by_Addr((uint32_t*)buffer, size);
   else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - aligned), size + aligned);
 }
+#endif
 
 #endif /* DEFINES_H_ */
