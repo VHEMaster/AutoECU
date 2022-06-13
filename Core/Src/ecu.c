@@ -2488,9 +2488,7 @@ static void ecu_can_loop(void)
     } else {
       status = can_receive(&message);
       if(status > 0) {
-        if(!xCanRxHandle(&message)) {
-          ecu_can_process_message(&message);
-        }
+        ecu_can_process_message(&message);
       }
       can_loop();
     }

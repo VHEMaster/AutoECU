@@ -22,8 +22,6 @@ typedef enum {
     etrCTRL,
     etrBT,
 
-    etrCAN = 128,
-
     etrCount
 } eTransChannels;
 
@@ -34,7 +32,6 @@ int8_t xSender(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen
 void xDmaTxIrqHandler(UART_HandleTypeDef *huart);
 void xDmaRxIrqHandler(UART_HandleTypeDef *huart);
 void xDmaErIrqHandler(UART_HandleTypeDef *huart);
-uint8_t xCanRxHandle(const sCanMessage *message);
 
 void xSenderRaw(eTransChannels xChaDest, const uint8_t* xMsgPtr, uint32_t xMsgLen);
 
