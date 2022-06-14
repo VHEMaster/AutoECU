@@ -40,6 +40,7 @@ typedef volatile struct {
     uint8_t loadreq;
     uint8_t issaving;
     uint8_t isloading;
+    uint8_t lock;
 
     eTransChannels savereqsrc;
     eTransChannels loadreqsrc;
@@ -168,6 +169,7 @@ static volatile uint8_t gIgnShutdownReady = 0;
 static volatile uint8_t gIgnCanShutdown = 0;
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
+static int8_t ecu_shutdown_process(void);
 
 static uint8_t ecu_get_table(void)
 {
@@ -1890,13 +1892,14 @@ static void ecu_fuelpump_process(void)
   static uint8_t was_rotating = 1;
   uint32_t now = Delay_Tick;
   uint8_t rotates = csps_isrotates();
+  uint8_t can_shutdown = gIgnCanShutdown;
   uint8_t time_to_last = DelayDiff(now, active_last) < 1000000;
 
   if(gForceParameters.Enable.FuelPumpRelay) {
     active = gForceParameters.FuelPumpRelay > 0;
     active_last = now;
   } else {
-    if((was_rotating && time_to_last) || rotates) {
+    if(((was_rotating && time_to_last) || rotates) && !can_shutdown) {
       if(rotates) {
         active_last = now;
         was_rotating = 1;
@@ -2290,19 +2293,24 @@ static void ecu_drag_loop(void)
 static void ecu_mem_loop(void)
 {
   int8_t flashstatus = 0;
-  if(!Mem.issaving && !Mem.isloading)
+  if(!Mem.lock)
   {
-    if(Mem.savereq && !Mem.isloading) {
-      Mem.issaving = 1;
-      //CanDeinit = 0;
+    Mem.lock = 1;
+    if(!Mem.issaving && !Mem.isloading) {
+      if(Mem.savereq && !Mem.isloading) {
+        Mem.issaving = 1;
+      } else if(Mem.loadreq && !Mem.issaving) {
+        Mem.isloading = 1;
+      } else {
+        Mem.lock = 0;
+      }
+    } else {
+      Mem.lock = 0;
     }
-    else if(Mem.loadreq && !Mem.issaving)
-      Mem.isloading = 1;
   }
 
   if(Mem.issaving)
   {
-    //CanDeinit = 0;
     flashstatus = config_save_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
     if(flashstatus)
     {
@@ -2310,8 +2318,8 @@ static void ecu_mem_loop(void)
       PK_SendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       gStatus.Flash.Struct.Save = flashstatus;
       Mem.issaving = 0;
-      //CanDeinit = 1;
       Mem.savereq = 0;
+      Mem.lock = 0;
     }
   }
   else if(Mem.isloading)
@@ -2324,6 +2332,7 @@ static void ecu_mem_loop(void)
       gStatus.Flash.Struct.Load = flashstatus;
       Mem.isloading = 0;
       Mem.loadreq = 0;
+      Mem.lock = 0;
     }
   }
 }
@@ -2419,6 +2428,8 @@ static void ecu_corrections_loop(void)
 static void ecu_ign_process(void)
 {
   static uint32_t tick_ready = 0;
+  static uint8_t shutdown_process = 0;
+  int8_t status;
   GPIO_PinState state;
   uint32_t now = Delay_Tick;
   uint32_t time;
@@ -2446,9 +2457,15 @@ static void ecu_ign_process(void)
     }
   }
 
-  //TODO: maybe move to another place?
-  if(gIgnCanShutdown && !gIgnShutdownReady && !csps_isrotates()) {
-    gIgnShutdownReady = 1;
+  if(shutdown_process || (gIgnCanShutdown && !gIgnShutdownReady)) {
+    shutdown_process = 1;
+    status = ecu_shutdown_process();
+    if(status) {
+      if(gIgnCanShutdown) {
+        gIgnShutdownReady = 1;
+      }
+      shutdown_process = 0;
+    }
   }
 }
 #endif
@@ -2728,6 +2745,15 @@ static void ecu_kline_loop(void)
     }
     session_on = 0;
   }
+}
+
+static int8_t ecu_shutdown_process(void)
+{
+  int8_t status = 0;
+
+  status = 1;
+
+  return status;
 }
 
 void ecu_init(void)
