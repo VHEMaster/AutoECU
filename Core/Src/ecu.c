@@ -2290,9 +2290,8 @@ static void ecu_drag_loop(void)
   }
 }
 
-static void ecu_mem_loop(void)
+static void ecu_mem_process(void)
 {
-  int8_t flashstatus = 0;
   if(!Mem.lock)
   {
     Mem.lock = 1;
@@ -2308,6 +2307,11 @@ static void ecu_mem_loop(void)
       Mem.lock = 0;
     }
   }
+}
+
+static void ecu_mem_loop(void)
+{
+  int8_t flashstatus = 0;
 
   if(Mem.issaving)
   {
@@ -2799,6 +2803,7 @@ void ecu_irq_slow_loop(void)
   ecu_fuelpump_process();
   ecu_fan_process();
   ecu_config_process();
+  ecu_mem_process();
 
 #ifndef SIMULATION
   ecu_ign_process();
