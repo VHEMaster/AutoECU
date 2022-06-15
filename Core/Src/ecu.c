@@ -317,6 +317,8 @@ static void ecu_update(void)
   static float fuel_consumed = 0;
   static float km_driven = 0;
   static uint32_t updated_last = 0;
+  static float idle_angle_correction = 0;
+  static float idle_valve_pos_correction = 0;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
@@ -375,7 +377,6 @@ static void ecu_update(void)
   float fuel_flow_per_us;
   float knock_filtered;
   float knock_noise_level;
-  float idle_valve_pos_correction;
 
   float min, max;
   static uint32_t prev_halfturns = 0;
@@ -415,7 +416,6 @@ static void ecu_update(void)
   float idle_rpm_shift;
   float idle_table_valve_pos;
   float idle_wish_valve_pos;
-  float idle_angle_correction;
   float injection_dutycycle;
 
   float calib_cur_progress;
@@ -574,6 +574,11 @@ static void ecu_update(void)
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
+  if(halfturns != prev_halfturns) {
+    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+  }
+
   while(halfturns != prev_halfturns) {
     halfturns_performed++;
     prev_halfturns++;
@@ -642,9 +647,6 @@ static void ecu_update(void)
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
   knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
-
-  idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
-  idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
 
   if(idle_flag && running) {
     ignition_angle = idle_wish_ignition;
