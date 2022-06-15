@@ -414,8 +414,10 @@ typedef struct {
     }Flash;
     union {
         struct {
-            HAL_StatusTypeDef Save : 2;
-            HAL_StatusTypeDef Load : 2;
+            HAL_StatusTypeDef CriticalSave : 2;
+            HAL_StatusTypeDef CriticalLoad : 2;
+            HAL_StatusTypeDef CorrsSave : 2;
+            HAL_StatusTypeDef CorrsLoad : 2;
         }Struct;
         uint8_t Byte;
     }Bkpsram;

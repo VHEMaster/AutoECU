@@ -153,6 +153,9 @@ static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
 static uint8_t gCanTestStarted = 0;
 
+static volatile int8_t gCriticalStatus = 0;
+static volatile int8_t gBackupStatus = 0;
+
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidIdleAirFlow = {0};
 static sMathPid gPidShortTermCorr = {0};
@@ -226,21 +229,21 @@ static void ecu_config_init(void)
 
   while(!(status = config_load_corrections(&gEcuCorrections))) {}
   if(status < 0) {
-    gStatus.Flash.Struct.Load = HAL_ERROR;
+    gStatus.Bkpsram.Struct.CorrsLoad = HAL_ERROR;
     config_default_corrections(&gEcuCorrections);
     while(!(status = config_save_corrections(&gEcuCorrections))) {}
     if(status < 0) {
-        gStatus.Flash.Struct.Save = HAL_ERROR;
+      gStatus.Bkpsram.Struct.CorrsSave = HAL_ERROR;
     }
   }
 
   while(!(status = config_load_critical_backup(&gEcuCriticalBackup))) {}
   if(status < 0) {
-    gStatus.Bkpsram.Struct.Load = HAL_ERROR;
+    gStatus.Bkpsram.Struct.CriticalLoad = HAL_ERROR;
     config_default_critical_backup(&gEcuCriticalBackup);
     while(!(status = config_save_critical_backup(&gEcuCriticalBackup))) {}
     if(status < 0) {
-        gStatus.Bkpsram.Struct.Save = HAL_ERROR;
+      gStatus.Bkpsram.Struct.CriticalSave = HAL_ERROR;
     }
   }
 }
@@ -975,10 +978,10 @@ static void ecu_update(void)
     km_driven = 0;
   }
 
-  if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 40.0f) || (rpm < idle_reg_rpm && engine_temp > 70.0f)) &&
+  if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 55.0f) || (rpm < idle_reg_rpm && engine_temp > 80.0f)) &&
       running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     float map_tps_relation = pressure / throttle_by_pressure;
-    if(map_tps_relation > 1.25f || map_tps_relation < 0.75f) {
+    if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
       if(gStatus.MapTpsRelation.is_error) {
         gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
       } else {
@@ -1149,7 +1152,7 @@ static void ecu_update(void)
 static void ecu_init_post_init(void)
 {
   Misc_EnableIdleValvePosition(gEcuCriticalBackup.idle_valve_position);
-  if(gStatus.Bkpsram.Struct.Load != HAL_OK) {
+  if(gStatus.Bkpsram.Struct.CriticalLoad != HAL_OK) {
     gEcuIdleValveCalibrateOk = 0;
     gEcuIdleValveCalibrate = 1;
   }
@@ -1170,32 +1173,29 @@ static void ecu_idle_valve_process(void)
 static void ecu_backup_save_process(void)
 {
   static uint8_t state = 0;
-  static uint32_t save_corecction_last = 0;
+  static uint32_t save_correction_last = 0;
+  int8_t status;
   uint32_t now = Delay_Tick;
-  int8_t critical_status = 0;
-  int8_t backup_status = 0;
 
   if(!CRC16_IsBusy()) {
-    critical_status = config_save_critical_backup(&gEcuCriticalBackup);
+    status = config_save_critical_backup(&gEcuCriticalBackup);
+    gCriticalStatus = status < 0 ? status : 0;
   }
 
   switch(state) {
     case 0:
-      break;
-    case 1:
-      if(DelayDiff(now, save_corecction_last) > 1000000) {
-        save_corecction_last = now;
+      if(DelayDiff(now, save_correction_last) > 500000) {
+        save_correction_last = now;
         state++;
-      } else {
-        state = 0;
       }
       break;
-    case 2:
+    case 1:
       if(!CRC16_IsBusy()) {
-        backup_status = config_save_corrections(&gEcuCorrections);
-        if(backup_status) {
+        status = config_save_corrections(&gEcuCorrections);
+        if(status) {
           state = 0;
         }
+        gBackupStatus = status < 0 ? status : 0;
       }
       break;
 
@@ -1204,9 +1204,11 @@ static void ecu_backup_save_process(void)
       break;
   }
 
-  if(critical_status || backup_status) {
-    if((critical_status < 0 || backup_status < 0) && gStatus.Bkpsram.Struct.Save == HAL_OK)
-      gStatus.Bkpsram.Struct.Save = HAL_ERROR;
+  if(gBackupStatus < 0) {
+      gStatus.Bkpsram.Struct.CorrsSave = HAL_ERROR;
+  }
+  if(gCriticalStatus < 0) {
+      gStatus.Bkpsram.Struct.CriticalSave = HAL_ERROR;
   }
 }
 
@@ -1975,8 +1977,10 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckFlashLoadFailure, gStatus.Flash.Struct.Load != HAL_OK);
   CHECK_STATUS(iserror, CheckFlashSaveFailure, gStatus.Flash.Struct.Save != HAL_OK);
   CHECK_STATUS(iserror, CheckFlashInitFailure, gStatus.Flash.Struct.Init != HAL_OK);
-  CHECK_STATUS(iserror, CheckBkpsramSaveFailure, gStatus.Bkpsram.Struct.Save != HAL_OK);
-  CHECK_STATUS(iserror, CheckBkpsramLoadFailure, gStatus.Bkpsram.Struct.Load != HAL_OK);
+  CHECK_STATUS(iserror, CheckBkpsramSaveFailure, gStatus.Bkpsram.Struct.CriticalSave != HAL_OK || gStatus.Bkpsram.Struct.CorrsSave != HAL_OK)
+#ifdef DEBUG
+  CHECK_STATUS(iserror, CheckBkpsramLoadFailure, gStatus.Bkpsram.Struct.CriticalLoad != HAL_OK || gStatus.Bkpsram.Struct.CorrsLoad != HAL_OK);
+#endif
 
   CHECK_STATUS(iserror, CheckSensorMapFailure, gStatus.Sensors.Struct.Map != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorKnockFailure, gStatus.Sensors.Struct.Knock != HAL_OK);
@@ -2009,13 +2013,13 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckInjector1ShortToGND, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckInjectorCommunicationFailure, gStatus.OutputDiagnostic.Injectors.Availability != HAL_OK);
 
-  //CHECK_STATUS(iserror, CheckCheckEngineOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckCheckEngineOpenCirtuit, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckCheckEngineShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckCheckEngineShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.CheckEngine == OutputDiagShortToGnd);
-  //CHECK_STATUS(iserror, CheckSpeedMeterOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckSpeedMeterOpenCirtuit, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckSpeedMeterShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckSpeedMeterShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Speedmeeter == OutputDiagShortToGnd);
-  //CHECK_STATUS(iserror, CheckTachometerOpenCirtuit, OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckTachometerOpenCirtuit, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckTachometerShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckTachometerShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.Tachometer == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckFuelPumpOpenCirtuit, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagOpenCircuit);
@@ -2023,7 +2027,7 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckFuelPumpShortToGND, gStatus.OutputDiagnostic.Outs1.Diagnostic.Data.FuelPumpRelay == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckOutputs1CommunicationFailure, gStatus.OutputDiagnostic.Outs1.Availability != HAL_OK);
 
-  //CHECK_STATUS(iserror, CheckOutIgnOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckOutIgnOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckOutIgnShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckOutIgnShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToGnd);
   //CHECK_STATUS(iserror, CheckOutRsvd1OpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagOpenCircuit);
