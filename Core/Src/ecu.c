@@ -399,6 +399,7 @@ static void ecu_update(void)
   float warmup_mix_koff;
   float warmup_mix_corr;
   float air_temp_mix_corr;
+  float air_temp_ign_corr;
 
   float fuel_pressure;
   float fuel_abs_pressure;
@@ -632,6 +633,7 @@ static void ecu_update(void)
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
+  air_temp_ign_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
@@ -658,6 +660,7 @@ static void ecu_update(void)
     }
   }
 
+  ignition_angle += air_temp_ign_corr;
   ignition_angle += ignition_correction;
 
   if(idle_flag && running) {
