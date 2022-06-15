@@ -340,7 +340,7 @@ static void ecu_update(void)
   sMathInterpolateInput ipEnrichmentThr = {0};
 
   float rpm;
-  float map;
+  float pressure;
   float fuel_ratio;
   float lambda_value;
   float lambda_temperature;
@@ -360,8 +360,8 @@ static void ecu_update(void)
   float period;
 
   float wish_fuel_ratio;
-  float filling_map;
-  float map_thr;
+  float filling;
+  float throttle_by_pressure;
   float effective_volume;
   float ignition_angle;
   float ignition_time;
@@ -462,7 +462,7 @@ static void ecu_update(void)
   sens_get_knock_raw(&knock_raw);
 
 #ifdef SIMULATION
-  map = gDebugMap;
+  pressure = gDebugMap;
   air_temp = gDebugAirTemp;
   engine_temp = gDebugEngineTemp;
   throttle = gDebugThrottle;
@@ -472,7 +472,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
   gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
-  gStatus.Sensors.Struct.Map = sens_get_map(&map);
+  gStatus.Sensors.Struct.Map = sens_get_map(&pressure);
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
@@ -538,38 +538,38 @@ static void ecu_update(void)
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
-  map_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
+  throttle_by_pressure = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
   map_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
 
-  map_thr *= map_correction_thr + 1.0f;
+  throttle_by_pressure *= map_correction_thr + 1.0f;
 
   if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map != HAL_OK) {
-    map = map_thr;
+    pressure = throttle_by_pressure;
   }
 
   fuel_abs_pressure = fuel_pressure;
   fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
   if(table->is_fuel_pressure_const) {
-    fuel_abs_pressure += (1.0f - map * 0.00001f);
+    fuel_abs_pressure += (1.0f - pressure * 0.00001f);
     fuel_flow_per_us *= fast_rsqrt(fuel_pressure / fuel_abs_pressure);
   }
 
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
   ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
-  ipMap = math_interpolate_input(map, table->pressures, table->pressures_count);
+  ipMap = math_interpolate_input(pressure, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
-  filling_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
+  filling = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
 
   fill_correction_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
 
-  filling_map *= fill_correction_map + 1.0f;
-  filling_relative = filling_map;
+  filling *= fill_correction_map + 1.0f;
+  filling_relative = filling;
 
-  effective_volume = filling_map * gEcuParams.engineVolume;
+  effective_volume = filling * gEcuParams.engineVolume;
 
-  air_destiny = ecu_get_air_destiny(map, air_temp);
+  air_destiny = ecu_get_air_destiny(pressure, air_temp);
 
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
@@ -587,7 +587,7 @@ static void ecu_update(void)
       enrichment_map_states[i] = enrichment_map_states[i + 1];
       enrichment_thr_states[i] = enrichment_thr_states[i + 1];
     }
-    enrichment_map_states[ENRICHMENT_STATES_COUNT - 1] = map;
+    enrichment_map_states[ENRICHMENT_STATES_COUNT - 1] = pressure;
     enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1] = throttle;
 
     if(running) {
@@ -907,7 +907,7 @@ static void ecu_update(void)
         }
 
         if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
-          map_diff_thr = (map / map_thr) - 1.0f;
+          map_diff_thr = (pressure / throttle_by_pressure) - 1.0f;
           map_correction_thr += map_diff_thr * lpf_calculation;
           math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
 
@@ -977,7 +977,7 @@ static void ecu_update(void)
 
   if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 40.0f) || (rpm < idle_reg_rpm && engine_temp > 70.0f)) &&
       running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    float map_tps_relation = map / map_thr;
+    float map_tps_relation = pressure / throttle_by_pressure;
     if(map_tps_relation > 1.25f || map_tps_relation < 0.75f) {
       if(gStatus.MapTpsRelation.is_error) {
         gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
@@ -1063,7 +1063,7 @@ static void ecu_update(void)
   gParameters.KnockSensorFiltered = knock_filtered;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
-  gParameters.ManifoldAirPressure = map;
+  gParameters.ManifoldAirPressure = pressure;
   gParameters.ThrottlePosition = throttle;
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
