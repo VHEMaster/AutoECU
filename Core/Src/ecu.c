@@ -162,14 +162,15 @@ static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
 
+static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnShutdownReady = 0;
+
+static int8_t ecu_shutdown_process(void);
 #endif
-static volatile uint8_t gIgnCanShutdown = 0;
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
-static int8_t ecu_shutdown_process(void);
 
 static uint8_t ecu_get_table(void)
 {
@@ -2472,6 +2473,31 @@ static void ecu_ign_process(void)
     }
   }
 }
+
+static int8_t ecu_shutdown_process(void)
+{
+  static int8_t stage = 0;
+  int8_t status = 0;
+
+  switch(stage) {
+    case 0:
+      if(!Mem.lock) {
+        Mem.lock = 1;
+        stage++;
+      }
+      break;
+    case 1:
+      Mem.lock = 0;
+      stage = 0;
+      status = 1;
+      break;
+    default:
+      stage = 0;
+      break;
+  }
+
+  return status;
+}
 #endif
 
 static void ecu_config_process(void)
@@ -2749,15 +2775,6 @@ static void ecu_kline_loop(void)
     }
     session_on = 0;
   }
-}
-
-static int8_t ecu_shutdown_process(void)
-{
-  int8_t status = 0;
-
-  status = 1;
-
-  return status;
 }
 
 void ecu_init(void)
