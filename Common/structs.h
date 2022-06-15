@@ -117,7 +117,6 @@ typedef struct {
 
     eInjChannel inj_channel;
 
-    float ignition_initial;
     float injector_performance;
     int32_t is_fuel_pressure_const;
     int32_t is_fuel_phase_by_end;
@@ -157,6 +156,9 @@ typedef struct {
 
     int32_t engine_temp_count;
     float engine_temps[TABLE_TEMPERATURES_MAX];
+
+    float ignition_initial[TABLE_TEMPERATURES_MAX];
+    float idle_valve_initial[TABLE_TEMPERATURES_MAX];
 
     int32_t air_temp_count;
     float air_temps[TABLE_TEMPERATURES_MAX];
@@ -202,7 +204,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[828];
+    int32_t Reserved[797];
 }sEcuTable;
 
 typedef struct {

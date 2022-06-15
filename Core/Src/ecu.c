@@ -763,8 +763,14 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
-  idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
-  idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+  if(!running) {
+    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
+    idle_valve_pos_adaptation = 0;
+    idle_valve_pos_correction = 0;
+  } else {
+    idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
+    idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+  }
 
   idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
   idle_wish_valve_pos = idle_table_valve_pos;
@@ -839,7 +845,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    ignition_angle = table->ignition_initial;
+    ignition_angle = math_interpolate_1d(ipEngineTemp, table->ignition_initial);
     if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && throttle >= 80.0f)
       injection_time = 0;
   }

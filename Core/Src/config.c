@@ -276,6 +276,16 @@ static const float default_air_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_ROTA
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 };
 
+static const float default_ignition_initial[TABLE_TEMPERATURES_MAX] = {
+    10, 10, 10, 10, 10, 10, 10, 10,
+    10, 10, 10, 10, 10, 10, 10, 10
+};
+
+static const float default_idle_valve_initial[TABLE_TEMPERATURES_MAX] = {
+    70, 65, 63, 62, 61, 60, 59, 58,
+    55, 55, 55, 55, 55, 55, 55, 55
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -284,7 +294,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->inj_channel = InjectorChannel1;
 
-  table->ignition_initial = 10.0f;
   table->injector_performance = 180.0f;
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 1;
@@ -325,6 +334,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->engine_temp_count = ITEMSOF(default_engine_temps);
   memcpy(table->engine_temps, default_engine_temps, sizeof(default_engine_temps));
+
+  memcpy(table->ignition_initial, default_ignition_initial, sizeof(default_ignition_initial));
+  memcpy(table->idle_valve_initial, default_idle_valve_initial, sizeof(default_idle_valve_initial));
 
   table->air_temp_count = ITEMSOF(default_air_temps);
   memcpy(table->air_temps, default_air_temps, sizeof(default_air_temps));
