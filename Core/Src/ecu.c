@@ -1607,12 +1607,15 @@ static void ecu_process(void)
   float time_sat;
   float time_pulse;
   float angle_ignite_koff = 0.5f;
+  float inj_phase_koff = 0.5f;
   float angle_ignite_param;
+  float inj_phase_param;
+  float inj_phase_temp;
   static float angle_ignite = 10.0f;
+  static float inj_phase = 200.0f;
   float saturate;
   float angles_injection_per_turn;
   float angles_ignition_per_turn;
-  float inj_phase;
   float inj_pulse;
   float inj_angle;
   static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
@@ -1662,6 +1665,8 @@ static void ecu_process(void)
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
   angle_ignite_param = gParameters.IgnitionAngle;
   injection_phase_by_end = table->is_fuel_phase_by_end;
+  inj_phase_param = gParameters.InjectionPhase;
+  inj_pulse = gParameters.InjectionPulse;
 
 
   if(found != was_found) {
@@ -1683,16 +1688,24 @@ static void ecu_process(void)
     }
   }
 
-  angle_ignite_koff = diff / 5000.0f;
+  angle_ignite_koff = diff / 10000.0f;
   if(angle_ignite_koff > 0.8f)
     angle_ignite_koff = 0.8f;
   if(angle_ignite_koff < 0)
     angle_ignite_koff = 0.000001f;
 
+  inj_phase_koff = diff / 10000.0f;
+  if(inj_phase_koff > 0.8f)
+    inj_phase_koff = 0.8f;
+  if(inj_phase_koff < 0)
+    inj_phase_koff = 0.000001f;
+
   uspa_koff = diff / 500.0f;
 
   uspa = uspa_raw * uspa_koff + uspa * (1.0f - uspa_koff);
   angle_ignite = angle_ignite_param * angle_ignite_koff + angle_ignite * (1.0f - angle_ignite_koff);
+  inj_phase = inj_phase_param * inj_phase_koff + inj_phase * (1.0f - inj_phase_koff);
+  inj_phase_temp = inj_phase;
 
   if(single_coil) {
     time_sat = period * 0.5f * 0.65f;
@@ -1701,9 +1714,6 @@ static void ecu_process(void)
     time_sat = gParameters.IgnitionPulse;
     time_pulse = 2500;
   }
-
-  inj_phase = gParameters.InjectionPhase;
-  inj_pulse = gParameters.InjectionPulse;
 
   if(phased_ignition) {
     angles_ignition_per_turn = 720.0f;
@@ -1839,11 +1849,11 @@ static void ecu_process(void)
       inj_angle = inj_pulse / uspa;
 
       if(!injection_phase_by_end) {
-        inj_phase += inj_angle;
+        inj_phase_temp += inj_angle;
       }
 
-      while(inj_phase > angles_injection_per_turn * 0.5f) {
-        inj_phase -= angles_injection_per_turn;
+      while(inj_phase_temp > angles_injection_per_turn * 0.5f) {
+        inj_phase_temp -= angles_injection_per_turn;
       }
 
       //Ignition part
@@ -1908,10 +1918,10 @@ static void ecu_process(void)
       //Injection part
       for(int i = 0; i < cy_count_injection; i++)
       {
-        if(angle_injection[i] < inj_phase)
-          anglesbeforeinject[i] = -angle_injection[i] + inj_phase;
+        if(angle_injection[i] < inj_phase_temp)
+          anglesbeforeinject[i] = -angle_injection[i] + inj_phase_temp;
         else
-          anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase;
+          anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase_temp;
 
         if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
           anglesbeforeinject[i] = oldanglesbeforeinject[i];
