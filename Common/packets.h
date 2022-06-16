@@ -311,6 +311,25 @@ typedef struct
   uint32_t ErrorCode;
 }PACKET_DEFINE(PK_ResetStatusResponse, 38);
 
+typedef struct
+{
+  PACKET_HEADER;
+  uint8_t IgnitionEnabled;
+  uint8_t InjectionEnabled;
+  uint16_t Count;
+  uint32_t Period;
+  uint32_t IgnitionPulse;
+  uint32_t InjectionPulse;
+}PACKET_DEFINE(PK_IgnitionInjectionTestRequest, 39);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t ErrorCode;
+}PACKET_DEFINE(PK_IgnitionInjectionTestResponse, 40);
+
+
+
 int16_t PK_Copy(void * dest, void * source);
 
 #undef PACKET_C

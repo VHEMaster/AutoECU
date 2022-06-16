@@ -43,6 +43,8 @@ PACKET_C(PK_StatusRequest);
 PACKET_C(PK_StatusResponse);
 PACKET_C(PK_ResetStatusRequest);
 PACKET_C(PK_ResetStatusResponse);
+PACKET_C(PK_IgnitionInjectionTestRequest);
+PACKET_C(PK_IgnitionInjectionTestResponse);
 
 #define SENDERS_MAX_COUNT 4
 

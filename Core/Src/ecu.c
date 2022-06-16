@@ -58,6 +58,17 @@ typedef volatile struct {
 
 }sShift;
 
+typedef volatile struct {
+    uint8_t IgnitionEnabled;
+    uint8_t InjectionEnabled;
+    uint16_t Count;
+    uint32_t Period;
+    uint32_t IgnitionPulse;
+    uint32_t InjectionPulse;
+    uint32_t StartedTime;
+    uint16_t CompletedCount;
+} sIgnitionInjectionTest;
+
 union {
     struct {
         uint8_t is_not_running : 1;
@@ -126,7 +137,6 @@ union {
         uint8_t byte[4];
     } Bytes;
 } gDiagErrors;
-
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -145,6 +155,7 @@ static uint8_t volatile gStatusReset = 0;
 static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
+static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 
 static volatile uint8_t gEcuIdleValveCalibrate = 0;
@@ -3304,6 +3315,31 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       memset(&gEcuCriticalBackup.CheckBitmapRecorded, 0, sizeof(gEcuCriticalBackup.CheckBitmapRecorded));
       PK_ResetStatusResponse.ErrorCode = 0;
       PK_SendCommand(xChaSrc, &PK_ResetStatusResponse, sizeof(PK_ResetStatusResponse));
+      break;
+
+    case PK_IgnitionInjectionTestRequestID :
+      PK_Copy(&PK_IgnitionInjectionTestRequest, msgBuf);
+
+      gIITest.IgnitionEnabled = 0;
+      gIITest.InjectionEnabled = 0;
+      gIITest.StartedTime = 0;
+
+      gIITest.IgnitionEnabled = PK_IgnitionInjectionTestRequest.IgnitionEnabled;
+      gIITest.InjectionEnabled = PK_IgnitionInjectionTestRequest.InjectionEnabled;
+      gIITest.Count = PK_IgnitionInjectionTestRequest.Count;
+      gIITest.Period = PK_IgnitionInjectionTestRequest.Period;
+      gIITest.IgnitionPulse = PK_IgnitionInjectionTestRequest.IgnitionPulse;
+      gIITest.InjectionPulse = PK_IgnitionInjectionTestRequest.InjectionPulse;
+
+      if(gIITest.IgnitionEnabled || gIITest.InjectionEnabled) {
+        gIITest.StartedTime = Delay_Tick;
+        if(gIITest.StartedTime == 0)
+          gIITest.StartedTime++;
+      }
+      gIITest.CompletedCount = 0;
+
+      PK_IgnitionInjectionTestResponse.ErrorCode = 0;
+      PK_SendCommand(xChaSrc, &PK_IgnitionInjectionTestResponse, sizeof(PK_IgnitionInjectionTestResponse));
       break;
 
     default:
