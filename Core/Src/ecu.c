@@ -67,6 +67,7 @@ typedef volatile struct {
     uint32_t InjectionPulse;
     uint32_t StartedTime;
     uint16_t CompletedCount;
+    uint8_t InjectionTriggered;
 } sIgnitionInjectionTest;
 
 union {
@@ -1771,122 +1772,176 @@ static void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
-  if(found && start_allowed && !gIgnCanShutdown)
+  if((found || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
     gInjChPorts[injector_channel ^ 1]->BSRR = gInjChPins[injector_channel ^ 1] << 16;
 
-    if(period < time_sat + time_pulse) {
-      time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
-    }
+    if(gIITest.StartedTime) {
+      if(DelayDiff(now, gIITest.StartedTime) >= gIITest.Period) {
+        gIITest.InjectionTriggered = 0;
+        gIITest.CompletedCount++;
+        if(gIITest.CompletedCount >= gIITest.Count) {
+          gIITest.StartedTime = 0;
+          gIITest.IgnitionEnabled = 0;
+          gIITest.InjectionEnabled = 0;
+          return;
+        } else {
+          gIITest.StartedTime += gIITest.Period;
+          if(!gIITest.StartedTime)
+            gIITest.StartedTime++;
+        }
+      }
 
-    saturate = time_sat / uspa;
-    inj_angle = inj_pulse / uspa;
-
-    if(!injection_phase_by_end) {
-      inj_phase += inj_angle;
-    }
-
-    while(inj_phase > angles_injection_per_turn * 0.5f) {
-      inj_phase -= angles_injection_per_turn;
-    }
-
-    //Ignition part
-    for(int i = 0; i < cy_count_ignition; i++)
-    {
-      if(angle_ignition[i] < -cy_ignition[i])
-        anglesbeforeignite[i] = -angle_ignition[i] - cy_ignition[i];
-      else
-        anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cy_ignition[i];
-
-      if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
-        anglesbeforeignite[i] = oldanglesbeforeignite[i];
-
-      if(anglesbeforeignite[i] - saturate < 0.0f)
-      {
-        if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) > ignition_ignite[i]))
-        {
-          ignition_ignite_time[i] = 0;
-          ignition_ignite[i] = 0;
-          saturated[i] = 1;
-
-          if(single_coil) {
+      if(DelayDiff(now, gIITest.StartedTime) < gIITest.IgnitionPulse) {
+        if(single_coil) {
+          if(gIITest.IgnitionEnabled) {
             ecu_coil_saturate(1, 0);
-          } else {
-            shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
-            cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
-            if(shift_ign_act && cutoff_ign_act)
-              ecu_coil_saturate(cy_count_ignition, i);
           }
-
-          ignition_saturate_time[i] = now;
-          ignition_saturate[i] = time_sat * 0.8f;
-        }
-      }
-
-      if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
-      {
-        if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) > ignition_saturate[i]))
-        {
-          ignited[i] = 1;
-          saturated[i] = 0;
-          ignition_saturate_time[i] = 0;
-          ignition_saturate[i] = 0;
-
-          if(single_coil) {
-            shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
-            cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
-            if(shift_ign_act && cutoff_ign_act)
-              ecu_coil_ignite(1, 0);
-          } else {
-            ecu_coil_ignite(cy_count_ignition, i);
+        } else if(individual_coils) {
+          for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+            if(((gIITest.IgnitionEnabled >> i) & 1)) {
+              ecu_coil_saturate(ECU_CYLINDERS_COUNT, i);
+            } else {
+              ecu_coil_ignite(ECU_CYLINDERS_COUNT, i);
+            }
           }
-          ignition_ignite[i] = time_pulse * 0.8f;
-          ignition_ignite_time[i] = now;
+        } else {
+          for(int i = 0; i < ECU_CYLINDERS_COUNT / 2; i++) {
+            if(((gIITest.IgnitionEnabled >> (ECU_CYLINDERS_COUNT - 1 - i)) & 1)) {
+              ecu_coil_saturate(ECU_CYLINDERS_COUNT / 2, i);
+            } else {
+              ecu_coil_ignite(ECU_CYLINDERS_COUNT / 2, i);
+            }
+          }
+        }
+      } else {
+        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+          ecu_coil_ignite(ECU_CYLINDERS_COUNT, i);
         }
       }
-      else ignited[i] = 0;
 
-      oldanglesbeforeignite[i] = anglesbeforeignite[i];
-    }
+      if(!gIITest.InjectionTriggered) {
+        gIITest.InjectionTriggered = 1;
+        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+          if(((gIITest.InjectionEnabled >> i) & 1)) {
+            ecu_inject(cy_count_injection, i, gIITest.InjectionPulse);
+          }
+        }
+      }
+    } else if(found) {
+      if(period < time_sat + time_pulse) {
+        time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
+      }
 
-    //Injection part
-    for(int i = 0; i < cy_count_injection; i++)
-    {
-      if(angle_injection[i] < inj_phase)
-        anglesbeforeinject[i] = -angle_injection[i] + inj_phase;
-      else
-        anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase;
+      saturate = time_sat / uspa;
+      inj_angle = inj_pulse / uspa;
 
-      if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
-        anglesbeforeinject[i] = oldanglesbeforeinject[i];
+      if(!injection_phase_by_end) {
+        inj_phase += inj_angle;
+      }
 
-      if(anglesbeforeinject[i] - inj_angle < 0.0f)
+      while(inj_phase > angles_injection_per_turn * 0.5f) {
+        inj_phase -= angles_injection_per_turn;
+      }
+
+      //Ignition part
+      for(int i = 0; i < cy_count_ignition; i++)
       {
-        if(!injection[i])
+        if(angle_ignition[i] < -cy_ignition[i])
+          anglesbeforeignite[i] = -angle_ignition[i] - cy_ignition[i];
+        else
+          anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cy_ignition[i];
+
+        if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
+          anglesbeforeignite[i] = oldanglesbeforeignite[i];
+
+        if(anglesbeforeignite[i] - saturate < 0.0f)
         {
-          injection[i] = 1;
-          shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
-          cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-          if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
-            ecu_inject(cy_count_injection, i, cy_injection[i]);
+          if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) > ignition_ignite[i]))
+          {
+            ignition_ignite_time[i] = 0;
+            ignition_ignite[i] = 0;
+            saturated[i] = 1;
+
+            if(single_coil) {
+              ecu_coil_saturate(1, 0);
+            } else {
+              shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
+              cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
+              if(shift_ign_act && cutoff_ign_act)
+                ecu_coil_saturate(cy_count_ignition, i);
+            }
+
+            ignition_saturate_time[i] = now;
+            ignition_saturate[i] = time_sat * 0.8f;
+          }
         }
+
+        if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
+        {
+          if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) > ignition_saturate[i]))
+          {
+            ignited[i] = 1;
+            saturated[i] = 0;
+            ignition_saturate_time[i] = 0;
+            ignition_saturate[i] = 0;
+
+            if(single_coil) {
+              shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
+              cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
+              if(shift_ign_act && cutoff_ign_act)
+                ecu_coil_ignite(1, 0);
+            } else {
+              ecu_coil_ignite(cy_count_ignition, i);
+            }
+            ignition_ignite[i] = time_pulse * 0.8f;
+            ignition_ignite_time[i] = now;
+          }
+        }
+        else ignited[i] = 0;
+
+        oldanglesbeforeignite[i] = anglesbeforeignite[i];
       }
 
-      if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -90.0f)
+      //Injection part
+      for(int i = 0; i < cy_count_injection; i++)
       {
-        if(!injected[i] && injection[i])
-        {
-          //TODO: this is probably a bug, but works well, without extra pulses on duty cycle >= 1.0
-          injection[i] = 0;
-          injector_isenabled(i, &injected[i]);
-          injected[i] ^= 1;
-        }
-      }
-      else injected[i] = 0;
+        if(angle_injection[i] < inj_phase)
+          anglesbeforeinject[i] = -angle_injection[i] + inj_phase;
+        else
+          anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase;
 
-      oldanglesbeforeinject[i] = anglesbeforeinject[i];
+        if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
+          anglesbeforeinject[i] = oldanglesbeforeinject[i];
+
+        if(anglesbeforeinject[i] - inj_angle < 0.0f)
+        {
+          if(!injection[i])
+          {
+            injection[i] = 1;
+            shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
+            cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
+            if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
+              ecu_inject(cy_count_injection, i, cy_injection[i]);
+          }
+        }
+
+        if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -90.0f)
+        {
+          if(!injected[i] && injection[i])
+          {
+            //TODO: this is probably a bug, but works well, without extra pulses on duty cycle >= 1.0
+            injection[i] = 0;
+            injector_isenabled(i, &injected[i]);
+            injected[i] ^= 1;
+          }
+        }
+        else injected[i] = 0;
+
+        oldanglesbeforeinject[i] = anglesbeforeinject[i];
+      }
     }
   } else {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
