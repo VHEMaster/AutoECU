@@ -266,7 +266,7 @@ static float ecu_get_air_destiny(float pressure, float temperature)
   //Output in mg/cc
   const float M = 29.0f;
   const float R = 8314.46261815324f;
-  float mg_cc3 = (pressure * M) / (R * (temperature + 273.0f));
+  float mg_cc3 = (pressure * M) / (R * (temperature + 273.15f));
   return mg_cc3;
 }
 
@@ -1519,19 +1519,14 @@ STATIC_INLINE void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder];
-  } else if(cy_count == ECU_CYLINDERS_COUNT / 2) {
-    if(cylinder == 0) {
-      gIgnPorts[0]->BSRR = gIgnPins[0];
-      gIgnPorts[3]->BSRR = gIgnPins[3];
-    } else if(cylinder == 1) {
-      gIgnPorts[1]->BSRR = gIgnPins[1];
-      gIgnPorts[2]->BSRR = gIgnPins[2];
+  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
+    for(int i = 0; i < cy_count; i++) {
+      gIgnPorts[cy_count]->BSRR = gIgnPins[cy_count];
+      gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cy_count]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cy_count];
     }
   } else if(cy_count == 1) {
-    gIgnPorts[0]->BSRR = gIgnPins[0];
-    gIgnPorts[1]->BSRR = gIgnPins[1];
-    gIgnPorts[2]->BSRR = gIgnPins[2];
-    gIgnPorts[3]->BSRR = gIgnPins[3];
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+      gIgnPorts[i]->BSRR = gIgnPins[i];
   }
 }
 
@@ -1539,19 +1534,14 @@ STATIC_INLINE void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder] << 16;
-  } else if(cy_count == ECU_CYLINDERS_COUNT / 2) {
-    if(cylinder == 0) {
-      gIgnPorts[0]->BSRR = gIgnPins[0] << 16;
-      gIgnPorts[3]->BSRR = gIgnPins[3] << 16;
-    } else if(cylinder == 1) {
-      gIgnPorts[1]->BSRR = gIgnPins[1] << 16;
-      gIgnPorts[2]->BSRR = gIgnPins[2] << 16;
+  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
+    for(int i = 0; i < cy_count; i++) {
+      gIgnPorts[cy_count]->BSRR = gIgnPins[cy_count] << 16;
+      gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cy_count]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cy_count] << 16;
     }
   } else if(cy_count == 1) {
-    gIgnPorts[0]->BSRR = gIgnPins[0] << 16;
-    gIgnPorts[1]->BSRR = gIgnPins[1] << 16;
-    gIgnPorts[2]->BSRR = gIgnPins[2] << 16;
-    gIgnPorts[3]->BSRR = gIgnPins[3] << 16;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+      gIgnPorts[i]->BSRR = gIgnPins[i] << 16;
   }
 }
 
@@ -1559,7 +1549,7 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     injector_enable(cylinder, time);
-  } else if(cy_count == ECU_CYLINDERS_COUNT / 2) {
+  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
     if(cylinder == 0) {
       injector_enable(InjectorCy1, time);
       injector_enable(InjectorCy4, time);
@@ -1666,8 +1656,8 @@ static void ecu_process(void)
   use_tsps = gEcuParams.useTSPS;
   phased_injection = use_tsps && is_phased;
   phased_ignition = phased_injection && individual_coils && !single_coil;
-  cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
-  cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT / 2;
+  cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
+  cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   angle_ignite_param = gParameters.IgnitionAngle;
   injection_phase_by_end = table->is_fuel_phase_by_end;
   inj_phase_param = gParameters.InjectionPhase;
@@ -1693,19 +1683,21 @@ static void ecu_process(void)
     }
   }
 
-  angle_ignite_koff = diff / 10000.0f;
+  //TODO: remove this filter when fixed the bug of incorrect ignition pulses
+  angle_ignite_koff = diff * 0.0001f;
   if(angle_ignite_koff > 0.8f)
     angle_ignite_koff = 0.8f;
   if(angle_ignite_koff < 0)
     angle_ignite_koff = 0.000001f;
 
-  inj_phase_koff = diff / 10000.0f;
+  //TODO: remove this filter when fixed the bug of incorrect injection pulses
+  inj_phase_koff = diff * 0.0001f;
   if(inj_phase_koff > 0.8f)
     inj_phase_koff = 0.8f;
   if(inj_phase_koff < 0)
     inj_phase_koff = 0.000001f;
 
-  uspa_koff = diff / 500.0f;
+  uspa_koff = diff * 0.002f;
 
   uspa = uspa_raw * uspa_koff + uspa * (1.0f - uspa_koff);
   angle_ignite = angle_ignite_param * angle_ignite_koff + angle_ignite * (1.0f - angle_ignite_koff);
@@ -1823,11 +1815,11 @@ static void ecu_process(void)
             }
           }
         } else {
-          for(int i = 0; i < ECU_CYLINDERS_COUNT / 2; i++) {
+          for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
             if(((gIITest.IgnitionEnabled >> (ECU_CYLINDERS_COUNT - 1 - i)) & 1)) {
-              ecu_coil_saturate(ECU_CYLINDERS_COUNT / 2, i);
+              ecu_coil_saturate(ECU_CYLINDERS_COUNT_HALF, i);
             } else {
-              ecu_coil_ignite(ECU_CYLINDERS_COUNT / 2, i);
+              ecu_coil_ignite(ECU_CYLINDERS_COUNT_HALF, i);
             }
           }
         }
@@ -1862,6 +1854,7 @@ static void ecu_process(void)
       }
 
       //Ignition part
+      //TODO: fix the bug of right saturation but late ignition by one cycle
       for(int i = 0; i < cy_count_ignition; i++)
       {
         if(angle_ignition[i] < -cy_ignition[i])
@@ -1921,6 +1914,7 @@ static void ecu_process(void)
       }
 
       //Injection part
+      //TODO: fix the bug of missed pulse when very short pulse or rapid change of phase of injection
       for(int i = 0; i < cy_count_injection; i++)
       {
         if(angle_injection[i] < inj_phase_temp)
