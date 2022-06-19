@@ -949,7 +949,6 @@ static void ecu_update(void)
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
-          //TODO: short term correction HERE, or maybe somewhere else....
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
