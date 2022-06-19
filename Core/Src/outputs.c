@@ -174,6 +174,11 @@ inline uint8_t out_get_idle_valve(void)
   return Misc_GetIdleValvePosition();
 }
 
+inline uint8_t out_is_idle_valve_moving(void)
+{
+  return Misc_IsIdleValveMoving();
+}
+
 inline int8_t out_calibrate_idle_valve(void)
 {
   return Misc_CalibrateIdleValve();

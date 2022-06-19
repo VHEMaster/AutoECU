@@ -65,6 +65,7 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
 sO2Status Misc_O2_GetStatus(void);
 
 uint8_t Misc_GetIdleValvePosition(void);
+uint8_t Misc_IsIdleValveMoving(void);
 void Misc_SetIdleValvePosition(uint8_t position);
 HAL_StatusTypeDef Misc_GetIdleValveStatus(void);
 void Misc_EnableIdleValvePosition(uint8_t enablement_position);

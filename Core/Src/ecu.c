@@ -41,6 +41,7 @@ typedef volatile struct {
     uint8_t issaving;
     uint8_t isloading;
     uint8_t lock;
+    uint8_t critical_lock;
 
     eTransChannels savereqsrc;
     eTransChannels loadreqsrc;
@@ -832,7 +833,8 @@ static void ecu_update(void)
   else if(idle_wish_valve_pos < 0.0f)
     idle_wish_valve_pos = 0.0f;
 
-  out_set_idle_valve(idle_wish_valve_pos);
+  if(!gIgnCanShutdown)
+    out_set_idle_valve(roundf(idle_wish_valve_pos));
 
   knock_filtered = knock - knock_noise_level;
   if(knock_filtered < 0.0f)
@@ -1190,8 +1192,12 @@ static void ecu_backup_save_process(void)
   uint32_t now = Delay_Tick;
 
   if(!CRC16_IsBusy()) {
-    status = config_save_critical_backup(&gEcuCriticalBackup);
-    gCriticalStatus = status < 0 ? status : 0;
+    if(!Mem.critical_lock) {
+      Mem.critical_lock = 1;
+      status = config_save_critical_backup(&gEcuCriticalBackup);
+      Mem.critical_lock = 0;
+      gCriticalStatus = status < 0 ? status : 0;
+    }
   }
 
   switch(state) {
@@ -2568,16 +2574,41 @@ static void ecu_ign_process(void)
 static int8_t ecu_shutdown_process(void)
 {
   static int8_t stage = 0;
+  static uint32_t last_idle_valve_moving = 0;
+  uint32_t now = Delay_Tick;
   int8_t status = 0;
+  uint8_t idle_valve_position;
+  uint8_t is_idle_valve_moving = out_is_idle_valve_moving();
 
   switch(stage) {
     case 0:
+      last_idle_valve_moving = now;
+      stage++;
+      break;
+    case 1:
+      if(is_idle_valve_moving) {
+        last_idle_valve_moving = now;
+      } else if(DelayDiff(now, last_idle_valve_moving) > 100000) {
+        stage++;
+      }
+      break;
+    case 2:
+      if(!Mem.critical_lock) {
+        Mem.critical_lock = 1;
+        idle_valve_position = out_get_idle_valve();
+        gEcuCriticalBackup.idle_valve_position = idle_valve_position;
+        config_save_critical_backup(&gEcuCriticalBackup);
+        Mem.critical_lock = 0;
+        stage++;
+      }
+      break;
+    case 3:
       if(!Mem.lock) {
         Mem.lock = 1;
         stage++;
       }
       break;
-    case 1:
+    case 4:
       Mem.lock = 0;
       stage = 0;
       status = 1;

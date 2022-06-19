@@ -99,6 +99,7 @@ static uint8_t knock_so_output_mode = 0;
 static volatile sLambdaConfig LambdaConfig = {0};
 static volatile sKnockConfig KnockConfig = {0};
 static volatile uint8_t KnockConfigChanged = 0;
+static volatile uint8_t IdleValveStepMode = 0;
 
 volatile uint8_t nss_o2_off = 0;
 volatile uint8_t nss_knock_off = 0;
@@ -810,6 +811,11 @@ inline uint8_t Misc_GetIdleValvePosition(void)
   return IdleValvePositionCurrent;
 }
 
+inline uint8_t Misc_IsIdleValveMoving(void)
+{
+  return IdleValveStepMode > 1;
+}
+
 inline void Misc_SetIdleValvePosition(uint8_t position)
 {
   IdleValvePositionTarget = position;
@@ -879,10 +885,10 @@ static const uint32_t StepPos[4] = {
 #define STEP_DECREMENT() { StepPhase = (StepPhase - 1) & 0x3; }
 
 //Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
-#define STEP_IDLE() { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
-#define STEP_HOLD() { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
-#define STEP_NORMAL() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
-#define STEP_ACCELERATE() { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
+#define STEP_IDLE() { IdleValveStepMode = 0; STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
+#define STEP_HOLD() { IdleValveStepMode = 1; STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
+#define STEP_NORMAL() { IdleValveStepMode = 2; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
+#define STEP_ACCELERATE() { IdleValveStepMode = 3; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
 
 #define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
 #define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
