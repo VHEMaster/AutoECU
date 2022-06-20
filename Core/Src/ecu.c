@@ -1868,7 +1868,12 @@ static void ecu_process(void)
         {
           if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
           {
-            ignition_ready[i] |= 1;
+            if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
+              ignition_ready[i] = 1;
+            } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
+              ignition_ready[i] = 1;
+              ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+            }
             ignition_ignite_time[i] = 0;
             ignition_ignite[i] = 0;
             saturated[i] = 1;
@@ -1891,7 +1896,6 @@ static void ecu_process(void)
         {
           if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) >= ignition_saturate[i]))
           {
-            ignition_ready[i] |= 2;
             ignited[i] = 1;
             saturated[i] = 0;
             ignition_saturate_time[i] = 0;
@@ -1934,7 +1938,7 @@ static void ecu_process(void)
             injection[i] = 1;
             shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
             cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-            if(ignition_ready[i] == 3 && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
+            if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
               ecu_inject(cy_count_injection, i, cy_injection[i]);
           }
         }
