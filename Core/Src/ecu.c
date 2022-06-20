@@ -318,10 +318,10 @@ static void ecu_pid_init(void)
 }
 
 #ifdef SIMULATION
-float gDebugMap = 20000;
+float gDebugMap = 75000;
 float gDebugAirTemp = 20.0f;
 float gDebugEngineTemp = 90.0f;
-float gDebugThrottle = 5;
+float gDebugThrottle = 60;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
 #endif
