@@ -1576,6 +1576,7 @@ static void ecu_process(void)
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
+  static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t inj_was_phased = 0;
   static uint8_t ign_was_phased = 0;
@@ -1755,6 +1756,7 @@ static void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
+      ignition_ready[i] = 0;
     }
   }
 
@@ -1852,7 +1854,6 @@ static void ecu_process(void)
 
       //Ignition part
       //TODO: fix the bug of right saturation but late ignition by one cycle
-      //TODO: fix the bug of missed ignition pulses when injection was made during startup
       for(int i = 0; i < cy_count_ignition; i++)
       {
         if(angle_ignition[i] < -cy_ignition[i])
@@ -1867,6 +1868,7 @@ static void ecu_process(void)
         {
           if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
           {
+            ignition_ready[i] |= 1;
             ignition_ignite_time[i] = 0;
             ignition_ignite[i] = 0;
             saturated[i] = 1;
@@ -1889,6 +1891,7 @@ static void ecu_process(void)
         {
           if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) >= ignition_saturate[i]))
           {
+            ignition_ready[i] |= 2;
             ignited[i] = 1;
             saturated[i] = 0;
             ignition_saturate_time[i] = 0;
@@ -1931,7 +1934,7 @@ static void ecu_process(void)
             injection[i] = 1;
             shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
             cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-            if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
+            if(ignition_ready[i] == 3 && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
               ecu_inject(cy_count_injection, i, cy_injection[i]);
           }
         }
@@ -1960,6 +1963,7 @@ static void ecu_process(void)
       ignited[i] = 1;
       injection[i] = 0;
       injected[i] = 0;
+      ignition_ready[i] = 0;
     }
 
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin;
