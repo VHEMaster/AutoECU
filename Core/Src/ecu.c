@@ -1522,11 +1522,9 @@ STATIC_INLINE void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder];
-  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
-    for(int i = 0; i < cy_count; i++) {
-      gIgnPorts[cy_count]->BSRR = gIgnPins[cy_count];
-      gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cy_count]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cy_count];
-    }
+  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF && cylinder < ECU_CYLINDERS_COUNT_HALF) {
+    gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder];
+    gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cylinder]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cylinder];
   } else if(cy_count == 1) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
       gIgnPorts[i]->BSRR = gIgnPins[i];
@@ -1537,11 +1535,9 @@ STATIC_INLINE void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder] << 16;
-  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
-    for(int i = 0; i < cy_count; i++) {
-      gIgnPorts[cy_count]->BSRR = gIgnPins[cy_count] << 16;
-      gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cy_count]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cy_count] << 16;
-    }
+  } else if(cy_count == ECU_CYLINDERS_COUNT_HALF && cylinder < ECU_CYLINDERS_COUNT_HALF) {
+    gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder] << 16;
+    gIgnPorts[ECU_CYLINDERS_COUNT - 1 - cylinder]->BSRR = gIgnPins[ECU_CYLINDERS_COUNT - 1 - cylinder] << 16;
   } else if(cy_count == 1) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
       gIgnPorts[i]->BSRR = gIgnPins[i] << 16;
@@ -1553,13 +1549,11 @@ STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     injector_enable(cylinder, time);
   } else if(cy_count == ECU_CYLINDERS_COUNT_HALF) {
-    if(cylinder == 0) {
-      injector_enable(InjectorCy1, time);
-      injector_enable(InjectorCy4, time);
-    } else if(cylinder == 1) {
-      injector_enable(InjectorCy2, time);
-      injector_enable(InjectorCy3, time);
-    }
+    injector_enable(cylinder, time);
+    injector_enable(ECU_CYLINDERS_COUNT - 1 - cylinder, time);
+  } else if(cy_count == 1) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+      injector_enable(i, time);
   }
 }
 
@@ -1918,7 +1912,7 @@ static void ecu_process(void)
 
       //Injection part
       //TODO: fix the bug of missed pulse when very short pulse or rapid change of phase of injection
-      //TODO: fix the bug of big jitter on "Phase by End" mode
+      //TODO: fix the bug of big jitter on "Phase by End" and "phased" mode
       for(int i = 0; i < cy_count_injection; i++)
       {
         if(angle_injection[i] < inj_phase_temp)

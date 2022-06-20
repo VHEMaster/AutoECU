@@ -121,6 +121,7 @@ inline void csps_exti(uint32_t timestamp)
 {
   static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
+  static float adder_prev = 3.0f;
   static float average_prev = 0;
   static uint8_t dataindex = 0;
   static uint32_t t1 = 0;
@@ -136,6 +137,7 @@ inline void csps_exti(uint32_t timestamp)
   float cs14, cs23, csph;
   float average = 0;
   float diff = 0;
+  float adder = 0;
 
   cur = timestamp;
 
@@ -195,19 +197,19 @@ inline void csps_exti(uint32_t timestamp)
   else
   {
     t2 = 0;
-    if(t1 >= 116)
-    {
-      t1 = 1;
-      csps_errors += 1.0f;
-    }
+  }
+
+  if(t1 >= 116)
+  {
+    t1 = 1;
+    csps_errors += 1.0f;
   }
 
   average_prev = average;
 
   if(found)
   {
-    float adder = csps_cors[t1] * csps_cors_sum;// * 3.0f;
-    static float adder_prev = 3.0f;
+    adder = csps_cors[t1] * csps_cors_sum;// * 3.0f;
 
     //adder = 3.0f;
 
