@@ -1852,6 +1852,7 @@ static void ecu_process(void)
 
       //Ignition part
       //TODO: fix the bug of right saturation but late ignition by one cycle
+      //TODO: fix the bug of missed ignition pulses when injection was made during startup
       for(int i = 0; i < cy_count_ignition; i++)
       {
         if(angle_ignition[i] < -cy_ignition[i])
@@ -1864,7 +1865,7 @@ static void ecu_process(void)
 
         if(anglesbeforeignite[i] - saturate < 0.0f)
         {
-          if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) > ignition_ignite[i]))
+          if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
           {
             ignition_ignite_time[i] = 0;
             ignition_ignite[i] = 0;
@@ -1880,13 +1881,13 @@ static void ecu_process(void)
             }
 
             ignition_saturate_time[i] = now;
-            ignition_saturate[i] = time_sat * 0.8f;
+            ignition_saturate[i] = time_sat * 0.9f;
           }
         }
 
         if(oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
         {
-          if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) > ignition_saturate[i]))
+          if(!ignited[i] && saturated[i] && (ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) >= ignition_saturate[i]))
           {
             ignited[i] = 1;
             saturated[i] = 0;
@@ -1901,7 +1902,7 @@ static void ecu_process(void)
             } else {
               ecu_coil_ignite(cy_count_ignition, i);
             }
-            ignition_ignite[i] = time_pulse * 0.8f;
+            ignition_ignite[i] = time_pulse * 0.9f;
             ignition_ignite_time[i] = now;
           }
         }
