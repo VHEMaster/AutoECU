@@ -49,7 +49,7 @@ HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
 inline HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
 {
   uint32_t psc;
-  if(injector < InjectorCount && injectors[injector].htim && injectors[injector].port) {
+  if(usec > 25 && injector < InjectorCount && injectors[injector].htim && injectors[injector].port) {
     __HAL_TIM_DISABLE_IT(injectors[injector].htim, TIM_IT_UPDATE);
     __HAL_TIM_DISABLE(injectors[injector].htim);
     psc = injectors[injector].prescaler;

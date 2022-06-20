@@ -764,7 +764,10 @@ static void ecu_update(void)
   else
     injection_time *= gEcuCorrections.long_term_correction + 1.0f;
   injection_time *= short_term_correction + 1.0f;
-  injection_time += injector_lag;
+
+  if(injection_time > 100.0f)
+    injection_time += injector_lag * 1000.0f;
+  else injection_time = 0;
 
   if(gForceParameters.Enable.InjectionPulse)
     injection_time = gForceParameters.InjectionPulse;
@@ -1915,6 +1918,7 @@ static void ecu_process(void)
 
       //Injection part
       //TODO: fix the bug of missed pulse when very short pulse or rapid change of phase of injection
+      //TODO: fix the bug of big jitter on "Phase by End" mode
       for(int i = 0; i < cy_count_injection; i++)
       {
         if(angle_injection[i] < inj_phase_temp)
