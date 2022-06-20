@@ -1933,8 +1933,6 @@ static void ecu_process(void)
       }
 
       //Injection part
-      //TODO: fix the bug of missed pulse when very short pulse or rapid change of phase of injection
-      //TODO: fix the bug of big jitter on "Phase by End" and "phased" mode
       for(int i = 0; i < cy_count_injection; i++)
       {
         if(angle_injection[i] < inj_phase_temp)
