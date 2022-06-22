@@ -102,5 +102,8 @@ const char * const gCheckDataErrorString[] = {
     "Sensor: Lean Idle Mixture",
     "Sensor: Rich Idle Mixture",
 
+    "Engine: No Oil Pressure",
+    "Engine: No Battery Charge",
+
 };
 

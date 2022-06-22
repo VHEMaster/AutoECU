@@ -2168,6 +2168,9 @@ static void ecu_checkengine_loop(void)
   }
   CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
 
+  CHECK_STATUS(iserror, CheckNoOilPressure, gStatus.OilPressure.is_error);
+  CHECK_STATUS(iserror, CheckNoBatteryCharge, gStatus.BatteryCharge.is_error && gStatus.BatteryCharge.error_time > 500);
+
   gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
 
   gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
