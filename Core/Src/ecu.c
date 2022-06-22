@@ -776,7 +776,7 @@ static void ecu_update(void)
   if(Cutoff.FuelCutoff)
     injection_time = 0;
 
-  if(gStatus.OilPressure.is_error)
+  if(gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM)
     injection_time = 0;
 
   idle_wish_rpm += idle_rpm_shift;
@@ -1409,7 +1409,7 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
 
   //Just for safety purpose...
   gDiagWorkingMode.Bits.is_fuel_cutoff = 0;
-  if(rpm >= cutoffrpm + 500 || gStatus.OilPressure.is_error) {
+  if(rpm >= cutoffrpm + 500 || (gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM)) {
     gDiagWorkingMode.Bits.is_fuel_cutoff = 1;
     Cutoff.FuelCutoff = 1;
     return 0;

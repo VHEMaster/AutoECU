@@ -252,6 +252,7 @@ typedef struct {
     float cutoffRPM;
     float cutoffAngle;
     float cutoffMixture;
+    float oilPressureCutoffRPM;
 
     float speedCorrection;
 
@@ -283,7 +284,7 @@ typedef struct {
     int32_t useShortTermCorr;
     int32_t useLongTermCorr;
 
-    int32_t Reserved32[984];
+    int32_t Reserved32[983];
 }sEcuParams;
 
 typedef struct {
