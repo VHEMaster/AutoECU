@@ -50,6 +50,7 @@ typedef volatile struct {
 typedef volatile struct {
     uint8_t Processing;
     uint8_t Cutting;
+    uint8_t FuelCutoff;
 }sCutoff;
 
 typedef volatile struct {
@@ -772,6 +773,12 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPulse)
     injection_time = gForceParameters.InjectionPulse;
 
+  if(Cutoff.FuelCutoff)
+    injection_time = 0;
+
+  if(gStatus.OilPressure.is_error)
+    injection_time = 0;
+
   idle_wish_rpm += idle_rpm_shift;
 
   if(gForceParameters.Enable.WishIdleRPM)
@@ -1402,11 +1409,13 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
 
   //Just for safety purpose...
   gDiagWorkingMode.Bits.is_fuel_cutoff = 0;
-  if(rpm >= cutoffrpm + 300) {
+  if(rpm >= cutoffrpm + 500 || gStatus.OilPressure.is_error) {
     gDiagWorkingMode.Bits.is_fuel_cutoff = 1;
+    Cutoff.FuelCutoff = 1;
     return 0;
   }
 
+  Cutoff.FuelCutoff = 0;
   return 1;
 }
 
