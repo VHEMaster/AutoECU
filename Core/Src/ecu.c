@@ -2169,7 +2169,7 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
 
   CHECK_STATUS(iserror, CheckNoOilPressure, gStatus.OilPressure.is_error);
-  CHECK_STATUS(iserror, CheckNoBatteryCharge, gStatus.BatteryCharge.is_error && gStatus.BatteryCharge.error_time > 500);
+  CHECK_STATUS(iserror, CheckNoBatteryCharge, gStatus.BatteryCharge.is_error);
 
   gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
 
@@ -2914,6 +2914,102 @@ static void ecu_kline_loop(void)
   }
 }
 
+static void ecu_oil_pressure_process(void)
+{
+  static GPIO_PinState prev = GPIO_PIN_RESET;
+  static uint32_t pressure_last = 0;
+  //GPIO_PinState pressure = sens_get_oil_pressure(NULL);
+  GPIO_PinState pressure = 0;
+  uint32_t now = Delay_Tick;
+  uint8_t is_running = csps_isrunning();
+
+  if(is_running) {
+    if(!gStatus.OilPressure.is_running) {
+      if(!gStatus.OilPressure.run_time)
+        gStatus.OilPressure.run_time = now;
+
+      if(DelayDiff(now, gStatus.OilPressure.run_time) > 500000) {
+        gStatus.OilPressure.is_running = 1;
+      }
+    } else {
+      if(prev != pressure) {
+        if(pressure) {
+          if(DelayDiff(now, pressure_last) > 500000) {
+            prev = pressure;
+            pressure_last = now;
+          }
+        } else {
+          prev = pressure;
+          pressure_last = now;
+        }
+      } else {
+        pressure_last = now;
+      }
+      gStatus.OilPressure.is_error = prev != GPIO_PIN_SET;
+    }
+  } else {
+    pressure_last = now;
+    gStatus.OilPressure.is_running = 0;
+    gStatus.OilPressure.run_time = 0;
+    gStatus.OilPressure.is_error = 0;
+  }
+}
+
+static void ecu_battery_charge_process(void)
+{
+  static GPIO_PinState prev = GPIO_PIN_RESET;
+  static uint32_t charge_last = 0;
+  //GPIO_PinState charge = sens_get_charge(NULL);
+  GPIO_PinState charge = 0;
+  uint32_t now = Delay_Tick;
+  uint8_t is_running = csps_isrunning();
+
+  if(is_running) {
+    if(!gStatus.BatteryCharge.is_running) {
+      if(!gStatus.BatteryCharge.run_time)
+        gStatus.BatteryCharge.run_time = now;
+
+      if(DelayDiff(now, gStatus.BatteryCharge.run_time) > 1000000) {
+        gStatus.BatteryCharge.is_running = 1;
+      }
+    } else {
+      if(prev != charge) {
+        if(charge) {
+          if(DelayDiff(now, charge_last) > 100000) {
+            prev = charge;
+            charge_last = now;
+          }
+        } else {
+          prev = charge;
+          charge_last = now;
+        }
+      } else {
+        charge_last = now;
+      }
+
+      if(!prev) {
+        if(!gStatus.BatteryCharge.is_error) {
+          if(!gStatus.BatteryCharge.error_time)
+            gStatus.BatteryCharge.error_time = now;
+
+          if(DelayDiff(now, gStatus.BatteryCharge.error_time) > 500000) {
+            gStatus.BatteryCharge.is_error = 1;
+          }
+        }
+      } else {
+        gStatus.BatteryCharge.is_error = 0;
+        gStatus.BatteryCharge.error_time = 0;
+      }
+    }
+  } else {
+    charge_last = now;
+    gStatus.BatteryCharge.is_running = 0;
+    gStatus.BatteryCharge.run_time = 0;
+    gStatus.BatteryCharge.error_time = 0;
+    gStatus.BatteryCharge.is_error = 0;
+  }
+}
+
 void ecu_init(void)
 {
   ecu_config_init();
@@ -2958,6 +3054,8 @@ void ecu_irq_slow_loop(void)
   ecu_fan_process();
   ecu_config_process();
   ecu_mem_process();
+  ecu_oil_pressure_process();
+  ecu_battery_charge_process();
 
 #ifndef SIMULATION
   ecu_ign_process();

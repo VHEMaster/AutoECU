@@ -478,12 +478,12 @@ typedef struct {
         uint8_t is_error;
         uint8_t is_running;
         uint32_t run_time;
-        uint32_t time_rollback;
     }OilPressure;
     struct {
         uint8_t is_error;
+        uint8_t is_running;
+        uint32_t run_time;
         uint32_t error_time;
-        uint32_t error_last;
     }BatteryCharge;
     //TODO: add more diagnostic fields
 }sStatus;
