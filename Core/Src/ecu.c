@@ -2927,8 +2927,7 @@ static void ecu_oil_pressure_process(void)
 {
   static GPIO_PinState prev = GPIO_PIN_RESET;
   static uint32_t pressure_last = 0;
-  //GPIO_PinState pressure = sens_get_oil_pressure(NULL);
-  GPIO_PinState pressure = 0;
+  GPIO_PinState pressure = sens_get_oil_pressure(NULL);
   uint32_t now = Delay_Tick;
   uint8_t is_running = csps_isrunning();
 
@@ -2968,8 +2967,7 @@ static void ecu_battery_charge_process(void)
 {
   static GPIO_PinState prev = GPIO_PIN_RESET;
   static uint32_t charge_last = 0;
-  //GPIO_PinState charge = sens_get_charge(NULL);
-  GPIO_PinState charge = 0;
+  GPIO_PinState charge = sens_get_charge(NULL);
   uint32_t now = Delay_Tick;
   uint8_t is_running = csps_isrunning();
 
