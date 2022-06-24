@@ -2935,7 +2935,11 @@ static void ecu_oil_pressure_process(void)
 {
   static GPIO_PinState prev = GPIO_PIN_RESET;
   static uint32_t pressure_last = 0;
+#ifdef SIMULATION
+  GPIO_PinState pressure = GPIO_PIN_SET;
+#else
   GPIO_PinState pressure = sens_get_oil_pressure(NULL);
+#endif
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   uint8_t is_running = csps_isrunning();
