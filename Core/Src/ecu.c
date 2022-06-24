@@ -776,8 +776,11 @@ static void ecu_update(void)
   if(Cutoff.FuelCutoff)
     injection_time = 0;
 
-  if(gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM)
+  if(gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM) {
     injection_time = 0;
+  } else if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 10000) {
+    injection_time = 0;
+  }
 
   idle_wish_rpm += idle_rpm_shift;
 
@@ -1409,7 +1412,9 @@ STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, flo
 
   //Just for safety purpose...
   gDiagWorkingMode.Bits.is_fuel_cutoff = 0;
-  if(rpm >= cutoffrpm + 500 || (gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM)) {
+  if(rpm >= cutoffrpm + 500 ||
+      (gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM) ||
+      (gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 10000)) {
     gDiagWorkingMode.Bits.is_fuel_cutoff = 1;
     Cutoff.FuelCutoff = 1;
     return 0;
@@ -1862,6 +1867,9 @@ static void ecu_process(void)
 
       saturate = time_sat / uspa;
       inj_angle = inj_pulse / uspa;
+
+      if(inj_angle < diff / uspa * 1.5f)
+        inj_angle = diff / uspa * 1.5f;
 
       if(!injection_phase_by_end) {
         inj_phase_temp += inj_angle;
@@ -2929,6 +2937,7 @@ static void ecu_oil_pressure_process(void)
   static uint32_t pressure_last = 0;
   GPIO_PinState pressure = sens_get_oil_pressure(NULL);
   uint32_t now = Delay_Tick;
+  uint32_t hal_now = HAL_GetTick();
   uint8_t is_running = csps_isrunning();
 
   if(is_running) {
@@ -2960,6 +2969,13 @@ static void ecu_oil_pressure_process(void)
     gStatus.OilPressure.is_running = 0;
     gStatus.OilPressure.run_time = 0;
     gStatus.OilPressure.is_error = 0;
+  }
+
+  if(gStatus.OilPressure.is_error) {
+    gStatus.OilPressure.error_time = HAL_DelayDiff(hal_now, gStatus.OilPressure.error_started);
+  } else {
+    gStatus.OilPressure.error_started = hal_now;
+    gStatus.OilPressure.error_time = 0;
   }
 }
 

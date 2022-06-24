@@ -479,6 +479,8 @@ typedef struct {
         uint8_t is_error;
         uint8_t is_running;
         uint32_t run_time;
+        uint32_t error_time;
+        uint32_t error_started;
     }OilPressure;
     struct {
         uint8_t is_error;
