@@ -124,16 +124,16 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 #ifdef SIMULATION
     csps_emulate(Delay_Tick, gDebugRpm, gPhased);
 #endif
-    ecu_irq_fast_loop();
     ADC_Fast_Loop();
     flash_fast_loop();
     Misc_Fast_Loop();
+    ecu_irq_fast_loop();
   } else if (htim == &htim4) {
-    ecu_irq_slow_loop();
     ADC_Slow_Loop();
     Misc_Loop();
     sensors_loop();
     outputs_loop();
+    ecu_irq_slow_loop();
   }
 }
 
