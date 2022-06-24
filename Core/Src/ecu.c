@@ -2936,7 +2936,7 @@ static void ecu_oil_pressure_process(void)
       if(!gStatus.OilPressure.run_time)
         gStatus.OilPressure.run_time = now;
 
-      if(DelayDiff(now, gStatus.OilPressure.run_time) > 500000) {
+      if(DelayDiff(now, gStatus.OilPressure.run_time) > 1000000) {
         gStatus.OilPressure.is_running = 1;
       }
     } else {
@@ -2976,43 +2976,31 @@ static void ecu_battery_charge_process(void)
       if(!gStatus.BatteryCharge.run_time)
         gStatus.BatteryCharge.run_time = now;
 
-      if(DelayDiff(now, gStatus.BatteryCharge.run_time) > 1000000) {
+      if(DelayDiff(now, gStatus.BatteryCharge.run_time) > 500000) {
         gStatus.BatteryCharge.is_running = 1;
       }
     } else {
       if(prev != charge) {
         if(charge) {
-          if(DelayDiff(now, charge_last) > 100000) {
+          if(DelayDiff(now, charge_last) > 500000) {
             prev = charge;
             charge_last = now;
           }
         } else {
-          prev = charge;
-          charge_last = now;
+          if(DelayDiff(now, charge_last) > 5000) {
+            prev = charge;
+            charge_last = now;
+          }
         }
       } else {
         charge_last = now;
       }
-
-      if(!prev) {
-        if(!gStatus.BatteryCharge.is_error) {
-          if(!gStatus.BatteryCharge.error_time)
-            gStatus.BatteryCharge.error_time = now;
-
-          if(DelayDiff(now, gStatus.BatteryCharge.error_time) > 500000) {
-            gStatus.BatteryCharge.is_error = 1;
-          }
-        }
-      } else {
-        gStatus.BatteryCharge.is_error = 0;
-        gStatus.BatteryCharge.error_time = 0;
-      }
+      gStatus.BatteryCharge.is_error = prev != GPIO_PIN_SET;
     }
   } else {
     charge_last = now;
     gStatus.BatteryCharge.is_running = 0;
     gStatus.BatteryCharge.run_time = 0;
-    gStatus.BatteryCharge.error_time = 0;
     gStatus.BatteryCharge.is_error = 0;
   }
 }
