@@ -38,6 +38,15 @@
 #define O2_REG1_CALIBR 0x9C
 #define O2_REG1_NORMAL 0x88
 
+#define KNOCK_CMD_GAIN      0x80
+#define KNOCK_CMD_BP_FREQ   0x00
+#define KNOCK_CMD_INT_TIME  0xC0
+#define KNOCK_CMD_CH_SEL    0xE0
+#define KNOCK_CMD_SO_MODE   0x40
+
+#define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
+#define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
+
 static const float o2_lambda[24] = { 0.65f, 0.7f, 0.75f, 0.8f, 0.822f, 0.85f, 0.9f, 0.95f, 0.97f, 0.99f, 1.003f, 1.01f, 1.05f, 1.1f, 1.132f, 1.179f, 1.429f, 1.701f, 1.99f, 2.434f, 3.413f, 5.391f, 7.506f, 10.119f };
 
 static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
@@ -48,8 +57,29 @@ static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
 static const float o2_ur_voltage[14] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f };
 static const float o2_temperature[14] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630 };
 
-#define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
-#define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
+static volatile uint32_t StepPhase = 0;
+
+//Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port
+static const uint32_t StepPos[4] = {
+    (STEP_PH1_Pin | STEP_PH2_Pin) << 16,
+    STEP_PH1_Pin | (STEP_PH2_Pin << 16),
+    (STEP_PH1_Pin | STEP_PH2_Pin),
+    (STEP_PH1_Pin << 16) | STEP_PH2_Pin,
+
+};
+
+#define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPos[StepPhase]; }
+#define STEP_INCREMENT() { StepPhase = (StepPhase + 1) & 0x3; }
+#define STEP_DECREMENT() { StepPhase = (StepPhase - 1) & 0x3; }
+
+//Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
+#define STEP_IDLE() { IdleValveStepMode = 0; STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
+#define STEP_HOLD() { IdleValveStepMode = 1; STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
+#define STEP_NORMAL() { IdleValveStepMode = 2; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
+#define STEP_ACCELERATE() { IdleValveStepMode = 3; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
+
+#define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
+#define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_INJ_OFF() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_SET)
@@ -131,6 +161,20 @@ static inline void Misc_CpltNssCheck(void)
   }
 }
 
+int8_t Misc_AdcStartSamplingCallback(eAdcChannel channel)
+{
+  int8_t result = 0;
+
+  return result;
+}
+
+int8_t Misc_AdcSamplingDoneCallback(eAdcChannel channel)
+{
+  int8_t result = 0;
+
+  return result;
+}
+
 void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
@@ -164,24 +208,6 @@ void Misc_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
   }
 }
 
-static uint8_t waitTxCplt(void)
-{
-  if(semTx) {
-    semTx = 0;
-    return 1;
-  }
-  return 0;
-}
-
-static uint8_t waitRxCplt(void)
-{
-  if(semRx) {
-    semRx = 0;
-    return 1;
-  }
-  return 0;
-}
-
 static uint8_t waitTxRxCplt(void)
 {
   if(semRx && semTx) {
@@ -191,12 +217,6 @@ static uint8_t waitTxRxCplt(void)
   }
   return 0;
 }
-
-#define KNOCK_CMD_GAIN      0x80
-#define KNOCK_CMD_BP_FREQ   0x00
-#define KNOCK_CMD_INT_TIME  0xC0
-#define KNOCK_CMD_CH_SEL    0xE0
-#define KNOCK_CMD_SO_MODE   0x40
 
 static int8_t Knock_Cmd(uint8_t cmd, uint8_t *read)
 {
@@ -310,7 +330,7 @@ static void O2_SetHeaterDutyCycle(float dutycycle)
 static void O2_SetHeaterVoltage(float voltage)
 {
   float dutycycle;
-  float power = ADC_GetVoltage(AdcChPowerVoltage);
+  float power = adc_get_voltage(AdcChPowerVoltage);
 
   if(voltage > power) {
     dutycycle = 1.0f;
@@ -374,8 +394,8 @@ static int8_t O2_Enable(eO2AmplificationFactor factor)
 static void O2_CriticalLoop(void)
 {
   static uint32_t last_process = 0;
-  float temperaturevoltage = ADC_GetVoltage(AdcChO2UR);
-  float lambdavoltage = ADC_GetVoltage(AdcChO2UA);
+  float temperaturevoltage = adc_get_voltage(AdcChO2UR);
+  float lambdavoltage = adc_get_voltage(AdcChO2UA);
   float o2heater;
   uint8_t now = Delay_Tick;
   O2Status.Lambda = O2_GetLambda(lambdavoltage);
@@ -536,7 +556,7 @@ static int8_t O2_Loop(void)
       }
       if(o2heater >= 13.0f) {
         O2_SetHeaterVoltage(0);
-        O2Status.ReferenceVoltage = ADC_GetVoltage(AdcChO2UR);
+        O2Status.ReferenceVoltage = adc_get_voltage(AdcChO2UR);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         state++;
@@ -595,11 +615,12 @@ static int8_t Outs_Loop(void)
       case 1:
         pin = HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_5); //SPI4_MISO
         failure_stored = pin != GPIO_PIN_RESET;
-        HAL_SPI_Receive_IT(hspi, rx, 1);
+        tx[0] = 0xFF;
+        HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 1);
         state++;
         break;
       case 2:
-        if(waitRxCplt()) {
+        if(waitTxRxCplt()) {
           //SPI_NSS_INJ_OFF(); SPI_NSS_OUTS1_OFF(); SPI_NSS_OUTS2_OFF();
 
           if(OutputsDiagnosticStored[channel] == 0 || failure_stored == 1 || rx[0] != 0xFF) {
@@ -761,7 +782,7 @@ static void Knock_CriticalLoop(void)
 
   switch(state) {
     case 0: //First ms
-      voltage = ADC_GetVoltage(AdcChKnock);
+      voltage = adc_get_voltage(AdcChKnock);
       KNOCK_INTEGRATE();
       state++;
 
@@ -868,30 +889,6 @@ static void IdleValve_CriticalLoop(void)
 
   IdleValvePositionStatus = idle_valve_state_pin == GPIO_PIN_RESET ? HAL_ERROR : HAL_OK;
 }
-
-static volatile uint32_t StepPhase = 0;
-
-//Works for STEP_PH_GPIO_Port == STEP_PH2_GPIO_Port
-static const uint32_t StepPos[4] = {
-    (STEP_PH1_Pin | STEP_PH2_Pin) << 16,
-    STEP_PH1_Pin | (STEP_PH2_Pin << 16),
-    (STEP_PH1_Pin | STEP_PH2_Pin),
-    (STEP_PH1_Pin << 16) | STEP_PH2_Pin,
-
-};
-
-#define STEP_APPEND() { STEP_PH1_GPIO_Port->BSRR = StepPos[StepPhase]; }
-#define STEP_INCREMENT() { StepPhase = (StepPhase + 1) & 0x3; }
-#define STEP_DECREMENT() { StepPhase = (StepPhase - 1) & 0x3; }
-
-//Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
-#define STEP_IDLE() { IdleValveStepMode = 0; STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
-#define STEP_HOLD() { IdleValveStepMode = 1; STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
-#define STEP_NORMAL() { IdleValveStepMode = 2; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
-#define STEP_ACCELERATE() { IdleValveStepMode = 3; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
-
-#define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
-#define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
 
 inline void Misc_EnableIdleValvePosition(uint8_t enablement_position)
 {

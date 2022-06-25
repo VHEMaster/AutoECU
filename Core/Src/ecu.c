@@ -1079,14 +1079,14 @@ static void ecu_update(void)
   gStatus.LeanIdleMixture.error_last = hal_now;
 
   gParameters.AdcKnockVoltage = knock_raw;
-  gParameters.AdcAirTemp = ADC_GetVoltage(AdcChAirTemperature);
-  gParameters.AdcEngineTemp = ADC_GetVoltage(AdcChEngineTemperature);
-  gParameters.AdcManifoldAirPressure = ADC_GetVoltage(AdcChManifoldAbsolutePressure);
-  gParameters.AdcThrottlePosition = ADC_GetVoltage(AdcChThrottlePosition);
-  gParameters.AdcPowerVoltage = ADC_GetVoltage(AdcChPowerVoltage);
-  gParameters.AdcReferenceVoltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
-  gParameters.AdcLambdaUR = ADC_GetVoltage(AdcChO2UR);
-  gParameters.AdcLambdaUA = ADC_GetVoltage(AdcChO2UA);
+  gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
+  gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
+  gParameters.AdcManifoldAirPressure = adc_get_voltage(AdcChManifoldAbsolutePressure);
+  gParameters.AdcThrottlePosition = adc_get_voltage(AdcChThrottlePosition);
+  gParameters.AdcPowerVoltage = adc_get_voltage(AdcChPowerVoltage);
+  gParameters.AdcReferenceVoltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+  gParameters.AdcLambdaUR = adc_get_voltage(AdcChO2UR);
+  gParameters.AdcLambdaUA = adc_get_voltage(AdcChO2UA);
 
   gParameters.KnockSensor = knock;
   gParameters.KnockSensorFiltered = knock_filtered;

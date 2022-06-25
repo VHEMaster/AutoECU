@@ -15,13 +15,6 @@
 #define ADC_VREF 4.096f
 #define MCU_VREF 3.30f
 
-#define ADC_RANGE_PM2500 0x00
-#define ADC_RANGE_PM1250 0x01
-#define ADC_RANGE_PM0625 0x02
-#define ADC_RANGE_0P2500 0x03
-#define ADC_RANGE_0P1250 0x04
-#define MCU_RANGE_DIRECT 0x10
-
 #define ADC_CHANNELS 8
 #define MCU_CHANNELS 1
 #define ADC_BUFFER_SIZE 8
@@ -32,28 +25,10 @@ static volatile HAL_StatusTypeDef adcInitStatus = HAL_OK;
 static volatile HAL_StatusTypeDef adcStatus = HAL_OK;
 
 static uint16_t ChData[ADC_CHANNELS + MCU_CHANNELS] = {0};
-static const uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {
-    ADC_RANGE_0P1250,
-    ADC_RANGE_0P1250,
-    ADC_RANGE_0P2500,
-    ADC_RANGE_0P1250,
-    ADC_RANGE_0P1250,
-    ADC_RANGE_0P2500,
-    ADC_RANGE_0P1250,
-    ADC_RANGE_0P1250,
-    MCU_RANGE_DIRECT,
-};
-static const float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {
-    1.0f,
-    1.0f,
-    2.0f,
-    1.0f,
-    1.0f,
-    2.0f,
-    1.0f,
-    1.0f,
-    2.0f,
-};
+static uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static uint8_t ChFilter[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static uint8_t ChIgnoreNext[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {0};
 
 static SPI_HandleTypeDef *hspi = NULL;
 static ADC_HandleTypeDef *hadc = NULL;
@@ -69,6 +44,14 @@ static uint8_t AdcFirstTime = 1;
 static uint8_t McuFirstTime = 1;
 static uint32_t McuWritePos = 0;
 
+static AdcChannelEvent AdcStartSamplingEvent = NULL;
+static AdcChannelEvent AdcSamplingDoneEvent = NULL;
+
+void adc_set_events(AdcChannelEvent startEvent, AdcChannelEvent doneEvent)
+{
+  AdcStartSamplingEvent = startEvent;
+  AdcSamplingDoneEvent = doneEvent;
+}
 
 void ADC_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
@@ -104,42 +87,45 @@ void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
 
 void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
 {
+  static uint8_t McuChannel = 0;
   uint16_t data;
   if(_hadc == hadc) {
     data = HAL_ADC_GetValue(hadc);
 
-    if(McuFirstTime) {
-      McuFirstTime = 0;
-      McuWritePos = 0;
-      for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
-        AdcBuffer[ADC_CHANNELS + 0][i] = data;
+    ChIgnoreNext[ADC_CHANNELS + McuChannel] = 1;
+    if(!ChIgnoreNext[ADC_CHANNELS + McuChannel]) {
+      if(ChFilter[ADC_CHANNELS + McuChannel]) {
+        if(McuFirstTime) {
+          McuFirstTime = 0;
+          McuWritePos = 0;
+          for(int j = 0; j < ADC_BUFFER_SIZE; j++) {
+            AdcBuffer[ADC_CHANNELS + McuChannel][j] = data;
+          }
+        }
+        else {
+          AdcBuffer[ADC_CHANNELS + McuChannel][McuWritePos] = data;
+          if(++McuWritePos >= ADC_BUFFER_SIZE)
+            McuWritePos = 0;
+        }
+      } else {
+        AdcBuffer[ADC_CHANNELS + McuChannel][0] = data;
       }
-    }
-    else {
-      AdcBuffer[ADC_CHANNELS + 0][McuWritePos] = data;
-      if(++McuWritePos >= ADC_BUFFER_SIZE)
-        McuWritePos = 0;
+    } else {
+      ChIgnoreNext[ADC_CHANNELS + McuChannel] = 0;
     }
 
-  }
-}
+    if(AdcSamplingDoneEvent)
+      if(AdcSamplingDoneEvent(ADC_CHANNELS + McuChannel) < 0)
+        ChIgnoreNext[ADC_CHANNELS + McuChannel] = 1;
 
-static uint8_t waitTxCplt(void)
-{
-  if(semTx) {
-    semTx = 0;
-    return 1;
-  }
-  return 0;
-}
+    if(++McuChannel >= MCU_CHANNELS)
+      McuChannel = 0;
 
-static uint8_t waitRxCplt(void)
-{
-  if(semRx) {
-    semRx = 0;
-    return 1;
+    if(AdcStartSamplingEvent)
+      if(AdcStartSamplingEvent(ADC_CHANNELS + McuChannel) < 0)
+        ChIgnoreNext[ADC_CHANNELS + McuChannel] = 1;
   }
-  return 0;
+
 }
 
 static uint8_t waitTxRxCplt(void)
@@ -233,10 +219,11 @@ static inline float ADC_Convert(uint8_t channel)
   }
 }
 
-HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
+HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 {
   HAL_StatusTypeDef result = HAL_OK;
   uint8_t data;
+
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
@@ -247,7 +234,8 @@ HAL_StatusTypeDef ADC_Init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
   hspi = _hspi;
   hadc = _hadc;
 
-  result = SPI_SendCommand(0x8500); //RST command
+  //RST command
+  result = SPI_SendCommand(0x8500);
   if(result != HAL_OK)
     goto ret;
 
@@ -326,10 +314,28 @@ ret:
   adcInitStatus = result;
   adcStatus = result;
 
+  if(AdcStartSamplingEvent)
+    if(AdcStartSamplingEvent(ADC_CHANNELS) < 0)
+      ChIgnoreNext[AdcChannel] = 1;
+
   return result;
 }
 
-HAL_StatusTypeDef ADC_Fast_Loop(void)
+HAL_StatusTypeDef adc_register(eAdcChannel channel, uint8_t range, float divider, uint8_t filter)
+{
+  HAL_StatusTypeDef result = HAL_OK;
+
+  if(channel >= ADC_CHANNELS + MCU_CHANNELS)
+    return HAL_ERROR;
+
+  ChRange[channel] = range;
+  ChDivider[channel] = divider;
+  ChFilter[channel] = filter;
+
+  return result;
+}
+
+HAL_StatusTypeDef adc_fast_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
@@ -340,6 +346,9 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
 
   switch(state) {
     case 0:
+      if(AdcStartSamplingEvent)
+        if(AdcStartSamplingEvent(AdcChannel) < 0)
+          ChIgnoreNext[AdcChannel] = 1;
       memset(tx, 0, 4);
       SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
       SPI_NSS_ON();
@@ -353,14 +362,26 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
         SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
         data = rx[2] << 8 | rx[3];
 
-        if(!AdcFirstTime)
-          AdcBuffer[AdcChannel][AdcWritePos] = data;
-        else {
-          AdcWritePos = 0;
-          for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
-            AdcBuffer[AdcChannel][i] = data;
+        if(!ChIgnoreNext[AdcChannel]) {
+          if(ChFilter[AdcChannel]) {
+            if(!AdcFirstTime)
+              AdcBuffer[AdcChannel][AdcWritePos] = data;
+            else {
+              AdcWritePos = 0;
+              for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
+                AdcBuffer[AdcChannel][i] = data;
+              }
+            }
+          } else {
+            AdcBuffer[AdcChannel][0] = data;
           }
+        } else {
+          ChIgnoreNext[AdcChannel] = 0;
         }
+
+        if(AdcSamplingDoneEvent)
+          if(AdcSamplingDoneEvent(AdcChannel) < 0)
+            ChIgnoreNext[AdcChannel] = 1;
 
         if(++AdcChannel >= ADC_CHANNELS) {
           if(++AdcWritePos >= ADC_BUFFER_SIZE) {
@@ -386,7 +407,7 @@ HAL_StatusTypeDef ADC_Fast_Loop(void)
   return result;
 }
 
-HAL_StatusTypeDef ADC_Slow_Loop(void)
+HAL_StatusTypeDef adc_slow_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   uint32_t data;
@@ -396,10 +417,14 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
     return adcInitStatus;
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
-    data = 0;
-    for(int j = 0; j < ADC_BUFFER_SIZE; j++)
-      data += AdcBuffer[i][j];
-    ChData[i] = data / ADC_BUFFER_SIZE;
+    if(ChFilter[i]) {
+      data = 0;
+      for(int j = 0; j < ADC_BUFFER_SIZE; j++)
+        data += AdcBuffer[i][j];
+      ChData[i] = data / ADC_BUFFER_SIZE;
+    } else {
+      ChData[i] = AdcBuffer[i][0];
+    }
     AdcVoltages[i] = ADC_Convert(i) * ChDivider[i];
   }
 
@@ -415,14 +440,14 @@ HAL_StatusTypeDef ADC_Slow_Loop(void)
   return result;
 }
 
-inline float ADC_GetVoltage(eAdcChannel channel)
+inline float adc_get_voltage(eAdcChannel channel)
 {
   if(channel < ADC_CHANNELS + MCU_CHANNELS)
     return AdcVoltages[channel];
   return 0.f;
 }
 
-HAL_StatusTypeDef ADC_GetStatus(void)
+HAL_StatusTypeDef adc_get_status(void)
 {
   return adcStatus;
 }

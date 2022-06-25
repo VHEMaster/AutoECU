@@ -177,7 +177,7 @@ HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output)
 
 HAL_StatusTypeDef sens_get_adc_status(void)
 {
-  return ADC_GetStatus();
+  return adc_get_status();
 }
 
 HAL_StatusTypeDef sens_get_knock_raw(float *output)
@@ -193,8 +193,8 @@ HAL_StatusTypeDef sens_get_knock(float *output)
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float voltage = ADC_GetVoltage(AdcChManifoldAbsolutePressure);
-  float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
+  float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   if(voltage >= power_voltage * 0.985f)
     status = HAL_ERROR;
 
@@ -207,8 +207,8 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
   float reference_resistance, meter_resistance;
-  float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
-  float temperature = ADC_GetVoltage(AdcChAirTemperature);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+  float temperature = adc_get_voltage(AdcChAirTemperature);
 
   *output = 150.0f;
 
@@ -240,8 +240,8 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
   float reference_resistance, meter_resistance;
-  float power_voltage = ADC_GetVoltage(AdcChPowerVoltage);
-  float temperature = ADC_GetVoltage(AdcChEngineTemperature);
+  float power_voltage = adc_get_voltage(AdcChPowerVoltage);
+  float temperature = adc_get_voltage(AdcChEngineTemperature);
 
   *output = 150.0f;
 
@@ -272,8 +272,8 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
 HAL_StatusTypeDef sens_get_throttle_position(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float power_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
-  float value = ADC_GetVoltage(AdcChEngineTemperature);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+  float value = adc_get_voltage(AdcChEngineTemperature);
   //TODO: calibrate throttle position sensor
   float voltage_from = power_voltage * 0.12f;
   float voltage_to = power_voltage * 0.92f;
@@ -299,7 +299,7 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
 HAL_StatusTypeDef sens_get_power_voltage(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float power_voltage = ADC_GetVoltage(AdcChPowerVoltage);
+  float power_voltage = adc_get_voltage(AdcChPowerVoltage);
 
   *output = power_voltage;
 
@@ -309,7 +309,7 @@ HAL_StatusTypeDef sens_get_power_voltage(float *output)
 HAL_StatusTypeDef sens_get_reference_voltage(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  float reference_voltage = ADC_GetVoltage(AdcMcuChReferenceVoltage);
+  float reference_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
 
   *output = reference_voltage;
 

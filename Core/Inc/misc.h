@@ -8,6 +8,7 @@
 #ifndef INC_MISC_H_
 #define INC_MISC_H_
 
+#include "adc.h"
 #include "main.h"
 #include "structs.h"
 
@@ -53,6 +54,9 @@ typedef enum {
   MiscDiagChOutputs2,
   MiscDiagChCount
 }eMiscDiagChannels;
+
+int8_t Misc_AdcStartSamplingCallback(eAdcChannel channel);
+int8_t Misc_AdcSamplingDoneCallback(eAdcChannel channel);
 
 void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi);
 void Misc_TxCpltCallback(SPI_HandleTypeDef * _hspi);

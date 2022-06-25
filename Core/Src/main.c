@@ -96,6 +96,16 @@ static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_S
 
 static volatile uint32_t o2_pwm_period = 0;
 
+static int8_t ADC_StartSamplingCallback(eAdcChannel channel)
+{
+  return Misc_AdcStartSamplingCallback(channel);
+}
+
+static int8_t ADC_SamplingDoneCallback(eAdcChannel channel)
+{
+  return Misc_AdcSamplingDoneCallback(channel);
+}
+
 INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
 {
   if(hadc == &hadc1) {
@@ -124,12 +134,12 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 #ifdef SIMULATION
     csps_emulate(Delay_Tick, gDebugRpm, gPhased);
 #endif
-    ADC_Fast_Loop();
+    adc_fast_loop();
     flash_fast_loop();
     Misc_Fast_Loop();
     ecu_irq_fast_loop();
   } else if (htim == &htim4) {
-    ADC_Slow_Loop();
+    adc_slow_loop();
     Misc_Loop();
     sensors_loop();
     outputs_loop();
@@ -349,9 +359,20 @@ int main(void)
           PK_ECU_TxSendingBuffers[i], ITEMSOF(PK_ECU_TxSendingBuffers[i]));
 
 
-  ADC_Init(&hspi1, &hadc1);
+  adc_init(&hspi1, &hadc1);
   SST25_Init(&hspi2);
   Misc_Init(&hspi4);
+
+  adc_register(AdcChKnock,                    ADC_RANGE_0P1250, 1.0f, ADC_FILTER_DISABLE);
+  adc_register(AdcChAirTemperature,           ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChEngineTemperature,        ADC_RANGE_0P2500, 2.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChManifoldAbsolutePressure, ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChThrottlePosition,         ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChPowerVoltage,             ADC_RANGE_0P2500, 2.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChO2UR,                     ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChO2UA,                     ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcMcuChReferenceVoltage,      MCU_RANGE_DIRECT, 2.0f, ADC_FILTER_ENABLE);
+  adc_set_events(ADC_StartSamplingCallback, ADC_SamplingDoneCallback);
 
   csps_init(&Delay_Tick, &htim2, TIM_CHANNEL_1);
   speed_init(&Delay_Tick, &htim1, TIM_CHANNEL_1);
