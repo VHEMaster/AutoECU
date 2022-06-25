@@ -918,24 +918,31 @@ static void ecu_update(void)
 
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
     if(csps_isrunning()) {
-      if(gStatus.Knock.Filtered >= knock_threshold) {
-        gStatus.Knock.GeneralStatus = KnockStatusDedonation;
-        gStatus.Knock.DetonationLast = hal_now;
-      } else if(gStatus.Knock.Voltage < knock_noise_level * 0.5f) {
-        gStatus.Knock.GeneralStatus = KnockStatusLowNoise;
-        gStatus.Knock.LowNoiseLast = hal_now;
-      } else {
-        gStatus.Knock.GeneralStatus = KnockStatusOk;
+      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+        if(gStatus.Knock.Updated[i]) {
+          if(gStatus.Knock.Denoised[i] >= knock_threshold) {
+            gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
+            gStatus.Knock.DetonationLast = hal_now;
+          } else if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
+            gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
+            gStatus.Knock.LowNoiseLast = hal_now;
+          }
+          gStatus.Knock.Updated[i] = 0;
+        }
       }
     } else {
       gStatus.Knock.GeneralStatus = KnockStatusOk;
     }
   }
 
-  if(HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 10000)
+  if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 10000) {
+    gStatus.Knock.GeneralStatus &= ~KnockStatusDedonation;
     gStatus.Knock.DetonationLast = 0;
-  if(HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) > 10000)
+  }
+  if(gStatus.Knock.LowNoiseLast && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) > 10000) {
+    gStatus.Knock.GeneralStatus &= ~KnockStatusLowNoise;
     gStatus.Knock.LowNoiseLast = 0;
+  }
 
   if(adapt_diff >= period * 2.0f) {
     adaptation_last = now;
@@ -1188,7 +1195,7 @@ static void ecu_update(void)
   gDiagWorkingMode.Bits.is_idle = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_lock_last = 0;
-  gDiagWorkingMode.Bits.is_knock = gStatus.Knock.GeneralStatus == KnockStatusDedonation;
+  gDiagWorkingMode.Bits.is_knock = (gStatus.Knock.GeneralStatus & KnockStatusDedonation) > 0;
   gDiagWorkingMode.Bits.is_knock_zone = !idle_flag && running;
   gDiagWorkingMode.Bits.is_knock_zone_last = !idle_flag && running;
 
@@ -1933,9 +1940,12 @@ static void ecu_process(void)
             knock = adc_get_voltage(AdcChKnock);
             if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
               gStatus.Knock.Voltages[knock_cylinder] = knock;
+              gStatus.Knock.Updated[knock_cylinder] = 1;
             } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
               gStatus.Knock.Voltages[knock_cylinder] = knock;
               gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
+              gStatus.Knock.Updated[knock_cylinder] = 1;
+              gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
             }
             knock_process[i] = 1;
             Knock_SetState(1);
@@ -2241,8 +2251,8 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckEngineRichIdleMixture, gStatus.RichIdleMixture.is_error && gStatus.RichIdleMixture.error_time > 5000);
   }
   if(gEcuParams.useKnockSensor) {
-    CHECK_STATUS(iserror, CheckKnockDetonationFound, gStatus.Knock.GeneralStatus == KnockStatusDedonation || (gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) < 3000));
-    CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, gStatus.Knock.GeneralStatus == KnockStatusLowNoise || (gStatus.Knock.LowNoiseLast && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) < 3000));
+    CHECK_STATUS(iserror, CheckKnockDetonationFound, (gStatus.Knock.GeneralStatus & KnockStatusDedonation) > 0);
+    CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0);
   }
   if(gEcuParams.useTSPS) {
     CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.TspsSyncStatus != HAL_OK);
@@ -2270,7 +2280,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.lambda_low = gStatus.Sensors.Struct.Lambda != HAL_OK;
   gDiagErrors.Bits.tps_low = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
   gDiagErrors.Bits.maf_low = gStatus.Sensors.Struct.Map != HAL_OK;
-  gDiagErrors.Bits.low_noise = gStatus.Knock.GeneralStatus == KnockStatusLowNoise;
+  gDiagErrors.Bits.low_noise = (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0;
 
   gDiagErrors.Bits.high_voltage = gParameters.PowerVoltage > 16.0f;
   gDiagErrors.Bits.not_used4 = 0;
@@ -2279,7 +2289,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.lambda_high = gStatus.Sensors.Struct.Lambda != HAL_OK;
   gDiagErrors.Bits.tps_high = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
   gDiagErrors.Bits.maf_high = gStatus.Sensors.Struct.Map != HAL_OK;
-  gDiagErrors.Bits.high_noise = gStatus.Knock.GeneralStatus == KnockStatusDedonation;
+  gDiagErrors.Bits.high_noise = (gStatus.Knock.GeneralStatus & KnockStatusDedonation) > 0;
 
   gDiagErrors.Bits.knock_error = gStatus.Sensors.Struct.Knock != HAL_OK;
   gDiagErrors.Bits.no_immo = 0;
