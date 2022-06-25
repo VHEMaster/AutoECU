@@ -310,6 +310,7 @@ typedef struct {
 
     float KnockSensor;
     float KnockSensorFiltered;
+    float KnockSensorDetonate;
     float KnockZone;
     float KnockAdvance;
     float AirTemp;

@@ -1160,6 +1160,7 @@ static void ecu_update(void)
 
   gParameters.KnockSensor = gStatus.Knock.StatusVoltage;
   gParameters.KnockSensorFiltered = gStatus.Knock.StatusFiltered;
+  gParameters.KnockSensorDetonate = gStatus.Knock.StatusDetonate;
   gParameters.KnockZone = knock_zone;
   gParameters.KnockAdvance = gStatus.Knock.Advance;
   gParameters.AirTemp = air_temp;
