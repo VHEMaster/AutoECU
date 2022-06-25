@@ -396,7 +396,6 @@ static void ecu_update(void)
   float fuel_flow_per_us;
   float knock_noise_level;
   float knock_zone;
-  float knock_advance;
 
   float min, max;
   static uint32_t prev_halfturns = 0;
@@ -855,22 +854,30 @@ static void ecu_update(void)
   gStatus.Knock.Filtered = 0.0f;
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     gStatus.Knock.Denoised[i]  = gStatus.Knock.Voltages[i] - knock_noise_level;
+    gStatus.Knock.Detonates[i]  = gStatus.Knock.Denoised[i] - knock_threshold;
     if(gStatus.Knock.Denoised[i] < 0.0f)
       gStatus.Knock.Denoised[i] = 0.0f;
+    if(gStatus.Knock.Detonates[i] < 0.0f)
+      gStatus.Knock.Detonates[i] = 0.0f;
     if(gStatus.Knock.Voltage < gStatus.Knock.Voltages[i])
       gStatus.Knock.Voltage = gStatus.Knock.Voltages[i];
     if(gStatus.Knock.Filtered < gStatus.Knock.Denoised[i])
       gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
+    if(gStatus.Knock.Detonate < gStatus.Knock.Detonates[i])
+      gStatus.Knock.Detonate = gStatus.Knock.Detonates[i];
   }
 
   if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
   if(gStatus.Knock.StatusFiltered < gStatus.Knock.Filtered)
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
+  if(gStatus.Knock.StatusDetonate < gStatus.Knock.Detonate)
+    gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
 
   if(gStatus.Knock.StatusLast == 0 || DelayDiff(now, gStatus.Knock.StatusLast) > 500000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
+    gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
     gStatus.Knock.StatusLast = now;
   }
 
@@ -923,29 +930,46 @@ static void ecu_update(void)
       knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
 
       //TODO: advance logic
-      knock_advance = 0.0f;
 
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         if(gStatus.Knock.Updated[i]) {
-          if(gStatus.Knock.Denoised[i] >= knock_threshold) {
+          if(gStatus.Knock.Detonates[i] > 0.0f) {
             gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
             gStatus.Knock.DetonationLast = hal_now;
-          } else if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
-            gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
-            gStatus.Knock.LowNoiseLast = hal_now;
+            gStatus.Knock.Advances[i] += gStatus.Knock.Detonates[i];
+            if(gStatus.Knock.Advances[i] > 1.0f)
+              gStatus.Knock.Advances[i] = 1.0f;
+          } else {
+            if(gStatus.Knock.Advances[i] > 0.0f) {
+              gStatus.Knock.Advances[i] -= diff * 0.000001f * 0.1f * knock_zone * knock_zone; //10 seconds to restore if knock_zone is 1.0
+              if(gStatus.Knock.Advances[i] < 0.0f)
+                gStatus.Knock.Advances[i] = 0.0f;
+            }
+            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
+              gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
+              gStatus.Knock.LowNoiseLast = hal_now;
+            }
           }
           gStatus.Knock.Updated[i] = 0;
         }
       }
     } else {
       knock_zone = 0.0f;
-      knock_advance = 0.0f;
+      gStatus.Knock.Advance = 0.0f;
       gStatus.Knock.GeneralStatus = KnockStatusOk;
     }
   } else {
     knock_zone = 0.0f;
-    knock_advance = 0.0f;
+    gStatus.Knock.Advance = 0.0f;
     gStatus.Knock.GeneralStatus = KnockStatusOk;
+  }
+
+  gStatus.Knock.Advance = 0;
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
+      gStatus.Knock.Advance = gStatus.Knock.Advances[i];
+    gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
+    gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
   }
 
   if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 10000) {
@@ -1137,7 +1161,7 @@ static void ecu_update(void)
   gParameters.KnockSensor = gStatus.Knock.StatusVoltage;
   gParameters.KnockSensorFiltered = gStatus.Knock.StatusFiltered;
   gParameters.KnockZone = knock_zone;
-  gParameters.KnockAdvance = knock_advance;
+  gParameters.KnockAdvance = gStatus.Knock.Advance;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.ManifoldAirPressure = pressure;

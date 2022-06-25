@@ -462,10 +462,15 @@ typedef struct {
         uint32_t LowNoiseLast;
         float Voltages[ECU_CYLINDERS_COUNT];
         float Denoised[ECU_CYLINDERS_COUNT];
+        float Detonates[ECU_CYLINDERS_COUNT];
+        float Advances[ECU_CYLINDERS_COUNT];
         float Voltage;
         float Filtered;
+        float Detonate;
         float StatusVoltage;
         float StatusFiltered;
+        float StatusDetonate;
+        float Advance;
         uint8_t Updated[ECU_CYLINDERS_COUNT];
         uint32_t StatusLast;
     }Knock;
