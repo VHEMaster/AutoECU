@@ -449,7 +449,15 @@ typedef struct {
     HAL_StatusTypeDef KlineProtocolStatus;
     HAL_StatusTypeDef KlineLoopbackStatus;
     sO2Diagnostic O2Diagnostic;
-    eKnockStatus KnockStatus;
+    struct {
+        eKnockStatus GeneralStatus;
+        uint32_t DetonationLast;
+        uint32_t LowNoiseLast;
+        float Voltages[ECU_CYLINDERS_COUNT];
+        float Denoised[ECU_CYLINDERS_COUNT];
+        float Voltage;
+        float Filtered;
+    }Knock;
     struct {
         uint8_t is_error;
         uint32_t error_time;

@@ -1105,6 +1105,15 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
   return result;
 }
 
+INLINE void Knock_SetState(uint8_t is_integrate)
+{
+  if(is_integrate) {
+    KNOCK_INTEGRATE();
+  } else {
+    KNOCK_HOLD();
+  }
+}
+
 INLINE void Knock_SetBandpassFilterFrequency(uint8_t value)
 {
   KnockConfig.bandpass_filter_frequency = value;

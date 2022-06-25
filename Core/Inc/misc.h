@@ -80,6 +80,7 @@ void Misc_Loop(void);
 
 void O2_SetLambdaForceEnabled(uint8_t enabled);
 
+void Knock_SetState(uint8_t is_integrate);
 HAL_StatusTypeDef Knock_GetStatus(void);
 void Knock_SetBandpassFilterFrequency(uint8_t value);
 void Knock_SetGainValue(uint8_t value);

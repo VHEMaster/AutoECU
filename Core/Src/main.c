@@ -358,7 +358,6 @@ int main(void)
           PK_ECU_TxQueueBuffers[i], ITEMSOF(PK_ECU_TxQueueBuffers[i]),
           PK_ECU_TxSendingBuffers[i], ITEMSOF(PK_ECU_TxSendingBuffers[i]));
 
-
   adc_init(&hspi1, &hadc1);
   SST25_Init(&hspi2);
   Misc_Init(&hspi4);
