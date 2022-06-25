@@ -1621,6 +1621,7 @@ static void ecu_process(void)
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_busy = 0;
+  static uint8_t knock_cylinder = 0;
   static uint8_t inj_was_phased = 0;
   static uint8_t ign_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
@@ -1840,10 +1841,14 @@ static void ecu_process(void)
     gInjChPorts[injector_channel ^ 1]->BSRR = gInjChPins[injector_channel ^ 1] << 16;
 
     if(gIITest.StartedTime) {
+      Knock_SetState(0);
       if(DelayDiff(now, gIITest.StartedTime) >= gIITest.Period) {
         gIITest.InjectionTriggered = 0;
         gIITest.CompletedCount++;
         if(gIITest.CompletedCount >= gIITest.Count) {
+          memset(knock_process, 0, sizeof(knock_process));
+          knock_busy = 0;
+          Knock_SetState(1);
           gIITest.StartedTime = 0;
           gIITest.IgnitionEnabled = 0;
           gIITest.InjectionEnabled = 0;
@@ -1917,20 +1922,21 @@ static void ecu_process(void)
           if(knock_process[i]) {
             if(angle_ignition[i] < gKnockDetectStartAngle || angle_ignition[i] >= gKnockDetectEndAngle) {
               Knock_SetState(0);
-              knock = adc_get_voltage(AdcChKnock);
-              if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-                gStatus.Knock.Voltages[i] = knock;
-              } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-                gStatus.Knock.Voltages[i] = knock;
-                gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - i] = knock;
-              }
               knock_process[i] = 0;
+              knock_cylinder = i;
               knock_busy = 0;
             }
           }
         } else {
           if(angle_ignition[i] >= gKnockDetectStartAngle && angle_ignition[i] < gKnockDetectEndAngle) {
             knock_busy = 1;
+            knock = adc_get_voltage(AdcChKnock);
+            if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
+              gStatus.Knock.Voltages[knock_cylinder] = knock;
+            } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
+              gStatus.Knock.Voltages[knock_cylinder] = knock;
+              gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
+            }
             knock_process[i] = 1;
             Knock_SetState(1);
           }
