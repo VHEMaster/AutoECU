@@ -370,9 +370,7 @@ static void ecu_update(void)
   float reference_voltage;
   float speed;
   float acceleration;
-  float knock;
   float idle_valve_position;
-  float knock_raw;
   float uspa;
   float period;
 
@@ -392,7 +390,6 @@ static void ecu_update(void)
   float air_destiny;
   float filling_relative;
   float fuel_flow_per_us;
-  float knock_filtered;
   float knock_noise_level;
 
   float min, max;
@@ -475,8 +472,7 @@ static void ecu_update(void)
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
   acceleration = speed_getacceleration();
-  knock_status = sens_get_knock(&knock);
-  sens_get_knock_raw(&knock_raw);
+  knock_status = Knock_GetStatus();
 
 #ifdef SIMULATION
   pressure = gDebugMap;
@@ -849,9 +845,9 @@ static void ecu_update(void)
   if(!gIgnCanShutdown)
     out_set_idle_valve(roundf(idle_wish_valve_pos));
 
-  knock_filtered = knock - knock_noise_level;
-  if(knock_filtered < 0.0f)
-    knock_filtered = 0.0f;
+  //knock_filtered = knock - knock_noise_level;
+  //if(knock_filtered < 0.0f)
+  //  knock_filtered = 0.0f;
 
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     running = 0;
@@ -897,6 +893,7 @@ static void ecu_update(void)
     gStatus.InjectionUnderflow = HAL_OK;
   }
 
+  /*
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
     if(csps_isrunning()) {
       if(knock_filtered >= knock_threshold) {
@@ -910,6 +907,7 @@ static void ecu_update(void)
       gStatus.KnockStatus = KnockStatusOk;
     }
   }
+  */
 
   if(adapt_diff >= period * 2.0f) {
     adaptation_last = now;
@@ -1078,7 +1076,7 @@ static void ecu_update(void)
   gStatus.RichIdleMixture.error_last = hal_now;
   gStatus.LeanIdleMixture.error_last = hal_now;
 
-  gParameters.AdcKnockVoltage = knock_raw;
+  //gParameters.AdcKnockVoltage = knock_raw;
   gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
   gParameters.AdcManifoldAirPressure = adc_get_voltage(AdcChManifoldAbsolutePressure);
@@ -1088,8 +1086,8 @@ static void ecu_update(void)
   gParameters.AdcLambdaUR = adc_get_voltage(AdcChO2UR);
   gParameters.AdcLambdaUA = adc_get_voltage(AdcChO2UA);
 
-  gParameters.KnockSensor = knock;
-  gParameters.KnockSensorFiltered = knock_filtered;
+  //gParameters.KnockSensor = knock;
+  //gParameters.KnockSensorFiltered = knock_filtered;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.ManifoldAirPressure = pressure;

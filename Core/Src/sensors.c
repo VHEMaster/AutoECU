@@ -180,16 +180,6 @@ HAL_StatusTypeDef sens_get_adc_status(void)
   return adc_get_status();
 }
 
-HAL_StatusTypeDef sens_get_knock_raw(float *output)
-{
-  return Knock_GetValueRaw(output);
-}
-
-HAL_StatusTypeDef sens_get_knock(float *output)
-{
-  return Knock_GetValueByRPM(output);
-}
-
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;

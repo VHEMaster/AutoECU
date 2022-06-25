@@ -73,10 +73,10 @@ static const uint32_t StepPos[4] = {
 #define STEP_DECREMENT() { StepPhase = (StepPhase - 1) & 0x3; }
 
 //Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
-#define STEP_IDLE() { IdleValveStepMode = 0; STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; }
-#define STEP_HOLD() { IdleValveStepMode = 1; STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); }
-#define STEP_NORMAL() { IdleValveStepMode = 2; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); }
-#define STEP_ACCELERATE() { IdleValveStepMode = 3; STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; }
+#define STEP_IDLE() { IdleValveStepMode = 0; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
+#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
+#define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
+#define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
 #define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
 #define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
@@ -104,15 +104,12 @@ static uint8_t O2Device = 0;
 static uint8_t O2Version = 0;
 static uint32_t O2PwmPeriod = 255;
 static volatile uint32_t *O2PwmDuty = NULL;
-static volatile float KnockRawValue = 0.0f;
-static volatile float KnockValue = 0.0f;
 static HAL_StatusTypeDef KnockInitialStatus = HAL_OK;
-static volatile HAL_StatusTypeDef KnockStatus = HAL_OK;
 static HAL_StatusTypeDef O2InitState = HAL_OK;
 
 static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
-static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {HAL_OK, HAL_OK, HAL_OK};
+static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {0};
 
 static sMathPid o2_pid;
 
@@ -131,13 +128,20 @@ static volatile sKnockConfig KnockConfig = {0};
 static volatile uint8_t KnockConfigChanged = 0;
 static volatile uint8_t IdleValveStepMode = 0;
 
+static volatile HAL_StatusTypeDef IdleValvePositionStatus = HAL_OK;
+static volatile uint8_t IdleValvePositionCurrent = 0;
+static volatile uint8_t IdleValvePositionTarget = 0;
+static volatile uint8_t IdleValveCalibratedOk = 0;
+static volatile uint8_t IdleValveCalibrate = 0;
+static volatile uint8_t IdleValveEnabled = 0;
+
 volatile uint8_t nss_o2_off = 0;
 volatile uint8_t nss_knock_off = 0;
 volatile uint8_t nss_out1_off = 0;
 volatile uint8_t nss_out2_off = 0;
 volatile uint8_t nss_inj_off = 0;
 
-static inline void Misc_CpltNssCheck(void)
+STATIC_INLINE void Misc_CpltNssCheck(void)
 {
   if(nss_o2_off) {
     SPI_NSS_O2_OFF();
@@ -769,80 +773,26 @@ static int8_t Knock_Loop(void)
 
 static void Knock_CriticalLoop(void)
 {
-  static uint8_t state = 0;
-  static uint32_t knock_prev = 0;
-  uint32_t now = Delay_Tick;
-  uint32_t diff;
-  float voltage,corrected,rpm;
-  float koff;
-  uint8_t rotates;
-
   if(KnockInitialStatus != HAL_OK)
     return;
-
-  switch(state) {
-    case 0: //First ms
-      voltage = adc_get_voltage(AdcChKnock);
-      KNOCK_INTEGRATE();
-      state++;
-
-      rpm = csps_getrpm(csps_data());
-      rotates = csps_isfound();
-      diff = DelayDiff(now, knock_prev);
-      knock_prev = now;
-
-      if(rotates && rpm > 60.0f && diff > 0) {
-        corrected = voltage / rpm * 60.0f;
-        koff = 1.0f / (60000000.0f / rpm / diff);
-      } else {
-        corrected = 0;
-        koff = 0.025f;
-      }
-
-      KnockRawValue = KnockRawValue * (1.0f - koff) + voltage * koff;
-      KnockValue = KnockValue * (1.0f - koff) + corrected * koff;
-      KnockStatus = HAL_OK;
-
-      break;
-    case 1: //2-5th
-    case 2:
-    case 3:
-    case 4:
-      state++;
-      break;
-    case 5:
-      //Give to ADC the time to measure
-      KNOCK_HOLD();
-      state = 0;
-      break;
-    default:
-      break;
-  }
 }
 
-static volatile uint8_t IdleValvePositionCurrent = 0;
-static volatile uint8_t IdleValvePositionTarget = 0;
-static volatile HAL_StatusTypeDef IdleValvePositionStatus = HAL_OK;
-static volatile uint8_t IdleValveCalibratedOk = 0;
-static volatile uint8_t IdleValveCalibrate = 0;
-static volatile uint8_t IdleValveEnabled = 0;
-
-inline uint8_t Misc_GetIdleValvePosition(void)
+INLINE uint8_t Misc_GetIdleValvePosition(void)
 {
   return IdleValvePositionCurrent;
 }
 
-inline uint8_t Misc_IsIdleValveMoving(void)
+INLINE uint8_t Misc_IsIdleValveMoving(void)
 {
   return IdleValveStepMode > 1;
 }
 
-inline void Misc_SetIdleValvePosition(uint8_t position)
+INLINE void Misc_SetIdleValvePosition(uint8_t position)
 {
   IdleValvePositionTarget = position;
 }
 
-inline int8_t Misc_CalibrateIdleValve(void)
+INLINE int8_t Misc_CalibrateIdleValve(void)
 {
   static uint32_t calibrate_time = 0;
   static uint8_t state = 0;
@@ -878,7 +828,7 @@ inline int8_t Misc_CalibrateIdleValve(void)
   return 0;
 }
 
-inline HAL_StatusTypeDef Misc_GetIdleValveStatus(void)
+INLINE HAL_StatusTypeDef Misc_GetIdleValveStatus(void)
 {
   return IdleValvePositionStatus;
 }
@@ -890,7 +840,7 @@ static void IdleValve_CriticalLoop(void)
   IdleValvePositionStatus = idle_valve_state_pin == GPIO_PIN_RESET ? HAL_ERROR : HAL_OK;
 }
 
-inline void Misc_EnableIdleValvePosition(uint8_t enablement_position)
+INLINE void Misc_EnableIdleValvePosition(uint8_t enablement_position)
 {
   IdleValvePositionCurrent = enablement_position;
   IdleValvePositionTarget = enablement_position;
@@ -1085,7 +1035,6 @@ HAL_StatusTypeDef Mics_Knock_Init(void)
   while(!Knock_Cmd(data, &read)) {}
 
   KnockInitialStatus = HAL_OK;
-  KnockStatus = HAL_OK;
 
   return HAL_OK;
 }
@@ -1156,107 +1105,100 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
   return result;
 }
 
-HAL_StatusTypeDef Knock_GetValueByRPM(float *value)
-{
-  *value = KnockValue;
-  return KnockStatus;
-}
-
-HAL_StatusTypeDef Knock_GetValueRaw(float *value)
-{
-  *value = KnockRawValue;
-  return KnockStatus;
-}
-
-inline void Knock_SetBandpassFilterFrequency(uint8_t value)
+INLINE void Knock_SetBandpassFilterFrequency(uint8_t value)
 {
   KnockConfig.bandpass_filter_frequency = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetGainValue(uint8_t value)
+INLINE void Knock_SetGainValue(uint8_t value)
 {
   KnockConfig.gain_value = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetIntegratorTimeConstant(uint8_t value)
+INLINE void Knock_SetIntegratorTimeConstant(uint8_t value)
 {
   KnockConfig.integrator_time_constant = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetOscillatorFrequency(uint8_t value)
+INLINE void Knock_SetOscillatorFrequency(uint8_t value)
 {
   KnockConfig.oscillator_freq_select = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetChannel(uint8_t value)
+INLINE void Knock_SetChannel(uint8_t value)
 {
   KnockConfig.channel_select = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetDiagnosticMode(uint8_t value)
+INLINE void Knock_SetDiagnosticMode(uint8_t value)
 {
   KnockConfig.diagnostic_mode = value;
   KnockConfigChanged = 1;
 }
 
-inline void Knock_SetSoOutputMode(uint8_t value)
+INLINE void Knock_SetSoOutputMode(uint8_t value)
 {
   KnockConfig.so_output_mode = value;
   KnockConfigChanged = 1;
 }
 
-inline uint8_t Knock_GetBandpassFilterFrequency(void)
+INLINE HAL_StatusTypeDef Knock_GetStatus(void)
+{
+  return KnockInitialStatus;
+}
+
+INLINE uint8_t Knock_GetBandpassFilterFrequency(void)
 {
   return KnockConfig.bandpass_filter_frequency;
 }
 
-inline uint8_t Knock_GetGainValue(void)
+INLINE uint8_t Knock_GetGainValue(void)
 {
   return KnockConfig.gain_value;
 }
 
-inline uint8_t Knock_GetIntegratorTimeConstant(void)
+INLINE uint8_t Knock_GetIntegratorTimeConstant(void)
 {
   return KnockConfig.integrator_time_constant;
 }
 
-inline uint8_t Knock_GetOscillatorFrequency(void)
+INLINE uint8_t Knock_GetOscillatorFrequency(void)
 {
   return KnockConfig.oscillator_freq_select;
 }
 
-inline uint8_t Knock_GetChannel(void)
+INLINE uint8_t Knock_GetChannel(void)
 {
   return KnockConfig.channel_select;
 }
 
-inline uint8_t Knock_GetDiagnosticMode(void)
+INLINE uint8_t Knock_GetDiagnosticMode(void)
 {
   return KnockConfig.diagnostic_mode;
 }
 
-inline uint8_t Knock_GetSoOutputMode(void)
+INLINE uint8_t Knock_GetSoOutputMode(void)
 {
   return KnockConfig.so_output_mode;
 }
 
-inline void O2_SetAmplificationFactor(eO2AmplificationFactor factor)
+INLINE void O2_SetAmplificationFactor(eO2AmplificationFactor factor)
 {
   if(factor < O2AmplificationFactorCount)
     O2Status.AmplificationFactor = factor;
 }
 
-inline eO2AmplificationFactor O2_GetAmplificationFactor(void)
+INLINE eO2AmplificationFactor O2_GetAmplificationFactor(void)
 {
   return O2Status.AmplificationFactor;
 }
 
-inline void O2_SetLambdaForceEnabled(uint8_t enabled)
+INLINE void O2_SetLambdaForceEnabled(uint8_t enabled)
 {
   LambdaConfig.isLambdaForceEnabled = enabled;
 }

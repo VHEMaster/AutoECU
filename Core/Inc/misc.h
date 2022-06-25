@@ -78,11 +78,9 @@ int8_t Misc_CalibrateIdleValve(void);
 void Misc_Fast_Loop(void);
 void Misc_Loop(void);
 
-HAL_StatusTypeDef Knock_GetValueByRPM(float *value);
-HAL_StatusTypeDef Knock_GetValueRaw(float *value);
-
 void O2_SetLambdaForceEnabled(uint8_t enabled);
 
+HAL_StatusTypeDef Knock_GetStatus(void);
 void Knock_SetBandpassFilterFrequency(uint8_t value);
 void Knock_SetGainValue(uint8_t value);
 void Knock_SetIntegratorTimeConstant(uint8_t value);
