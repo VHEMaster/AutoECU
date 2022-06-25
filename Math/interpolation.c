@@ -105,6 +105,23 @@ INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolate
   return result;
 }
 
+INLINE float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const float (*table)[y_size])
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]];
+
+  return result;
+}
+
 INLINE float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[y_size], float clamp_min, float clamp_max)
 {
@@ -153,13 +170,33 @@ INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpo
   output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
   output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
   previous = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
-
   diff = new_value - previous;
 
   table[input_y.indexes[0]][input_x.indexes[0]] = input_2d[0][0] + diff * (1.0f - input_x.mult) * (1.0f - input_y.mult);
   table[input_y.indexes[0]][input_x.indexes[1]] = input_2d[0][1] + diff * input_x.mult * (1.0f - input_y.mult);
   table[input_y.indexes[1]][input_x.indexes[0]] = input_2d[1][0] + diff * (1.0f - input_x.mult) * input_y.mult;
   table[input_y.indexes[1]][input_x.indexes[1]] = input_2d[1][1] + diff * input_x.mult * input_y.mult;
+
+  return diff;
+}
+
+INLINE float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, float (*table)[y_size], float new_value)
+{
+  float previous;
+  float diff;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  previous = table[input_y.indexes[index_y]][input_x.indexes[index_x]];
+  diff = new_value - previous;
+
+  table[input_y.indexes[index_y]][input_x.indexes[index_x]] = new_value;
 
   return diff;
 }

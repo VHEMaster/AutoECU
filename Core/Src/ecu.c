@@ -34,6 +34,11 @@
 #include "arm_math.h"
 #include "math_fast.h"
 
+typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, float (*table)[], float new_value);
+typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const float (*table)[]);
+
 #define ENRICHMENT_STATES_COUNT 6
 
 typedef volatile struct {
@@ -463,6 +468,14 @@ static void ecu_update(void)
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
 
+  math_interpolate_2d_set_func_t corr_math_interpolate_2d_set_func = math_interpolate_2d_set;
+  math_interpolate_2d_func_t corr_math_interpolate_2d_func = math_interpolate_2d;
+
+  if(calibration == 2) {
+    corr_math_interpolate_2d_func = math_interpolate_2d_point;
+    corr_math_interpolate_2d_set_func = math_interpolate_2d_set_point;
+  }
+
   gStatus.AdcStatus = sens_get_adc_status();
 
   halfturns = csps_gethalfturns();
@@ -558,7 +571,7 @@ static void ecu_update(void)
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
   throttle_by_pressure = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
-  map_correction_thr = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
+  map_correction_thr = corr_math_interpolate_2d_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
 
   throttle_by_pressure *= map_correction_thr + 1.0f;
 
@@ -581,7 +594,7 @@ static void ecu_update(void)
 
   filling = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, table->fill_by_map);
 
-  fill_correction_map = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
+  fill_correction_map = corr_math_interpolate_2d_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map);
 
   filling *= fill_correction_map + 1.0f;
   filling_relative = filling;
@@ -656,7 +669,7 @@ static void ecu_update(void)
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  ignition_correction = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
+  ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
   air_temp_ign_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
@@ -807,7 +820,7 @@ static void ecu_update(void)
     idle_valve_pos_correction = 0;
   } else {
     idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
-    idle_valve_pos_adaptation = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+    idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
   }
 
   idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
@@ -991,8 +1004,10 @@ static void ecu_update(void)
   if(adapt_diff >= period * 2.0f) {
     adaptation_last = now;
     if(running) {
-      if(calibration) {
+      if(calibration && corr_math_interpolate_2d_set_func) {
         lpf_calculation = adapt_diff * 0.000001f;
+        if(lpf_calculation > 0.1f)
+          lpf_calculation = 0.1f;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK &&
             o2_valid && !gForceParameters.Enable.InjectionPulse) {
@@ -1004,50 +1019,55 @@ static void ecu_update(void)
           filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
             fill_correction_map += filling_diff * lpf_calculation;
-            math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
+            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
 
             percentage = (filling_diff + 1.0f);
             if(percentage > 1.0f) percentage = 1.0f / percentage;
-            calib_cur_progress = math_interpolate_2d(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map);
+            calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map);
             calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-            math_interpolate_2d_set(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map, calib_cur_progress);
+            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map, calib_cur_progress);
           }
         }
 
         if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
           map_diff_thr = (pressure / throttle_by_pressure) - 1.0f;
           map_correction_thr += map_diff_thr * lpf_calculation;
-          math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
+          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
 
           percentage = (map_diff_thr + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
-          calib_cur_progress = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr);
+          calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          math_interpolate_2d_set(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr, calib_cur_progress);
+          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr, calib_cur_progress);
         }
 
         if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.WishIdleValvePosition) {
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
-          math_interpolate_2d_set(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
 
           percentage = (idle_valve_pos_dif + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
-          calib_cur_progress = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
+          calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          math_interpolate_2d_set(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
+          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
         }
 
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
+          calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
+
+          lpf_calculation *= 0.2f; //5 sec for LPF of ignition
+
           if(gStatus.Knock.Detonate > 0.0f) {
-            if(lpf_calculation > 0.1f)
-              lpf_calculation = 0.1f;
+            calib_cur_progress = 0.0f;
 
-            ignition_correction = gStatus.Knock.Detonate * table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
-
-            math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction);
+            ignition_correction = table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
+            corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction);
+          } else {
+            calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
           }
+          corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress);
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
