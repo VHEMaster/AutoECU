@@ -199,13 +199,16 @@ typedef struct {
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
     float idle_rpm_shift[TABLE_SPEEDS_MAX];
 
+    float knock_ign_corr_max;
+    float knock_inj_corr_max;
     float knock_noise_level[TABLE_ROTATES_MAX];
     float knock_threshold[TABLE_ROTATES_MAX];
+    float knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
 
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[541];
+    int32_t Reserved[283];
 }sEcuTable;
 
 typedef struct {
@@ -226,6 +229,8 @@ typedef struct {
     uint8_t progress_fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     uint8_t progress_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
     uint8_t progress_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX];
+    float knock_ignition_correctives[ECU_CYLINDERS_COUNT];
+    float knock_injection_correctives[ECU_CYLINDERS_COUNT];
     float long_term_correction;
     float idle_correction;
 }sEcuCorrections;
@@ -305,6 +310,8 @@ typedef struct {
 
     float KnockSensor;
     float KnockSensorFiltered;
+    float KnockZone;
+    float KnockAdvance;
     float AirTemp;
     float EngineTemp;
     float ManifoldAirPressure;

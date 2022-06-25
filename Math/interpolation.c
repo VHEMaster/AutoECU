@@ -105,6 +105,19 @@ INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolate
   return result;
 }
 
+INLINE float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const float (*table)[y_size], float clamp_min, float clamp_max)
+{
+  float result = math_interpolate_2d(input_x, input_y, y_size, table);
+
+  if(result < clamp_min)
+    result = clamp_min;
+  if(result > clamp_max)
+    result = clamp_max;
+
+  return result;
+}
+
 INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, float new_value)
 {
   float previous;
