@@ -457,6 +457,9 @@ typedef struct {
         float Denoised[ECU_CYLINDERS_COUNT];
         float Voltage;
         float Filtered;
+        float StatusVoltage;
+        float StatusFiltered;
+        uint32_t StatusLast;
     }Knock;
     struct {
         uint8_t is_error;

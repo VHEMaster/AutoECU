@@ -861,6 +861,17 @@ static void ecu_update(void)
       gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
   }
 
+  if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
+    gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
+  if(gStatus.Knock.StatusFiltered < gStatus.Knock.Filtered)
+    gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
+
+  if(gStatus.Knock.StatusLast == 0 || DelayDiff(now, gStatus.Knock.StatusLast) > 500000) {
+    gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
+    gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
+    gStatus.Knock.StatusLast = now;
+  }
+
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     running = 0;
     rotates = 0;
@@ -1093,7 +1104,7 @@ static void ecu_update(void)
   gStatus.RichIdleMixture.error_last = hal_now;
   gStatus.LeanIdleMixture.error_last = hal_now;
 
-  //gParameters.AdcKnockVoltage = knock_raw;
+  gParameters.AdcKnockVoltage = gStatus.Knock.Voltage;
   gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
   gParameters.AdcManifoldAirPressure = adc_get_voltage(AdcChManifoldAbsolutePressure);
@@ -1103,8 +1114,8 @@ static void ecu_update(void)
   gParameters.AdcLambdaUR = adc_get_voltage(AdcChO2UR);
   gParameters.AdcLambdaUA = adc_get_voltage(AdcChO2UA);
 
-  gParameters.KnockSensor = gStatus.Knock.Voltage;
-  gParameters.KnockSensorFiltered = gStatus.Knock.Filtered;
+  gParameters.KnockSensor = gStatus.Knock.StatusVoltage;
+  gParameters.KnockSensorFiltered = gStatus.Knock.StatusFiltered;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.ManifoldAirPressure = pressure;
@@ -3561,6 +3572,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     case PK_ParametersRequestID :
       //PK_Copy(&PK_ParametersRequest, msgBuf);
       PK_ParametersResponse.Parameters = gParameters;
+      gStatus.Knock.StatusLast = 0;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
       break;
 
@@ -3638,6 +3650,11 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
         transmit.length = 8;
         transmit.data.dwords[0] = message->data.dwords[0];
         transmit.data.dwords[1] = ((uint32_t *)&gParameters)[message->data.dwords[0]];
+
+        if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
+            OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
+          gStatus.Knock.StatusLast = 0;
+        }
       }
     }
   } else if(message->id == 0x103) { //Table memory request
