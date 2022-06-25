@@ -67,7 +67,8 @@ typedef enum {
 typedef enum {
   KnockStatusOk = 0,
   KnockStatusDedonation = 1,
-  KnockStatusLowNoise = 2
+  KnockStatusLowNoise = 2,
+  KnockStatusLowNoiseAndDetonation = 3
 }eKnockStatus;
 
 typedef struct {
@@ -465,6 +466,8 @@ typedef struct {
         float Denoised[ECU_CYLINDERS_COUNT];
         float Detonates[ECU_CYLINDERS_COUNT];
         float Advances[ECU_CYLINDERS_COUNT];
+        uint32_t LastTime[ECU_CYLINDERS_COUNT];
+        uint32_t Period[ECU_CYLINDERS_COUNT];
         float Voltage;
         float Filtered;
         float Detonate;

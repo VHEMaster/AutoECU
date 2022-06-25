@@ -447,6 +447,7 @@ static void ecu_update(void)
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
   float ignition_correction;
+  float ignition_corr_final;
   float wish_fault_rpm;
   float start_mixture;
   float tsps_rel_pos = 0;
@@ -666,22 +667,24 @@ static void ecu_update(void)
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
   knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
 
+  ignition_corr_final = ignition_correction;
+
   if(idle_flag && running) {
     ignition_angle = idle_wish_ignition;
 
     if(out_get_fan(NULL) != GPIO_PIN_RESET || gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd) {
-      ignition_correction += table->idle_ign_fan_corr;
+      ignition_corr_final += table->idle_ign_fan_corr;
 
-      if(ignition_correction > table->idle_ign_deviation_max)
-        ignition_correction = table->idle_ign_deviation_max;
-      else if(ignition_correction < table->idle_ign_deviation_min)
-        ignition_correction = table->idle_ign_deviation_min;
+      if(ignition_corr_final > table->idle_ign_deviation_max)
+        ignition_corr_final = table->idle_ign_deviation_max;
+      else if(ignition_corr_final < table->idle_ign_deviation_min)
+        ignition_corr_final = table->idle_ign_deviation_min;
 
     }
   }
 
   ignition_angle += air_temp_ign_corr;
-  ignition_angle += ignition_correction;
+  ignition_angle += ignition_corr_final;
 
   if(idle_flag && running) {
     if(gForceParameters.Enable.WishIdleIgnitionAngle) {
@@ -925,11 +928,10 @@ static void ecu_update(void)
     gStatus.InjectionUnderflow = HAL_OK;
   }
 
-  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK && !gForceParameters.Enable.IgnitionAngle) {
+  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK &&
+      !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
     if(csps_isrunning()) {
       knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
-
-      //TODO: advance logic
 
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         if(gStatus.Knock.Updated[i]) {
@@ -941,7 +943,7 @@ static void ecu_update(void)
               gStatus.Knock.Advances[i] = 1.0f;
           } else {
             if(gStatus.Knock.Advances[i] > 0.0f) {
-              gStatus.Knock.Advances[i] -= diff * 0.000001f * 0.1f * knock_zone * knock_zone; //10 seconds to restore if knock_zone is 1.0
+              gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f * knock_zone * knock_zone; //10 seconds to restore if knock_zone is 1.0
               if(gStatus.Knock.Advances[i] < 0.0f)
                 gStatus.Knock.Advances[i] = 0.0f;
             }
@@ -968,8 +970,13 @@ static void ecu_update(void)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
       gStatus.Knock.Advance = gStatus.Knock.Advances[i];
-    gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
-    gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
+    if(!calibration) {
+      gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
+      gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
+    } else {
+      gEcuCorrections.knock_ignition_correctives[i] = 0.0f;
+      gEcuCorrections.knock_injection_correctives[i] = 0.0f;
+    }
   }
 
   if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 10000) {
@@ -987,7 +994,8 @@ static void ecu_update(void)
       if(calibration) {
         lpf_calculation = adapt_diff * 0.000001f;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !gForceParameters.Enable.InjectionPulse) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK &&
+            o2_valid && !gForceParameters.Enable.InjectionPulse) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
@@ -1029,6 +1037,17 @@ static void ecu_update(void)
           calib_cur_progress = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
           math_interpolate_2d_set(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
+        }
+
+        if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
+          if(gStatus.Knock.Detonate > 0.0f) {
+            if(lpf_calculation > 0.1f)
+              lpf_calculation = 0.1f;
+
+            ignition_correction = gStatus.Knock.Detonate * table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
+
+            math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction);
+          }
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
@@ -1092,10 +1111,17 @@ static void ecu_update(void)
   }
   gStatus.MapTpsRelation.error_last = hal_now;
 
+  min = 0.93f;
+  max = 1.07f;
+
+  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
+    max *= (table->knock_inj_corr_max * knock_zone) + 1.0f;
+  }
+
   if(gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && running) {
     float fuel_relation = wish_fuel_ratio / fuel_ratio;
     if(idle_flag) {
-      if(fuel_relation > 1.07f) {
+      if(fuel_relation > max) {
         if(gStatus.RichIdleMixture.is_error) {
           gStatus.RichIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichIdleMixture.error_last);
         } else {
@@ -1105,7 +1131,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichIdleMixture.is_error = 0;
       }
-      if(fuel_relation < 0.93f) {
+      if(fuel_relation < min) {
         if(gStatus.LeanIdleMixture.is_error) {
           gStatus.LeanIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanIdleMixture.error_last);
         } else {
@@ -1116,7 +1142,7 @@ static void ecu_update(void)
         gStatus.LeanIdleMixture.is_error = 0;
       }
     } else {
-      if(fuel_relation > 1.07f) {
+      if(fuel_relation > max) {
         if(gStatus.RichMixture.is_error) {
           gStatus.RichMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichMixture.error_last);
         } else {
@@ -1126,7 +1152,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichMixture.is_error = 0;
       }
-      if(fuel_relation < 0.93f) {
+      if(fuel_relation < min) {
         if(gStatus.LeanMixture.is_error) {
           gStatus.LeanMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanMixture.error_last);
         } else {
@@ -1987,11 +2013,17 @@ static void ecu_process(void)
             if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
               gStatus.Knock.Voltages[knock_cylinder] = knock;
               gStatus.Knock.Updated[knock_cylinder] = 1;
+              gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+              gStatus.Knock.LastTime[knock_cylinder] = now;
             } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
               gStatus.Knock.Voltages[knock_cylinder] = knock;
               gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
               gStatus.Knock.Updated[knock_cylinder] = 1;
               gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
+              gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+              gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
+              gStatus.Knock.LastTime[knock_cylinder] = now;
+              gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
             }
             knock_process[i] = 1;
             Knock_SetState(1);
