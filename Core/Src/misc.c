@@ -165,20 +165,6 @@ STATIC_INLINE void Misc_CpltNssCheck(void)
   }
 }
 
-int8_t Misc_AdcStartSamplingCallback(eAdcChannel channel)
-{
-  int8_t result = 0;
-
-  return result;
-}
-
-int8_t Misc_AdcSamplingDoneCallback(eAdcChannel channel)
-{
-  int8_t result = 0;
-
-  return result;
-}
-
 void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {

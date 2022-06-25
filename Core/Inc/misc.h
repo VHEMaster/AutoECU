@@ -55,9 +55,6 @@ typedef enum {
   MiscDiagChCount
 }eMiscDiagChannels;
 
-int8_t Misc_AdcStartSamplingCallback(eAdcChannel channel);
-int8_t Misc_AdcSamplingDoneCallback(eAdcChannel channel);
-
 void Misc_ErrorCallback(SPI_HandleTypeDef * _hspi);
 void Misc_TxCpltCallback(SPI_HandleTypeDef * _hspi);
 void Misc_RxCpltCallback(SPI_HandleTypeDef * _hspi);
