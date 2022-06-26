@@ -661,14 +661,6 @@ static int8_t Knock_Loop(void)
         state += 2;
       }
       break;
-    case 1:
-      retval = 0;
-      status = Knock_Cmd(data, &read);
-      if(status) {
-        retval = 1;
-        status++;
-      }
-      break;
     case 2:
       check[0] = KnockConfig.bandpass_filter_frequency;
       if(check[0] != knock_bandpass_filter_frequency) {
@@ -679,14 +671,6 @@ static int8_t Knock_Loop(void)
         state += 2;
       }
       break;
-    case 3:
-      retval = 0;
-      status = Knock_Cmd(data, &read);
-      if(status) {
-        retval = 1;
-        status++;
-      }
-      break;
     case 4:
       check[0] = KnockConfig.integrator_time_constant;
       if(check[0] != knock_integrator_time_constant) {
@@ -695,14 +679,6 @@ static int8_t Knock_Loop(void)
         state++;
       } else {
         state += 2;
-      }
-      break;
-    case 5:
-      retval = 0;
-      status = Knock_Cmd(data, &read);
-      if(status) {
-        retval = 1;
-        status++;
       }
       break;
     case 6:
@@ -717,14 +693,6 @@ static int8_t Knock_Loop(void)
         state += 2;
       }
       break;
-    case 7:
-      retval = 0;
-      status = Knock_Cmd(data, &read);
-      if(status) {
-        retval = 1;
-        status++;
-      }
-      break;
     case 8:
       check[0] = KnockConfig.oscillator_freq_select;
       check[1] = KnockConfig.so_output_mode;
@@ -737,6 +705,10 @@ static int8_t Knock_Loop(void)
         state += 2;
       }
       break;
+    case 1:
+    case 3:
+    case 5:
+    case 7:
     case 9:
       retval = 0;
       status = Knock_Cmd(data, &read);
@@ -1102,44 +1074,58 @@ INLINE void Knock_SetState(uint8_t is_integrate)
 
 INLINE void Knock_SetBandpassFilterFrequency(uint8_t value)
 {
-  KnockConfig.bandpass_filter_frequency = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.bandpass_filter_frequency) {
+    KnockConfig.bandpass_filter_frequency = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetGainValue(uint8_t value)
 {
-  KnockConfig.gain_value = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.gain_value) {
+    KnockConfig.gain_value = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetIntegratorTimeConstant(uint8_t value)
 {
-  KnockConfig.integrator_time_constant = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.integrator_time_constant) {
+    KnockConfig.integrator_time_constant = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetOscillatorFrequency(uint8_t value)
 {
-  KnockConfig.oscillator_freq_select = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.oscillator_freq_select) {
+    KnockConfig.oscillator_freq_select = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetChannel(uint8_t value)
 {
-  KnockConfig.channel_select = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.channel_select) {
+    KnockConfig.channel_select = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetDiagnosticMode(uint8_t value)
 {
-  KnockConfig.diagnostic_mode = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.diagnostic_mode) {
+    KnockConfig.diagnostic_mode = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE void Knock_SetSoOutputMode(uint8_t value)
 {
-  KnockConfig.so_output_mode = value;
-  KnockConfigChanged = 1;
+  if(value != KnockConfig.so_output_mode) {
+    KnockConfig.so_output_mode = value;
+    KnockConfigChanged = 1;
+  }
 }
 
 INLINE HAL_StatusTypeDef Knock_GetStatus(void)

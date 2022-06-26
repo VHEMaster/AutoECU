@@ -243,13 +243,19 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
 };
 
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
-    0.20f, 0.22f, 0.24f, 0.26f, 0.29f, 0.32f, 0.35f, 0.38f,
-    0.42f, 0.46f, 0.50f, 0.54f, 0.58f, 0.63f, 0.68f, 0.75f
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f, 1.1f, 1.1f, 1.1f, 1.2f, 1.2f
+
 };
 
 static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
-    0.40f, 0.40f, 0.40f, 0.41f, 0.41f, 0.42f, 0.42f, 0.43f,
-    0.43f, 0.44f, 0.45f, 0.46f, 0.47f, 0.48f, 0.48f, 0.49f
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+};
+
+static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
+    42, 42, 42, 42, 42, 42, 42, 42,
+    42, 42, 42, 42, 42, 42, 42, 42,
 };
 
 static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -418,6 +424,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_noise_level, default_knock_noise_level, sizeof(default_knock_noise_level));
   memcpy(table->knock_threshold, default_knock_threshold, sizeof(default_knock_threshold));
   memcpy(table->knock_zone, default_knock_zone, sizeof(default_knock_zone));
+  memcpy(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(default_knock_filter_frequency));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
@@ -468,6 +475,9 @@ void config_default_params(sEcuParams *table)
 
   table->useShortTermCorr = 1;
   table->useLongTermCorr = 1;
+
+  table->knockGain = 14;
+  table->knockIntegratorTime = 22;
 
 }
 

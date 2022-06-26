@@ -2832,8 +2832,22 @@ static int8_t ecu_shutdown_process(void)
 
 static void ecu_config_process(void)
 {
+  uint32_t table_number = gParameters.CurrentTable;
+  sEcuTable *table = &gEcuTable[table_number];
+  int32_t knock_frequency;
+  sCspsData data = csps_data();
+  float rpm = csps_getrpm(data);
+  sMathInterpolateInput ipRpm;
+
   O2_SetLambdaForceEnabled(gEcuParams.isLambdaForceEnabled);
-  //TODO: Live Knock configuration
+
+  if(gEcuParams.useKnockSensor) {
+    ipRpm =  math_interpolate_input(rpm, table->rotates, table->rotates_count);
+    knock_frequency = roundf(math_interpolate_1d(ipRpm, table->knock_filter_frequency));
+    Knock_SetBandpassFilterFrequency(knock_frequency);
+    Knock_SetGainValue(gEcuParams.knockGain);
+    Knock_SetIntegratorTimeConstant(gEcuParams.knockIntegratorTime);
+  }
 }
 
 static void ecu_can_init(void)
