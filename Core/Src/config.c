@@ -244,7 +244,7 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
 
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f, 1.1f, 1.1f, 1.1f, 1.2f, 1.2f
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
 
 };
 
@@ -256,6 +256,11 @@ static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
 static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
     42, 42, 42, 42, 42, 42, 42, 42,
     42, 42, 42, 42, 42, 42, 42, 42,
+};
+
+static const float default_knock_gain[TABLE_ROTATES_MAX] = {
+    14, 14, 14, 14, 14, 14, 14, 14,
+    14, 14, 14, 14, 14, 14, 14, 14
 };
 
 static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -424,6 +429,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_noise_level, default_knock_noise_level, sizeof(default_knock_noise_level));
   memcpy(table->knock_threshold, default_knock_threshold, sizeof(default_knock_threshold));
   memcpy(table->knock_zone, default_knock_zone, sizeof(default_knock_zone));
+  memcpy(table->knock_gain, default_knock_gain, sizeof(default_knock_gain));
   memcpy(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(default_knock_filter_frequency));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
@@ -476,7 +482,6 @@ void config_default_params(sEcuParams *table)
   table->useShortTermCorr = 1;
   table->useLongTermCorr = 1;
 
-  table->knockGain = 14;
   table->knockIntegratorTime = 22;
 
 }

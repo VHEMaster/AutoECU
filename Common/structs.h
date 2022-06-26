@@ -205,12 +205,13 @@ typedef struct {
     float knock_noise_level[TABLE_ROTATES_MAX];
     float knock_threshold[TABLE_ROTATES_MAX];
     float knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float knock_gain[TABLE_ROTATES_MAX];
     float knock_filter_frequency[TABLE_ROTATES_MAX];
 
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[267];
+    int32_t Reserved[251];
 }sEcuTable;
 
 typedef struct {
@@ -291,10 +292,9 @@ typedef struct {
     int32_t useShortTermCorr;
     int32_t useLongTermCorr;
 
-    int32_t knockGain;
     int32_t knockIntegratorTime;
 
-    int32_t Reserved32[981];
+    int32_t Reserved32[982];
 }sEcuParams;
 
 typedef struct {

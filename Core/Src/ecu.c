@@ -2835,6 +2835,7 @@ static void ecu_config_process(void)
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   int32_t knock_frequency;
+  int32_t knock_gain;
   sCspsData data = csps_data();
   float rpm = csps_getrpm(data);
   sMathInterpolateInput ipRpm;
@@ -2844,8 +2845,9 @@ static void ecu_config_process(void)
   if(gEcuParams.useKnockSensor) {
     ipRpm =  math_interpolate_input(rpm, table->rotates, table->rotates_count);
     knock_frequency = roundf(math_interpolate_1d(ipRpm, table->knock_filter_frequency));
+    knock_gain = roundf(math_interpolate_1d(ipRpm, table->knock_gain));
     Knock_SetBandpassFilterFrequency(knock_frequency);
-    Knock_SetGainValue(gEcuParams.knockGain);
+    Knock_SetGainValue(knock_gain);
     Knock_SetIntegratorTimeConstant(gEcuParams.knockIntegratorTime);
   }
 }
@@ -3252,13 +3254,14 @@ void ecu_irq_slow_loop(void)
     return;
 
   ecu_update_current_table();
+  ecu_config_process();
   ecu_update();
   ecu_idle_valve_process();
   ecu_backup_save_process();
+
+  ecu_mem_process();
   ecu_fuelpump_process();
   ecu_fan_process();
-  ecu_config_process();
-  ecu_mem_process();
   ecu_oil_pressure_process();
   ecu_battery_charge_process();
 
