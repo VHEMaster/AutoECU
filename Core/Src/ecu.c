@@ -183,6 +183,8 @@ static sMathPid gPidShortTermCorr = {0};
 static const float gKnockDetectStartAngle = -100;
 static const float gKnockDetectEndAngle = 70;
 
+static volatile uint32_t gParametersRequestFillLast = 0;
+
 static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
@@ -417,6 +419,7 @@ static void ecu_update(void)
   float enrichment_by_map_hpf;
   float enrichment_by_thr_hpf;
   static float enrichment = 0.0f;
+  static float enrichment_status = 0.0f;
   float enrichment_proportion;
   float fuel_amount_per_cycle;
 
@@ -630,7 +633,7 @@ static void ecu_update(void)
         if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
         ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
         enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
-        enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_sens);
+        enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_hpf);
         enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
         if(enrichment_map_value > enrichment_status_map)
           enrichment_status_map = enrichment_map_value;
@@ -643,8 +646,8 @@ static void ecu_update(void)
         min = enrichment_thr_states[0];
         if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
         ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
-        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_map_sens);
-        enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_sens);
+        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_thr_sens);
+        enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_hpf);
         enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
         if(enrichment_thr_value > enrichment_status_thr)
           enrichment_status_thr = enrichment_thr_value;
@@ -889,12 +892,15 @@ static void ecu_update(void)
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
   if(gStatus.Knock.StatusDetonate < gStatus.Knock.Detonate)
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
+  if(enrichment_status < enrichment)
+    enrichment_status = enrichment;
 
-  if(gStatus.Knock.StatusLast == 0 || DelayDiff(now, gStatus.Knock.StatusLast) > 500000) {
+  if(gParametersRequestFillLast == 0 || DelayDiff(now, gParametersRequestFillLast) > 500000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
-    gStatus.Knock.StatusLast = now;
+    enrichment_status = enrichment;
+    gParametersRequestFillLast = now;
   }
 
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -3707,7 +3713,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     case PK_ParametersRequestID :
       //PK_Copy(&PK_ParametersRequest, msgBuf);
       PK_ParametersResponse.Parameters = gParameters;
-      gStatus.Knock.StatusLast = 0;
+      gParametersRequestFillLast = 0;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
       break;
 
@@ -3788,7 +3794,7 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
 
         if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
             OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
-          gStatus.Knock.StatusLast = 0;
+          gParametersRequestFillLast = 0;
         }
       }
     }

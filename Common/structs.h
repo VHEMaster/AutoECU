@@ -480,7 +480,6 @@ typedef struct {
         float StatusDetonate;
         float Advance;
         uint8_t Updated[ECU_CYLINDERS_COUNT];
-        uint32_t StatusLast;
     }Knock;
     struct {
         uint8_t is_error;
