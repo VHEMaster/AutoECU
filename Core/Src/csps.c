@@ -1,11 +1,18 @@
 #include "csps.h"
 #include "delay.h"
+#include "defines.h"
 #include <math.h>
 #include <string.h>
 
 #define ANGLE_INITIAL (-114.0f)
 #define IRQ_SIZE 16
 #define DATA_SIZE 16
+
+#ifdef DEBUG
+static volatile float CspsAngleInitial = ANGLE_INITIAL;
+#else
+static const float CspsAngleInitial = ANGLE_INITIAL;
+#endif
 
 static const float csps_cors[116] = {
     2.68668088f, 0.719637128f, 1.132915204f, 0.93333743f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
@@ -25,8 +32,9 @@ static const float csps_cors[116] = {
     1.014849528f, 0.9962869f, 0.872279303f, 3.667010358f,
 };
 
+#ifdef CSPS_DYNAMIC_CORR
 static float cpsp_dynamic_corr[116] = {0.0f};
-
+#endif
 
 static volatile uint32_t csps_pulse_last = 0;
 static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
@@ -40,14 +48,11 @@ static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
 static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
-static volatile uint32_t csps_turns = 0;
-static volatile uint32_t csps_turns_phase = 0;
-static volatile uint32_t csps_halfturns = 0;
-static volatile uint32_t *csps_timebase = NULL;
 static volatile float csps_tsps_rel_pos = 0;
 
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
+static __IO uint32_t *csps_timebase = NULL;
 
 static sCspsData CspsData[DATA_SIZE] = {{0}};
 static sCspsData * volatile CspsDataPtr = &CspsData[0];
@@ -92,7 +97,7 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 }
 #endif
 
-void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
+void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {
   float tval = 0;
   csps_timebase = timebase;
@@ -103,13 +108,14 @@ void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t c
   csps_cors_sum = (120.0f / tval) * 3.0f;
   csps_cors_avg = tval / 120.0f;
 
-  for(int i = 0; i < 116; i++)
-  {
+#ifdef CSPS_DYNAMIC_CORR
+  for(int i = 0; i < 116; i++) {
     cpsp_dynamic_corr[i] = csps_cors[i];
   }
+#endif
 }
 
-inline void csps_tsps_exti(uint32_t timestamp)
+INLINE void csps_tsps_exti(uint32_t timestamp)
 {
   if(csps_found && csps_rotates) {
     csps_tsps_rel_pos = csps_getangle14(csps_data());
@@ -117,8 +123,11 @@ inline void csps_tsps_exti(uint32_t timestamp)
   }
 }
 
-inline void csps_exti(uint32_t timestamp)
+INLINE void csps_exti(uint32_t timestamp)
 {
+  static uint32_t csps_turns = 0;
+  static uint32_t csps_turns_phase = 0;
+  static uint32_t csps_halfturns = 0;
   static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
   static float adder_prev = 3.0f;
@@ -131,6 +140,7 @@ inline void csps_exti(uint32_t timestamp)
   static uint8_t found = 0;
 
   float rpm_koff = 1.0f / 10.0f;
+  float angle_initial = CspsAngleInitial;
 
   uint32_t i, cur, prev;
   sCspsData data;
@@ -217,13 +227,13 @@ inline void csps_exti(uint32_t timestamp)
     {
       case 2:
         csps_turns++;
-        adder = ANGLE_INITIAL - csps_angle14;
+        adder = angle_initial - csps_angle14;
 
-        csps_angle14 = ANGLE_INITIAL;
-        if (ANGLE_INITIAL > 0)
-          csps_angle23 = ANGLE_INITIAL - 180.0f;
+        csps_angle14 = angle_initial;
+        if (angle_initial > 0)
+          csps_angle23 = angle_initial - 180.0f;
         else
-          csps_angle23 = ANGLE_INITIAL + 180.0f;
+          csps_angle23 = angle_initial + 180.0f;
 
         cs14_p = csps_angle14 - adder;
         cs23_p = csps_angle23 - adder;
@@ -300,7 +310,6 @@ inline void csps_exti(uint32_t timestamp)
     data.DelayCur = cur;
     data.RPM = csps_rpm;
     data.uSPA = csps_uspa;
-    data.Period = csps_period;
 
     if(csps_phase_found) {
       csps_phase_found = 0;
@@ -319,7 +328,9 @@ inline void csps_exti(uint32_t timestamp)
     data.PhasedAnglePrev = cs_phased_p;
 
     diff = DelayDiff(cur, prev);
-    //cpsp_dynamic_corr[t1] = cpsp_dynamic_corr[t1] * 0.95f + (120.0f / (csps_period / diff)) * 0.05f;
+#ifdef CSPS_DYNAMIC_CORR
+    cpsp_dynamic_corr[t1] = cpsp_dynamic_corr[t1] * 0.95f + (120.0f / (csps_period / diff)) * 0.05f;
+#endif
 
   }
   else
@@ -338,8 +349,11 @@ inline void csps_exti(uint32_t timestamp)
     csps_period = 1000000.0f;
     csps_rpm = 0;
     csps_phase_found = 0;
-    data.Period = csps_period;
   }
+
+  data.Period = csps_period;
+  data.turns = csps_turns;
+  data.halfturns = csps_halfturns;
 
   CspsData[dataindex] = data;
   CspsDataPtr = &CspsData[dataindex];
@@ -369,7 +383,7 @@ inline void csps_exti(uint32_t timestamp)
     HAL_TIM_PWM_Start(htim, tim_channel);
 }
 
-float inline csps_getangle14(sCspsData data)
+INLINE float csps_getangle14(sCspsData data)
 {
   static float angle_prev = 0;
   float angle, acur, aprev, mult, cur;
@@ -408,7 +422,7 @@ float inline csps_getangle14(sCspsData data)
   return angle;
 }
 
-float inline csps_getangle23from14(float angle)
+INLINE float csps_getangle23from14(float angle)
 {
   if(!csps_rotates)
     return 0.0f;
@@ -418,7 +432,7 @@ float inline csps_getangle23from14(float angle)
   return angle;
 }
 
-float inline csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
+INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
 {
   uint8_t phased = csps_isphased(data);
   switch(cylinder) {
@@ -489,62 +503,62 @@ float csps_getphasedangle(sCspsData data)
   return angle;
 }
 
-float inline csps_getrpm(sCspsData data)
+INLINE float csps_getrpm(sCspsData data)
 {
   return data.RPM;
 }
 
-float inline csps_getuspa(sCspsData data)
+INLINE float csps_getuspa(sCspsData data)
 {
   return data.uSPA;
 }
 
-float inline csps_getperiod(sCspsData data)
+INLINE float csps_getperiod(sCspsData data)
 {
   return data.Period;
 }
 
-uint8_t inline csps_isrunning(void)
+uint8_t csps_isrunning(void)
 {
   return csps_running;
 }
 
-uint8_t inline csps_isrotates(void)
+INLINE uint8_t csps_isrotates(void)
 {
   return csps_rotates;
 }
 
-uint8_t inline csps_isphased(sCspsData data)
+INLINE uint8_t csps_isphased(sCspsData data)
 {
   return data.PhasedActive;
 }
 
-uint8_t inline csps_isfound(void)
+INLINE uint8_t csps_isfound(void)
 {
   return csps_found;
 }
 
-uint8_t inline csps_iserror(void)
+INLINE uint8_t csps_iserror(void)
 {
   return csps_errors > 3.0f;
 }
 
-uint32_t inline csps_gethalfturns(void)
+INLINE uint32_t csps_gethalfturns(sCspsData data)
 {
-  return csps_halfturns;
+  return data.halfturns;
 }
 
-uint32_t inline csps_getturns(void)
+INLINE uint32_t csps_getturns(sCspsData data)
 {
-  return csps_turns;
+  return data.turns;
 }
 
-sCspsData inline csps_data(void)
+INLINE sCspsData csps_data(void)
 {
   return *CspsDataPtr;
 }
 
-inline float csps_gettspsrelpos(void)
+INLINE float csps_gettspsrelpos(void)
 {
   if(csps_phased)
     return csps_tsps_rel_pos;
@@ -568,7 +582,7 @@ void csps_loop(void)
     csps_phase_found = 0;
     csps_phased = 0;
     csps_running = 0;
-    csps_period = 1.0f / csps_rpm;
+    csps_period = 1000000.0f;
     htim->Instance->PSC = 0xFFFF;
     if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_READY)
       HAL_TIM_PWM_Stop(htim, tim_channel);

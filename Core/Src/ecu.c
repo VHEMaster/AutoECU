@@ -478,7 +478,7 @@ static void ecu_update(void)
 
   gStatus.AdcStatus = sens_get_adc_status();
 
-  halfturns = csps_gethalfturns();
+  halfturns = csps_gethalfturns(csps);
   running = csps_isrunning();
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
@@ -1768,7 +1768,7 @@ static void ecu_process(void)
   HAL_StatusTypeDef throttleStatus = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
-  uint32_t turns_count = csps_getturns();;
+  uint32_t turns_count = csps_getturns(csps);
 
   if(shiftEnabled) {
     clutch_pin = sens_get_clutch(&clutch_time);
