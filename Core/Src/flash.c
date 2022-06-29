@@ -16,16 +16,23 @@
 #define BACKUP_SIZE 4096
 #define BACKUP_REGION_SIZE (BACKUP_SIZE / 2)
 
-uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
-uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
+static uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
+static uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
 
 #define FLASH_VERSION 0x00000010
 #define REGION_SIZE 0x200000
-#define PAGE_SIZE 32768
+#define PAGE_SIZE SST25_32KSIZE
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
 
-uint8_t page_buffer[PAGE_SIZE] __attribute__ ((aligned(32)));
-const uint32_t flash_addresses[2] = {0, REGION_SIZE};
+static uint8_t page_buffer[PAGE_SIZE] __attribute__ ((aligned(32)));
+static const uint32_t flash_addresses[2] = {0, REGION_SIZE};
+
+static volatile uint16_t save_sectors = 0;
+static volatile uint8_t save_page = 0;
+static volatile uint32_t save_size_write = 0;
+static volatile uint8_t save_active = 0;
+static volatile uint8_t save_region = 0;
+static volatile uint16_t save_crc16 = 0;
 
 int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page)
 {
@@ -34,10 +41,10 @@ int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page)
 
   for(int region = 0; region < 2; region++)
   {
-    SST25_ReadLock(flash_addresses[region] + page * PAGE_SIZE, size + 6, &page_buffer[2]);
+    SST25_ReadLock(flash_addresses[region] + page * PAGE_SIZE, size + 6, page_buffer);
 
     uint16_t crc16 = CRC16_Generate(page_buffer, size + 4);
-    uint32_t version = ((uint32_t *)&page_buffer[0])[0];
+    uint32_t version = ((uint32_t *)page_buffer)[0];
     uint16_t crc_read = page_buffer[size + 4] | (page_buffer[size + 5] << 8);
     if(crc16 == crc_read && version == FLASH_VERSION) {
       memcpy((uint8_t *)buffer, &page_buffer[4], size);
@@ -47,13 +54,6 @@ int8_t flash_page_load(void *buffer, uint32_t size, uint8_t page)
 
   return -1;
 }
-
-static volatile uint16_t save_sectors = 0;
-static volatile uint8_t save_page = 0;
-static volatile uint32_t save_size_write = 0;
-static volatile uint8_t save_active = 0;
-static volatile uint8_t save_region = 0;
-static volatile uint16_t save_crc16 = 0;
 
 int8_t flash_page_save(const void *buffer, uint32_t size, uint8_t page)
 {

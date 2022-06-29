@@ -136,7 +136,7 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
 
       if(((uint32_t)buffer & 0x1F) == 0)
         SCB_CleanDCache_by_Addr((uint32_t*)buffer, size);
-      else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer&0x1F)), size + ((uint32_t)buffer&0x1F));
+      else SCB_CleanDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer & 0x1F)), size + ((uint32_t)buffer & 0x1F));
 
       SPI_NSS_ON();
       avoid_nss_reset = 1;
@@ -157,7 +157,7 @@ static uint8_t SPI_Read(uint32_t address, uint32_t size, uint8_t * buffer)
 
         if(((uint32_t)buffer & 0x1F) == 0)
           SCB_InvalidateDCache_by_Addr((uint32_t*)buffer, size);
-        else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer&0x1F)), size + ((uint32_t)buffer&0x1F));
+        else SCB_InvalidateDCache_by_Addr((uint32_t*)((uint32_t)buffer - ((uint32_t)buffer & 0x1F)), size + ((uint32_t)buffer & 0x1F));
         state = 0;
         return 1;
       }
@@ -376,7 +376,7 @@ static uint8_t SPI_EraseBlock(uint32_t address, uint8_t cmd)
         }
         break;
       case 3 :
-        if(DelayDiff(Delay_Tick, program_time) >= 25000+3000)
+        if(DelayDiff(Delay_Tick, program_time) >= 25000 + 3000)
         {
           state++;
           continue;
@@ -433,7 +433,7 @@ static uint8_t SPI_ChipErase(void)
         }
         break;
       case 3 :
-        if(DelayDiff(Delay_Tick, program_time) >= 50000+2000)
+        if(DelayDiff(Delay_Tick, program_time) >= 50000 + 2000)
         {
           state++;
           continue;

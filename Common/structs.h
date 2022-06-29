@@ -211,7 +211,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[251];
+    int32_t Reserved[1283];
 }sEcuTable;
 
 typedef struct {
