@@ -2452,7 +2452,7 @@ static void ecu_checkengine_loop(void)
 }
 
 
-static void ecu_drag_loop(void)
+static void ecu_drag_process(void)
 {
   uint32_t now = Delay_Tick;
   float rpm = gParameters.RPM;
@@ -3271,6 +3271,8 @@ void ecu_irq_slow_loop(void)
   ecu_oil_pressure_process();
   ecu_battery_charge_process();
 
+  ecu_drag_process();
+
 #ifndef SIMULATION
   ecu_ign_process();
 #endif
@@ -3279,7 +3281,6 @@ void ecu_irq_slow_loop(void)
 
 void ecu_loop(void)
 {
-  ecu_drag_loop();
   ecu_mem_loop();
   ecu_bluetooth_loop();
   ecu_diagnostic_loop();
