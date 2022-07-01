@@ -96,6 +96,22 @@ static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_S
 
 static volatile uint32_t o2_pwm_period = 0;
 
+#ifdef DEBUG
+static uint32_t fast_irq_start = 0;
+static uint32_t fast_irq_end = 0;
+static uint16_t fast_irq_times = 0;
+static uint32_t fast_irq_time = 0;
+volatile float fast_irq_avg = 0;
+volatile float fast_irq_max = 0;
+
+static uint32_t slow_irq_start = 0;
+static uint32_t slow_irq_end = 0;
+static uint16_t slow_irq_times = 0;
+static uint32_t slow_irq_time = 0;
+volatile float slow_irq_avg = 0;
+volatile float slow_irq_max = 0;
+#endif
+
 INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
 {
   if(hadc == &hadc1) {
@@ -110,6 +126,77 @@ float gDebugRpm = 5650;
 uint8_t gPhased = 1;
 #endif
 
+STATIC_INLINE void fast_loop(void)
+{
+#ifdef DEBUG
+  fast_irq_start = Delay_Tick;
+#endif
+
+#ifdef SIMULATION
+    csps_emulate(Delay_Tick, gDebugRpm, gPhased);
+#endif
+
+    adc_fast_loop();
+    flash_fast_loop();
+    Misc_Fast_Loop();
+    ecu_irq_fast_loop();
+
+#ifdef DEBUG
+  //For time measurement taken by the fast irq handler. No need to optimize anything here
+  fast_irq_end = Delay_Tick;
+  fast_irq_time = DelayDiff(fast_irq_end, fast_irq_start);
+
+  if(fast_irq_avg == 0)
+    fast_irq_avg = fast_irq_time;
+  else if(fast_irq_times < 1000) {
+    fast_irq_avg = fast_irq_avg * 0.99f + fast_irq_time * 0.01f;
+    if(fast_irq_time > fast_irq_max)
+      fast_irq_max = fast_irq_time;
+    else fast_irq_max = fast_irq_max * 0.99f + fast_irq_time * 0.01f;
+    fast_irq_times++;
+  } else {
+    fast_irq_avg = fast_irq_avg * 0.99999f + fast_irq_time * 0.00001f;
+    if(fast_irq_time > fast_irq_max)
+      fast_irq_max = fast_irq_time;
+    else fast_irq_max = fast_irq_max * 0.99999f + fast_irq_time * 0.00001f;
+  }
+#endif
+}
+
+STATIC_INLINE void slow_loop(void)
+{
+#ifdef DEBUG
+  slow_irq_start = Delay_Tick;
+#endif
+
+  adc_slow_loop();
+  Misc_Loop();
+  sensors_loop();
+  outputs_loop();
+  ecu_irq_slow_loop();
+
+#ifdef DEBUG
+  //For time measurement taken by the slow irq handler. No need to optimize anything here
+  slow_irq_end = Delay_Tick;
+  slow_irq_time = DelayDiff(slow_irq_end, slow_irq_start);
+
+  if(slow_irq_avg == 0)
+    slow_irq_avg = slow_irq_time;
+  else if(slow_irq_times < 1000) {
+    slow_irq_avg = slow_irq_avg * 0.99f + slow_irq_time * 0.01f;
+    if(slow_irq_time > slow_irq_max)
+      slow_irq_max = slow_irq_time;
+    else slow_irq_max = slow_irq_max * 0.99f + slow_irq_time * 0.01f;
+    slow_irq_times++;
+  } else {
+    slow_irq_avg = slow_irq_avg * 0.99999f + slow_irq_time * 0.00001f;
+    if(slow_irq_time > slow_irq_max)
+      slow_irq_max = slow_irq_time;
+    else slow_irq_max = slow_irq_max * 0.99999f + slow_irq_time * 0.00001f;
+  }
+#endif
+}
+
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim10) {
@@ -121,19 +208,9 @@ INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   } else if(htim == &htim14) {
     injector_irq(InjectorCy3);
   } else if (htim == &htim3) {
-#ifdef SIMULATION
-    csps_emulate(Delay_Tick, gDebugRpm, gPhased);
-#endif
-    adc_fast_loop();
-    flash_fast_loop();
-    Misc_Fast_Loop();
-    ecu_irq_fast_loop();
+    fast_loop();
   } else if (htim == &htim4) {
-    adc_slow_loop();
-    Misc_Loop();
-    sensors_loop();
-    outputs_loop();
-    ecu_irq_slow_loop();
+    slow_loop();
   }
 }
 
@@ -851,7 +928,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) - 1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000000 / 66666 - 1;
+  htim3.Init.Period = 1000000 / 55000 - 1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {

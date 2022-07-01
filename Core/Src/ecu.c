@@ -1945,6 +1945,7 @@ static void ecu_process(void)
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
     gInjChPorts[injector_channel ^ 1]->BSRR = gInjChPins[injector_channel ^ 1] << 16;
 
+    //Ignition/Injection Test
     if(gIITest.StartedTime) {
       Knock_SetState(0);
       if(DelayDiff(now, gIITest.StartedTime) >= gIITest.Period) {
@@ -3251,7 +3252,6 @@ void ecu_irq_fast_loop(void)
     return;
 
   ecu_process();
-
 }
 
 void ecu_irq_slow_loop(void)
@@ -3276,7 +3276,6 @@ void ecu_irq_slow_loop(void)
 #ifndef SIMULATION
   ecu_ign_process();
 #endif
-
 }
 
 void ecu_loop(void)
