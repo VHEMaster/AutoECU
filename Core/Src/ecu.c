@@ -306,17 +306,22 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
+  sCspsData csps = csps_data();
+  float rpm = csps_getrpm(csps);
+  sMathInterpolateInput ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
   math_pid_set_clamp(&gPidIdleAirFlow, -256, 256);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   if(isidle) {
-    math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, table->idle_ign_to_rpm_pid_i, table->idle_ign_to_rpm_pid_d);
-    math_pid_set_koffs(&gPidIdleAirFlow, table->idle_valve_to_massair_pid_p, table->idle_valve_to_massair_pid_i, table->idle_valve_to_massair_pid_d);
+    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_p),
+        math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_d));
+    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_p),
+        math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_d));
   } else {
-    math_pid_set_koffs(&gPidIdleIgnition, table->idle_ign_to_rpm_pid_p, 0, 0);
-    math_pid_set_koffs(&gPidIdleAirFlow, table->idle_valve_to_massair_pid_p, 0, 0);
+    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_p), 0, 0);
+    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_p), 0, 0);
   }
   math_pid_set_koffs(&gPidShortTermCorr, table->short_term_corr_pid_p, table->short_term_corr_pid_i, table->short_term_corr_pid_d);
 }
@@ -436,6 +441,7 @@ static void ecu_update(void)
   float km_drive = 0;
   float fuel_consumption = 0;
 
+  float idle_rpm_pid_act;
   float idle_reg_rpm;
   float idle_wish_rpm;
   float idle_wish_massair;
@@ -812,7 +818,8 @@ static void ecu_update(void)
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
 
-  idle_reg_rpm = idle_wish_rpm * (table->idle_rpm_pid_act + 1.0f);
+  idle_rpm_pid_act = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act);
+  idle_reg_rpm = idle_wish_rpm * (idle_rpm_pid_act + 1.0f);
 
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;

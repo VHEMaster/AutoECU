@@ -110,10 +110,10 @@ static const float default_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] =
     { 13.3f, 13.3f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.7f, 13.6f, 13.5f, 13.3f, 13.2f, 13.2f, 13.2f, 13.3f, 13.3f },
     { 13.3f, 13.3f, 13.7f, 13.7f, 13.7f, 13.7f, 13.7f, 13.6f, 13.5f, 13.4f, 13.3f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f },
     { 13.3f, 13.3f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.5f, 13.4f, 13.3f, 13.2f, 13.1f, 13.1f, 13.1f, 13.1f, 13.0f },
-    { 13.2f, 13.2f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.3f, 13.2f, 13.1f, 13.0f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f },
-    { 13.1f, 13.1f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.1f, 13.0f, 12.9f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f },
-    { 13.0f, 13.0f, 13.0f, 13.0f, 13.0f, 12.9f, 12.9f, 12.8f, 12.7f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f },
-    { 12.9f, 12.9f, 12.8f, 12.8f, 12.8f, 12.7f, 12.7f, 12.6f, 12.6f, 12.6f, 12.6f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f },
+    { 13.2f, 13.2f, 13.4f, 13.3f, 13.2f, 13.1f, 13.0f, 12.9f, 12.9f, 12.9f, 12.9f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f },
+    { 13.1f, 13.1f, 13.2f, 13.1f, 13.0f, 12.8f, 12.8f, 12.7f, 12.7f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f },
+    { 13.0f, 12.9f, 12.8f, 12.9f, 12.8f, 12.7f, 12.7f, 12.7f, 12.7f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f },
+    { 12.9f, 12.9f, 12.7f, 12.8f, 12.7f, 12.7f, 12.7f, 12.6f, 12.6f, 12.6f, 12.6f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f },
     { 12.8f, 12.8f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f, 12.5f }
 };
 
@@ -130,10 +130,10 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
     { 285, 285, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 350, 340, 320, 310 },
     { 285, 285, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 360, 370, 360, 400 },
     { 285, 285, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 380, 390, 400, 450 },
-    { 285, 285, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 390, 420, 450, 500 },
-    { 285, 285, 300, 300, 300, 300, 300, 310, 330, 350, 400, 410, 430, 460, 510, 530 },
-    { 285, 285, 300, 300, 300, 300, 300, 310, 340, 360, 400, 410, 440, 470, 520, 550 },
-    { 285, 285, 300, 300, 300, 300, 300, 320, 350, 380, 400, 420, 460, 480, 530, 560 }
+    { 285, 285, 300, 300, 300, 300, 300, 300, 320, 350, 400, 400, 390, 420, 450, 470 },
+    { 285, 285, 300, 300, 300, 300, 300, 310, 330, 350, 400, 410, 430, 450, 460, 490 },
+    { 285, 285, 300, 300, 300, 300, 300, 310, 340, 360, 400, 410, 440, 460, 470, 500 },
+    { 285, 285, 300, 300, 300, 300, 300, 320, 350, 380, 400, 420, 450, 470, 490, 510 }
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
@@ -335,6 +335,41 @@ static const float default_idle_valve_initial[TABLE_TEMPERATURES_MAX] = {
     55, 55, 55, 55, 55, 55, 55, 55
 };
 
+static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_MAX] = {
+    3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f,
+    3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f
+};
+
+static const float default_idle_valve_to_massair_pid_i[TABLE_ROTATES_MAX] = {
+    5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f,
+    5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f
+};
+
+static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_MAX] = {
+    0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f,
+    0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f
+};
+
+static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f,
+    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f
+};
+
+static const float default_idle_ign_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f,
+    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f
+};
+
+static const float default_idle_ign_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+    0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f,
+    0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f, 0.0001f
+};
+
+static const float default_idle_rpm_pid_act[TABLE_TEMPERATURES_MAX] = {
+    0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f,
+    0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -402,13 +437,15 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->warmup_mix_corrs, default_warmup_mix_corrs, sizeof(default_warmup_mix_corrs));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
 
-  table->idle_valve_to_massair_pid_p = 3.000f;
-  table->idle_valve_to_massair_pid_i = 5.000f;
-  table->idle_valve_to_massair_pid_d = 0.001f;
+  memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
+  memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
+  memcpy(table->idle_valve_to_massair_pid_d, default_idle_valve_to_massair_pid_d, sizeof(default_idle_valve_to_massair_pid_d));
 
-  table->idle_ign_to_rpm_pid_p = 0.0200f;
-  table->idle_ign_to_rpm_pid_i = 0.0200f;
-  table->idle_ign_to_rpm_pid_d = 0.0001f;
+  memcpy(table->idle_ign_to_rpm_pid_p, default_idle_ign_to_rpm_pid_p, sizeof(default_idle_ign_to_rpm_pid_p));
+  memcpy(table->idle_ign_to_rpm_pid_i, default_idle_ign_to_rpm_pid_i, sizeof(default_idle_ign_to_rpm_pid_i));
+  memcpy(table->idle_ign_to_rpm_pid_d, default_idle_ign_to_rpm_pid_d, sizeof(default_idle_ign_to_rpm_pid_d));
+
+  memcpy(table->idle_rpm_pid_act, default_idle_rpm_pid_act, sizeof(default_idle_rpm_pid_act));
 
   table->short_term_corr_pid_p = 0.0000f;
   table->short_term_corr_pid_i = 0.0000f;
@@ -418,7 +455,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_ign_deviation_max = 14.0f;
 
   table->idle_ign_fan_corr = 10.0f;
-  table->idle_rpm_pid_act = 0.6f;
 
   table->idle_speeds_shift_count = ITEMSOF(default_idle_rpm_shift_speeds);
   memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));
