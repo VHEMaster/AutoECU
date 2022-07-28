@@ -378,7 +378,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->inj_channel = InjectorChannel1;
 
-  table->injector_performance = 180.0f;
+  //Bosch 0280156095 - 315 cc/min
+  //BMW 03762FA - 180 cc/min
+  table->injector_performance = 315.0f;
+
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 0;
   table->fuel_pressure = 3.0f;
