@@ -390,6 +390,7 @@ static void ecu_update(void)
   float uspa;
   float period;
 
+  float fuel_ratio_diff;
   float wish_fuel_ratio;
   float filling;
   float throttle_by_pressure;
@@ -471,6 +472,7 @@ static void ecu_update(void)
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
+  uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
   uint8_t use_tsps = gEcuParams.useTSPS;
   uint8_t shift_processing = Shift.Shifting;
@@ -836,12 +838,14 @@ static void ecu_update(void)
   idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
   idle_wish_valve_pos = idle_table_valve_pos;
 
-  ecu_pid_update(idle_flag && rpm <= idle_reg_rpm);
+  idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
+
+  ecu_pid_update(idle_corr_flag);
 
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  if(!idle_flag || (idle_flag && rpm > idle_reg_rpm)) {
+  if(!idle_corr_flag) {
     idle_valve_pos_correction = 0;
     idle_angle_correction = 0;
   }
@@ -1151,10 +1155,11 @@ static void ecu_update(void)
     max *= (table->knock_inj_corr_max * knock_zone) + 1.0f;
   }
 
+  fuel_ratio_diff = wish_fuel_ratio / fuel_ratio;
+
   if(gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && running) {
-    float fuel_relation = wish_fuel_ratio / fuel_ratio;
     if(idle_flag) {
-      if(fuel_relation > max) {
+      if(fuel_ratio_diff > max) {
         if(gStatus.RichIdleMixture.is_error) {
           gStatus.RichIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichIdleMixture.error_last);
         } else {
@@ -1164,7 +1169,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichIdleMixture.is_error = 0;
       }
-      if(fuel_relation < min) {
+      if(fuel_ratio_diff < min) {
         if(gStatus.LeanIdleMixture.is_error) {
           gStatus.LeanIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanIdleMixture.error_last);
         } else {
@@ -1175,7 +1180,7 @@ static void ecu_update(void)
         gStatus.LeanIdleMixture.is_error = 0;
       }
     } else {
-      if(fuel_relation > max) {
+      if(fuel_ratio_diff > max) {
         if(gStatus.RichMixture.is_error) {
           gStatus.RichMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichMixture.error_last);
         } else {
@@ -1185,7 +1190,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichMixture.is_error = 0;
       }
-      if(fuel_relation < min) {
+      if(fuel_ratio_diff < min) {
         if(gStatus.LeanMixture.is_error) {
           gStatus.LeanMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanMixture.error_last);
         } else {
@@ -1229,6 +1234,7 @@ static void ecu_update(void)
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
   gParameters.FuelRatio = fuel_ratio;
+  gParameters.FuelRatioDiff = fuel_ratio_diff;
   gParameters.LambdaValue = lambda_value;
   gParameters.LambdaTemperature = lambda_temperature;
   gParameters.LambdaTemperatureVoltage = lambda_temperaturevoltage;
@@ -1238,6 +1244,7 @@ static void ecu_update(void)
   gParameters.IdleCorrection = gEcuCorrections.idle_correction;
 
   gParameters.IdleFlag = idle_flag;
+  gParameters.IdleCorrFlag = idle_corr_flag;
   gParameters.RPM = rpm;
   gParameters.Acceleration = acceleration;
   gParameters.Speed = speed;
@@ -1248,6 +1255,7 @@ static void ecu_update(void)
   gParameters.RelativeFilling = filling_relative;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
+  gParameters.IdleRegThrRPM = idle_reg_rpm;
   gParameters.WishIdleRPM = idle_wish_rpm;
   gParameters.WishIdleMassAirFlow = idle_wish_massair;
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;

@@ -325,6 +325,7 @@ typedef struct {
     float ReferenceVoltage;
     float PowerVoltage;
     float FuelRatio;
+    float FuelRatioDiff;
     float LambdaValue;
     float LambdaTemperature;
     float LambdaHeaterVoltage;
@@ -334,6 +335,7 @@ typedef struct {
     float IdleCorrection;
 
     int32_t IdleFlag;
+    int32_t IdleCorrFlag;
     float RPM;
     float Speed;
     float Acceleration;
@@ -344,6 +346,7 @@ typedef struct {
     float RelativeFilling;
     float WishFuelRatio;
     float IdleValvePosition;
+    float IdleRegThrRPM;
     float WishIdleRPM;
     float WishIdleMassAirFlow;
     float WishIdleValvePosition;
