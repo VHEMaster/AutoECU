@@ -1018,6 +1018,8 @@ static void ecu_update(void)
     gStatus.Knock.LowNoiseLast = 0;
   }
 
+  fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
+
   if(adapt_diff >= period * 2.0f) {
     adaptation_last = now;
     if(running) {
@@ -1033,7 +1035,7 @@ static void ecu_update(void)
           short_term_correction = 0.0f;
           short_term_correction_pid = 0.0f;
 
-          filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
+          filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
             fill_correction_map += filling_diff * lpf_calculation;
             corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
@@ -1089,7 +1091,7 @@ static void ecu_update(void)
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
-          filling_diff = (fuel_ratio / wish_fuel_ratio) - 1.0f;
+          filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
             if(!idle_flag && throttle > 10.0f) {
               gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
@@ -1155,11 +1157,9 @@ static void ecu_update(void)
     max *= (table->knock_inj_corr_max * knock_zone) + 1.0f;
   }
 
-  fuel_ratio_diff = wish_fuel_ratio / fuel_ratio;
-
   if(gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && running) {
     if(idle_flag) {
-      if(fuel_ratio_diff > max) {
+      if(fuel_ratio_diff < min) {
         if(gStatus.RichIdleMixture.is_error) {
           gStatus.RichIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichIdleMixture.error_last);
         } else {
@@ -1169,7 +1169,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichIdleMixture.is_error = 0;
       }
-      if(fuel_ratio_diff < min) {
+      if(fuel_ratio_diff > max) {
         if(gStatus.LeanIdleMixture.is_error) {
           gStatus.LeanIdleMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanIdleMixture.error_last);
         } else {
@@ -1180,7 +1180,7 @@ static void ecu_update(void)
         gStatus.LeanIdleMixture.is_error = 0;
       }
     } else {
-      if(fuel_ratio_diff > max) {
+      if(fuel_ratio_diff < min) {
         if(gStatus.RichMixture.is_error) {
           gStatus.RichMixture.error_time += HAL_DelayDiff(hal_now, gStatus.RichMixture.error_last);
         } else {
@@ -1190,7 +1190,7 @@ static void ecu_update(void)
       } else {
         gStatus.RichMixture.is_error = 0;
       }
-      if(fuel_ratio_diff < min) {
+      if(fuel_ratio_diff > max) {
         if(gStatus.LeanMixture.is_error) {
           gStatus.LeanMixture.error_time += HAL_DelayDiff(hal_now, gStatus.LeanMixture.error_last);
         } else {
