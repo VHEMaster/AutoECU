@@ -184,6 +184,9 @@ static const float gKnockDetectStartAngle = -100;
 static const float gKnockDetectEndAngle = 70;
 
 static volatile uint32_t gParametersRequestFillLast = 0;
+static volatile float gParametersMapAcceptValue = 103000.0f;
+static volatile float gParametersMapTempValue = 103000.0f;
+static volatile uint32_t gParametersMapAcceptLast = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -352,13 +355,14 @@ static void ecu_update(void)
   static uint32_t updated_last = 0;
   static float idle_angle_correction = 0;
   static float idle_valve_pos_correction = 0;
+  uint32_t params_map_accept_last = gParametersMapAcceptLast;
+  uint32_t table_number = gParameters.CurrentTable;
+  sEcuTable *table = &gEcuTable[table_number];
+  uint8_t calibration = gEcuParams.performAdaptation;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
-  uint32_t table_number = gParameters.CurrentTable;
-  sEcuTable *table = &gEcuTable[table_number];
-  uint8_t calibration = gEcuParams.performAdaptation;
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipMap = {0};
   sMathInterpolateInput ipEngineTemp = {0};
@@ -1212,6 +1216,12 @@ static void ecu_update(void)
   gStatus.RichIdleMixture.error_last = hal_now;
   gStatus.LeanIdleMixture.error_last = hal_now;
 
+  if(DelayDiff(now, params_map_accept_last) >= 100000) {
+    gParametersMapAcceptValue = pressure;
+    gParametersMapAcceptLast = now;
+  }
+  gParametersMapTempValue = pressure;
+
   gParameters.AdcKnockVoltage = gStatus.Knock.Voltage;
   gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
@@ -1229,7 +1239,7 @@ static void ecu_update(void)
   gParameters.KnockAdvance = gStatus.Knock.Advance;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
-  gParameters.ManifoldAirPressure = pressure;
+  gParameters.ManifoldAirPressure = gParametersMapAcceptValue;
   gParameters.ThrottlePosition = throttle;
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
@@ -2134,6 +2144,9 @@ static void ecu_process(void)
               }
               ignition_ignite[i] = time_pulse;
               ignition_ignite_time[i] = now;
+
+              gParametersMapAcceptValue = gParametersMapTempValue;
+              gParametersMapAcceptLast = now;
             }
           }
         } else {

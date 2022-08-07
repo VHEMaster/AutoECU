@@ -7,6 +7,7 @@
 
 #include "adc.h"
 #include "delay.h"
+#include "defines.h"
 #include <string.h>
 
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_RESET)
@@ -20,6 +21,7 @@
 #define ADC_BUFFER_SIZE 8
 
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
+static uint16_t AdcDataLast[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];
 static volatile HAL_StatusTypeDef adcInitStatus = HAL_OK;
 static volatile HAL_StatusTypeDef adcStatus = HAL_OK;
@@ -110,6 +112,7 @@ void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
       } else {
         AdcBuffer[ADC_CHANNELS + McuChannel][0] = data;
       }
+      AdcDataLast[ADC_CHANNELS + McuChannel] = data;
     } else {
       ChIgnoreNext[ADC_CHANNELS + McuChannel] = 0;
     }
@@ -198,22 +201,21 @@ static HAL_StatusTypeDef SPI_ReadRegister(uint8_t reg, uint8_t *data)
   return HAL_OK;
 }
 
-static inline float ADC_Convert(uint8_t channel)
+static INLINE float ADC_Convert(uint8_t channel, float data)
 {
-  float data = ChData[channel];
   switch(ChRange[channel]) {
     case ADC_RANGE_0P2500 :
-      return data / 65536.0f * ADC_VREF * 2.500f;
+      return data * 0.0000152587890625f * ADC_VREF * 2.500f;
     case ADC_RANGE_0P1250 :
-      return data / 65536.0f * ADC_VREF * 1.250f;
+      return data * 0.0000152587890625f * ADC_VREF * 1.250f;
     case MCU_RANGE_DIRECT :
-      return data / 65536.0f * MCU_VREF;
+      return data * 0.0000152587890625f * MCU_VREF;
     case ADC_RANGE_PM2500 :
-      return (data - 32768.0f) / 32768.0f * ADC_VREF * 2.500f;
+      return (data - 32768.0f) * 0.000030517578125f * ADC_VREF * 2.500f;
     case ADC_RANGE_PM1250 :
-      return (data - 32768.0f) / 32768.0f * ADC_VREF * 1.250f;
+      return (data - 32768.0f) * 0.000030517578125f * ADC_VREF * 1.250f;
     case ADC_RANGE_PM0625 :
-      return (data - 32768.0f) / 32768.0f * ADC_VREF * 0.625f;
+      return (data - 32768.0f) * 0.000030517578125f * ADC_VREF * 0.625f;
     default:
       return 0;
   }
@@ -375,6 +377,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
           } else {
             AdcBuffer[AdcChannel][0] = data;
           }
+          AdcDataLast[AdcChannel] = data;
         } else {
           ChIgnoreNext[AdcChannel] = 0;
         }
@@ -425,7 +428,7 @@ HAL_StatusTypeDef adc_slow_loop(void)
     } else {
       ChData[i] = AdcBuffer[i][0];
     }
-    AdcVoltages[i] = ADC_Convert(i) * ChDivider[i];
+    AdcVoltages[i] = ADC_Convert(i, ChData[i]) * ChDivider[i];
   }
 
   for(int i = 0; i < ADC_CHANNELS; i++) {
@@ -440,10 +443,17 @@ HAL_StatusTypeDef adc_slow_loop(void)
   return result;
 }
 
-inline float adc_get_voltage(eAdcChannel channel)
+INLINE float adc_get_voltage(eAdcChannel channel)
 {
   if(channel < ADC_CHANNELS + MCU_CHANNELS)
     return AdcVoltages[channel];
+  return 0.f;
+}
+
+INLINE float adc_get_voltage_unfiltered(eAdcChannel channel)
+{
+  if(channel < ADC_CHANNELS + MCU_CHANNELS)
+    return ADC_Convert(channel, AdcDataLast[channel]) * ChDivider[channel];
   return 0.f;
 }
 

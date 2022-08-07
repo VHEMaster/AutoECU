@@ -97,6 +97,14 @@ inline GPIO_PinState sens_get_ign(uint32_t *time)
   return Sensors[SensorIgn].state;
 }
 
+STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
+{
+  if(map >= ref * 0.985f)
+    return HAL_ERROR;
+
+  return map * 19000.0f + 10000.0f;
+}
+
 static float getTemperatureByResistance_airtemp(float resistance)
 {
   //More here: http://www.vems.hu/wiki/index.php?page=EasyTherm%2FSensorTable
@@ -185,11 +193,20 @@ HAL_StatusTypeDef sens_get_map(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
-  if(voltage >= power_voltage * 0.985f)
-    status = HAL_ERROR;
 
-  float result = voltage * 19000.0f + 10000.0f;
-  *output = result;
+  status = getMapPressureByVoltages(voltage, power_voltage, output);
+
+  return status;
+}
+
+HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  float voltage = adc_get_voltage_unfiltered(AdcChManifoldAbsolutePressure);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+
+  status = getMapPressureByVoltages(voltage, power_voltage, output);
+
   return status;
 }
 
