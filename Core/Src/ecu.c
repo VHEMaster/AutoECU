@@ -185,7 +185,6 @@ static const float gKnockDetectEndAngle = 70;
 
 static volatile uint32_t gParametersRequestFillLast = 0;
 static volatile float gParametersMapAcceptValue = 103000.0f;
-static volatile float gParametersMapTempValue = 103000.0f;
 static volatile uint32_t gParametersMapAcceptLast = 0;
 
 static sDrag Drag = {0};
@@ -523,6 +522,14 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
+
+
+  if(running && DelayDiff(now, params_map_accept_last) < 100000) {
+    pressure = gParametersMapAcceptValue;
+  } else {
+    gParametersMapAcceptValue = pressure;
+    gParametersMapAcceptLast = now;
+  }
 
   tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
 
@@ -1216,12 +1223,6 @@ static void ecu_update(void)
   gStatus.RichIdleMixture.error_last = hal_now;
   gStatus.LeanIdleMixture.error_last = hal_now;
 
-  if(DelayDiff(now, params_map_accept_last) >= 100000) {
-    gParametersMapAcceptValue = pressure;
-    gParametersMapAcceptLast = now;
-  }
-  gParametersMapTempValue = pressure;
-
   gParameters.AdcKnockVoltage = gStatus.Knock.Voltage;
   gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
@@ -1239,7 +1240,7 @@ static void ecu_update(void)
   gParameters.KnockAdvance = gStatus.Knock.Advance;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
-  gParameters.ManifoldAirPressure = gParametersMapAcceptValue;
+  gParameters.ManifoldAirPressure = pressure;
   gParameters.ThrottlePosition = throttle;
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
@@ -1756,6 +1757,7 @@ static void ecu_process(void)
   static uint32_t ignition_ignite_time[ECU_CYLINDERS_COUNT];
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
+  float pressure = 0;
 
   float throttle;
   float angle = csps_getphasedangle(csps);
@@ -1800,6 +1802,8 @@ static void ecu_process(void)
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns(csps);
+
+  HAL_StatusTypeDef map_status = sens_get_map_unfiltered(&pressure);
 
   if(shiftEnabled) {
     clutch_pin = sens_get_clutch(&clutch_time);
@@ -2145,8 +2149,10 @@ static void ecu_process(void)
               ignition_ignite[i] = time_pulse;
               ignition_ignite_time[i] = now;
 
-              gParametersMapAcceptValue = gParametersMapTempValue;
-              gParametersMapAcceptLast = now;
+              if(map_status == HAL_OK) {
+                gParametersMapAcceptValue = pressure;
+                gParametersMapAcceptLast = now;
+              }
             }
           }
         } else {
