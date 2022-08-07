@@ -524,7 +524,7 @@ static void ecu_update(void)
 #endif
 
 
-  if(running && DelayDiff(now, params_map_accept_last) < 100000) {
+  if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
     pressure = gParametersMapAcceptValue;
   } else {
     gParametersMapAcceptValue = pressure;
@@ -1799,11 +1799,16 @@ static void ecu_process(void)
   uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
   uint8_t is_phased = csps_isphased(csps);
   HAL_StatusTypeDef throttleStatus = HAL_OK;
+  HAL_StatusTypeDef map_status = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns(csps);
 
-  HAL_StatusTypeDef map_status = sens_get_map_unfiltered(&pressure);
+#ifdef SIMULATION
+  map_status = sens_get_map_unfiltered(&pressure);
+#else
+  pressure = gDebugMap;
+#endif
 
   if(shiftEnabled) {
     clutch_pin = sens_get_clutch(&clutch_time);
