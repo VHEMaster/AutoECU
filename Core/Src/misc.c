@@ -118,7 +118,7 @@ static sO2Status O2Status = {0};
 static uint8_t knock_bandpass_filter_frequency = 42; //7.27kHz for D=79mm
 static uint8_t knock_gain_value = 14;                //1.0
 static uint8_t knock_integrator_time_constant = 22;  //280uS
-static uint8_t knock_oscillator_freq_select = 0;
+static uint8_t knock_oscillator_freq_select = 6; //16MHz
 static uint8_t knock_channel_select = 0;
 static uint8_t knock_diagnostic_mode = 0;
 static uint8_t knock_so_output_mode = 0;
