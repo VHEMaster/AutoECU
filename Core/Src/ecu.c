@@ -1765,6 +1765,7 @@ static void ecu_process(void)
   float found = csps_isfound();
   float uspa_koff = 0.8f;
   static float uspa = 1000.0f;
+  float r_uspa;
   float uspa_raw = csps_getuspa(csps);
   float period = csps_getperiod(csps);
   float time_sat;
@@ -1874,6 +1875,7 @@ static void ecu_process(void)
   uspa_koff = diff * 0.002f;
 
   uspa = uspa_raw * uspa_koff + uspa * (1.0f - uspa_koff);
+  r_uspa = 1.0f / uspa;
   angle_ignite = angle_ignite_param * angle_ignite_koff + angle_ignite * (1.0f - angle_ignite_koff);
   inj_phase = inj_phase_param * inj_phase_koff + inj_phase * (1.0f - inj_phase_koff);
   inj_phase_temp = inj_phase;
@@ -2041,11 +2043,11 @@ static void ecu_process(void)
         time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
       }
 
-      saturate = time_sat / uspa;
-      inj_angle = inj_pulse / uspa;
+      saturate = time_sat * r_uspa;
+      inj_angle = inj_pulse * r_uspa;
 
-      if(inj_angle < diff / uspa * 1.5f)
-        inj_angle = diff / uspa * 1.5f;
+      if(inj_angle < diff * r_uspa * 1.5f)
+        inj_angle = diff * r_uspa * 1.5f;
 
       if(!injection_phase_by_end) {
         inj_phase_temp += inj_angle;
