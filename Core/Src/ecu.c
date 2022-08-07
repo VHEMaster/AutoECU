@@ -396,7 +396,7 @@ static void ecu_update(void)
   float fuel_ratio_diff;
   float wish_fuel_ratio;
   float filling;
-  float throttle_by_pressure;
+  float pressure_from_throttle;
   float effective_volume;
   float ignition_angle;
   float ignition_time;
@@ -592,13 +592,13 @@ static void ecu_update(void)
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
-  throttle_by_pressure = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
+  pressure_from_throttle = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
   map_correction_thr = corr_math_interpolate_2d_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
 
-  throttle_by_pressure *= map_correction_thr + 1.0f;
+  pressure_from_throttle *= map_correction_thr + 1.0f;
 
   if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map != HAL_OK) {
-    pressure = throttle_by_pressure;
+    pressure = pressure_from_throttle;
   }
 
   fuel_abs_pressure = fuel_pressure;
@@ -1060,7 +1060,7 @@ static void ecu_update(void)
         }
 
         if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
-          map_diff_thr = (pressure / throttle_by_pressure) - 1.0f;
+          map_diff_thr = (pressure / pressure_from_throttle) - 1.0f;
           map_correction_thr += map_diff_thr * lpf_calculation;
           corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
 
@@ -1145,7 +1145,7 @@ static void ecu_update(void)
 
   if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 55.0f) || (rpm < idle_reg_rpm && engine_temp > 80.0f)) &&
       running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    float map_tps_relation = pressure / throttle_by_pressure;
+    float map_tps_relation = pressure / pressure_from_throttle;
     if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
       if(gStatus.MapTpsRelation.is_error) {
         gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
