@@ -633,6 +633,15 @@ static void ecu_update(void)
     idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
   }
 
+  if(!rotates)
+  {
+    for(int i = 0; i < ENRICHMENT_STATES_COUNT; i++)
+    {
+      enrichment_map_states[i] = pressure;
+      enrichment_thr_states[i] = throttle;
+    }
+  }
+
   while(halfturns != prev_halfturns) {
     halfturns_performed++;
     prev_halfturns++;
