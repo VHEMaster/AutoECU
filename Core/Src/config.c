@@ -502,7 +502,8 @@ void config_default_params(sEcuParams *table)
   table->isIndividualCoils = 1;
 
   table->fanHighTemperature = 101;
-  table->fanLowTemperature = 97;
+  table->fanMidTemperature = 97;
+  table->fanLowTemperature = 94;
 
   table->isBluetoothEnabled = 1;
   table->bluetoothPin = 1902;

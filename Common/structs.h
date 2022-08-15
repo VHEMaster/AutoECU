@@ -273,6 +273,7 @@ typedef struct {
     int32_t isIndividualCoils;
 
     float fanHighTemperature;
+    float fanMidTemperature;
     float fanLowTemperature;
 
     int32_t isBluetoothEnabled;
@@ -294,7 +295,7 @@ typedef struct {
 
     int32_t knockIntegratorTime;
 
-    int32_t Reserved32[982];
+    int32_t Reserved32[981];
 }sEcuParams;
 
 typedef struct {
