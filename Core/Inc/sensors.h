@@ -13,7 +13,7 @@
 
 typedef enum {
   SensorOilPressure = 0,
-  SensorStarter,
+  SensorFanForceSwitch,
   SensorHandbrake,
   SensorCharge,
   SensorClutch,
@@ -38,7 +38,7 @@ HAL_StatusTypeDef sens_get_o2_temperaturevoltage(float *output);
 GPIO_PinState sens_get_charge(uint32_t *time);
 GPIO_PinState sens_get_handbrake(uint32_t *time);
 GPIO_PinState sens_get_oil_pressure(uint32_t *time);
-GPIO_PinState sens_get_starter(uint32_t *time);
+GPIO_PinState sens_get_fan_force_switch(uint32_t *time);
 GPIO_PinState sens_get_clutch(uint32_t *time);
 GPIO_PinState sens_get_ign(uint32_t *time);
 

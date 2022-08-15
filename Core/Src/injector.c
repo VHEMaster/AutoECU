@@ -7,6 +7,7 @@
 
 #include "injector.h"
 #include "delay.h"
+#include <string.h>
 
 typedef struct {
     TIM_HandleTypeDef *htim;

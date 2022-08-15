@@ -1299,7 +1299,7 @@ static void ecu_update(void)
   gParameters.LambdaValid = o2_valid > 0;
 
   gParameters.OilSensor = sens_get_oil_pressure(NULL) != GPIO_PIN_RESET;
-  gParameters.StarterSensor = sens_get_starter(NULL) != GPIO_PIN_RESET;
+  gParameters.FanForceSwitch = sens_get_fan_force_switch(NULL) != GPIO_PIN_RESET;
   gParameters.HandbrakeSensor = sens_get_handbrake(NULL) != GPIO_PIN_RESET;
   gParameters.ChargeSensor = sens_get_charge(NULL);
   gParameters.ClutchSensor = sens_get_clutch(NULL) != GPIO_PIN_RESET;
@@ -1309,7 +1309,7 @@ static void ecu_update(void)
   gParameters.FanRelay = out_get_fan(NULL) != GPIO_PIN_RESET;
   gParameters.CheckEngine = out_get_checkengine(NULL) != GPIO_PIN_RESET;
   gParameters.StarterRelay = out_get_starter(NULL) != GPIO_PIN_RESET;
-  gParameters.Rsvd1Output = out_get_rsvd1(NULL) != GPIO_PIN_RESET;
+  gParameters.FanSwitch = out_get_fan_switch(NULL) != GPIO_PIN_RESET;
   gParameters.IgnOutput = out_get_ign(NULL) != GPIO_PIN_RESET;
 
   gParameters.IsRunning = running;
@@ -2374,15 +2374,15 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckOutIgnOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckOutIgnShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToBatOrOvertemp);
   CHECK_STATUS(iserror, CheckOutIgnShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutIgn == OutputDiagShortToGnd);
-  //CHECK_STATUS(iserror, CheckOutRsvd1OpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagOpenCircuit);
-  CHECK_STATUS(iserror, CheckOutRsvd1ShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToBatOrOvertemp);
-  CHECK_STATUS(iserror, CheckOutRsvd1ShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.OutRsvd1 == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckFanSwitchOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanSwitch == OutputDiagOpenCircuit);
+  CHECK_STATUS(iserror, CheckFanSwitchShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanSwitch == OutputDiagShortToBatOrOvertemp);
+  CHECK_STATUS(iserror, CheckFanSwitchShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanSwitch == OutputDiagShortToGnd);
   //CHECK_STATUS(iserror, CheckStarterRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckStarterRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToBatOrOvertemp);
   //CHECK_STATUS(iserror, CheckStarterRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.StarterRelay == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckFanRelayOpenCirtuit, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagOpenCircuit);
   CHECK_STATUS(iserror, CheckFanRelayShortToBatOrOverheat, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToBatOrOvertemp);
-  //CHECK_STATUS(iserror, CheckFanRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
+  CHECK_STATUS(iserror, CheckFanRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckOutputs2CommunicationFailure, gStatus.OutputDiagnostic.Outs2.Availability != HAL_OK);
 
   CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);

@@ -62,11 +62,11 @@ inline GPIO_PinState sens_get_oil_pressure(uint32_t *time)
   return Sensors[SensorOilPressure].state;
 }
 
-inline GPIO_PinState sens_get_starter(uint32_t *time)
+inline GPIO_PinState sens_get_fan_force_switch(uint32_t *time)
 {
   if(time)
-    *time = DelayDiff(Delay_Tick, Sensors[SensorStarter].time_switched);
-  return Sensors[SensorStarter].state;
+    *time = DelayDiff(Delay_Tick, Sensors[SensorFanForceSwitch].time_switched);
+  return Sensors[SensorFanForceSwitch].state;
 }
 
 inline GPIO_PinState sens_get_handbrake(uint32_t *time)

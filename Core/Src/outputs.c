@@ -55,11 +55,11 @@ inline void out_set_starter(GPIO_PinState state)
   }
 }
 
-inline void out_set_rsvd1(GPIO_PinState state)
+inline void out_set_fan_switch(GPIO_PinState state)
 {
-  if(Outputs[OutRsvd1].state != state) {
-    Outputs[OutRsvd1].time_switched = Delay_Tick;
-    Outputs[OutRsvd1].state = state;
+  if(Outputs[OutFanSwitch].state != state) {
+    Outputs[OutFanSwitch].time_switched = Delay_Tick;
+    Outputs[OutFanSwitch].state = state;
   }
 }
 
@@ -99,11 +99,11 @@ inline GPIO_PinState out_get_starter(uint32_t *time)
   return Outputs[OutStarterRelay].state;
 }
 
-inline GPIO_PinState out_get_rsvd1(uint32_t *time)
+inline GPIO_PinState out_get_fan_switch(uint32_t *time)
 {
   if(time)
-    *time = DelayDiff(Delay_Tick, Outputs[OutRsvd1].time_switched);
-  return Outputs[OutRsvd1].state;
+    *time = DelayDiff(Delay_Tick, Outputs[OutFanSwitch].time_switched);
+  return Outputs[OutFanSwitch].state;
 }
 
 inline GPIO_PinState out_get_ign(uint32_t *time)

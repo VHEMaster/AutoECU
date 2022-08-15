@@ -100,7 +100,7 @@ typedef struct {
     union {
       struct {
         eOutputDiagnosticStatus OutIgn : 2;
-        eOutputDiagnosticStatus OutRsvd1 : 2;
+        eOutputDiagnosticStatus FanSwitch : 2;
         eOutputDiagnosticStatus StarterRelay : 2;
         eOutputDiagnosticStatus FanRelay : 2;
       }Data;
@@ -370,7 +370,7 @@ typedef struct {
     int32_t LambdaValid;
 
     int32_t OilSensor;
-    int32_t StarterSensor;
+    int32_t FanForceSwitch;
     int32_t HandbrakeSensor;
     int32_t ChargeSensor;
     int32_t ClutchSensor;
@@ -380,7 +380,7 @@ typedef struct {
     int32_t FanRelay;
     int32_t CheckEngine;
     int32_t StarterRelay;
-    int32_t Rsvd1Output;
+    int32_t FanSwitch;
     int32_t IgnOutput;
 
     int32_t StartAllowed;

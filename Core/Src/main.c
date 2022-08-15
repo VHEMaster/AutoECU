@@ -395,7 +395,7 @@ int main(void)
   outputs_init();
 
   sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
-  sensors_register(SensorStarter, SENS_STARTER_GPIO_Port, SENS_STARTER_Pin, 1);
+  sensors_register(SensorFanForceSwitch, SENS_FAN_SW_GPIO_Port, SENS_FAN_SW_Pin, 1);
   sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
   sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
   sensors_register(SensorClutch, SENS_CLUTCH_GPIO_Port, SENS_CLUTCH_Pin, 1);
@@ -404,7 +404,7 @@ int main(void)
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutCheckEngine, CHECKENGINE_GPIO_Port, CHECKENGINE_Pin, 1, GPIO_PIN_SET);
   outputs_register(OutFanRelay, OUT_FAN_GPIO_Port, OUT_FAN_Pin, 1, GPIO_PIN_RESET);
-  outputs_register(OutRsvd1, OUT_RSVD1_GPIO_Port, OUT_RSVD1_Pin, 1, GPIO_PIN_RESET);
+  outputs_register(OutFanSwitch, OUT_FAN_SWITCH_GPIO_Port, OUT_FAN_SWITCH_Pin, 1, GPIO_PIN_RESET);
 #ifndef VIRTUALCOMPORT
   outputs_register(OutStarterRelay, OUT_STARTER_GPIO_Port, OUT_STARTER_Pin, 1, GPIO_PIN_RESET);
   outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
@@ -1450,10 +1450,10 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA,
-      O2_NRST_Pin | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
+      O2_NRST_Pin | OUT_FAN_Pin | OUT_FAN_SWITCH_Pin | OUT_IGN_Pin
           | OUT_STARTER_Pin, GPIO_PIN_RESET);
 
-  HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin
+  HAL_GPIO_WritePin(GPIOA, OUT_FAN_Pin | OUT_FAN_SWITCH_Pin | OUT_IGN_Pin
       | OUT_STARTER_Pin | CAN1_LBK_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
@@ -1505,8 +1505,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : BT_LED_Pin SENS_OIL_Pin TIM8_CH2_SENS_SPEED_Pin
-   SENS_STARTER_Pin */
-  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin | SENS_STARTER_Pin;
+   SENS_FAN_SW_Pin */
+  GPIO_InitStruct.Pin = BT_LED_Pin | SENS_OIL_Pin | SENS_FAN_SW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -1517,9 +1517,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(KLINE_LO_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SPI4_NSS_KNOCK_Pin O2_NRST_Pin CAN1_LBK_Pin OUT_FAN_Pin
-   OUT_RSVD1_Pin OUT_IGN_Pin OUT_STARTER_Pin */
+   OUT_FAN_SWITCH_Pin OUT_IGN_Pin OUT_STARTER_Pin */
   GPIO_InitStruct.Pin = SPI4_NSS_KNOCK_Pin | O2_NRST_Pin | CAN1_LBK_Pin
-      | OUT_FAN_Pin | OUT_RSVD1_Pin | OUT_IGN_Pin | OUT_STARTER_Pin;
+      | OUT_FAN_Pin | OUT_FAN_SWITCH_Pin | OUT_IGN_Pin | OUT_STARTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
