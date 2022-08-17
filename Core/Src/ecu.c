@@ -1819,7 +1819,7 @@ static void ecu_process(void)
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns(csps);
 
-#ifdef SIMULATION
+#ifndef SIMULATION
   map_status = sens_get_map_unfiltered(&pressure);
 #else
   pressure = gDebugMap;
