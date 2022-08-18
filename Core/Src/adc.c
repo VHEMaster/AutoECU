@@ -94,7 +94,6 @@ void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
   if(_hadc == hadc) {
     data = HAL_ADC_GetValue(hadc);
 
-    ChIgnoreNext[ADC_CHANNELS + McuChannel] = 1;
     if(!ChIgnoreNext[ADC_CHANNELS + McuChannel]) {
       if(ChFilter[ADC_CHANNELS + McuChannel]) {
         if(McuFirstTime) {
@@ -148,13 +147,13 @@ static HAL_StatusTypeDef SPI_SendCommand(uint16_t cmd)
   tx[1] = cmd & 0xFF;
   //SCB_CleanDCache_by_Addr((uint32_t*)tx, 2);
   SPI_NSS_ON();
-  HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 1);
+  HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 2);
   while(!waitTxRxCplt()) {}
   //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 2);
 
-  if(rx[0] != 0x00 || rx[1] != 0x00)
-    return HAL_ERROR;
+  //if(rx[0] != 0x00 || rx[1] != 0x00)
+  //  return HAL_ERROR;
 
   return HAL_OK;
 }
@@ -228,6 +227,8 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
+
+  DelayMs(10);
 
   HAL_GPIO_WritePin(SPI1_NRST_GPIO_Port, SPI1_NRST_Pin, GPIO_PIN_SET);
 
@@ -354,7 +355,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
       memset(tx, 0, 4);
       SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
       SPI_NSS_ON();
-      HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
+      HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
       state++;
       break;
     case 1:
@@ -397,7 +398,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
         memset(tx, 0, 4);
         SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
         SPI_NSS_ON();
-        HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
+        HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
 
       }
       break;
