@@ -75,10 +75,10 @@ typedef struct {
   struct {
     union {
       struct {
-        eOutputDiagnosticStatus InjCy4 : 2;
-        eOutputDiagnosticStatus InjCy3 : 2;
-        eOutputDiagnosticStatus InjCy2 : 2;
         eOutputDiagnosticStatus InjCy1 : 2;
+        eOutputDiagnosticStatus InjCy2 : 2;
+        eOutputDiagnosticStatus InjCy3 : 2;
+        eOutputDiagnosticStatus InjCy4 : 2;
       }Data;
       uint8_t Byte;
     }Diagnostic;
@@ -87,10 +87,10 @@ typedef struct {
   struct {
     union {
       struct {
-        eOutputDiagnosticStatus CheckEngine : 2;
-        eOutputDiagnosticStatus Speedmeeter : 2;
-        eOutputDiagnosticStatus Tachometer : 2;
         eOutputDiagnosticStatus FuelPumpRelay : 2;
+        eOutputDiagnosticStatus Tachometer : 2;
+        eOutputDiagnosticStatus Speedmeeter : 2;
+        eOutputDiagnosticStatus CheckEngine : 2;
       }Data;
       uint8_t Byte;
     }Diagnostic;
@@ -99,10 +99,10 @@ typedef struct {
   struct {
     union {
       struct {
-        eOutputDiagnosticStatus OutIgn : 2;
-        eOutputDiagnosticStatus FanSwitch : 2;
-        eOutputDiagnosticStatus StarterRelay : 2;
         eOutputDiagnosticStatus FanRelay : 2;
+        eOutputDiagnosticStatus StarterRelay : 2;
+        eOutputDiagnosticStatus FanSwitch : 2;
+        eOutputDiagnosticStatus OutIgn : 2;
       }Data;
       uint8_t Byte;
     }Diagnostic;

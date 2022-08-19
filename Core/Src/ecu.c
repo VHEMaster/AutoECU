@@ -2048,7 +2048,7 @@ static void ecu_process(void)
         gIITest.InjectionTriggered = 1;
         for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
           if(((gIITest.InjectionEnabled >> i) & 1)) {
-            ecu_inject(cy_count_injection, i, gIITest.InjectionPulse);
+            ecu_inject(ECU_CYLINDERS_COUNT, i, gIITest.InjectionPulse);
           }
         }
       }
@@ -2849,7 +2849,7 @@ static void ecu_ign_process(void)
     gIgnState = GPIO_PIN_SET;
     out_set_ign(GPIO_PIN_SET);
   }
-  else if(time >= 100000) {
+  else if(!gIgnCanShutdown && time >= 100000) {
     gIgnState = GPIO_PIN_RESET;
     gIgnCanShutdown = 1;
     tick_ready = now;

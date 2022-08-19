@@ -99,7 +99,7 @@ inline GPIO_PinState sens_get_ign(uint32_t *time)
 
 STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
 {
-  if(map >= ref * 0.985f)
+  if(map >= ref * 0.95f)
     return HAL_ERROR;
 
   return map * 19000.0f + 10000.0f;
@@ -247,7 +247,7 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
   float reference_resistance, meter_resistance;
-  float power_voltage = adc_get_voltage(AdcChPowerVoltage);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float temperature = adc_get_voltage(AdcChEngineTemperature);
 
   *output = 150.0f;
