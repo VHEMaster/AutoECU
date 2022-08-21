@@ -411,8 +411,6 @@ int main(void)
   outputs_register(OutIgn, OUT_IGN_GPIO_Port, OUT_IGN_Pin, 1, GPIO_PIN_RESET);
 #endif
 
-  HAL_GPIO_WritePin(LOGIC_OE_GPIO_Port, LOGIC_OE_Pin, GPIO_PIN_SET);
-
   CRC16_Init(&hcrc);
 
   can_init(&hcan1);
@@ -1470,6 +1468,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE,
       STEP_I0_Pin | STEP_I1_Pin | STEP_PH1_Pin | STEP_PH2_Pin | LOGIC_OE_Pin,
       GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LOGIC_OE_GPIO_Port, LOGIC_OE_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, IGN_4_Pin | SW_NRST_Pin, GPIO_PIN_RESET);

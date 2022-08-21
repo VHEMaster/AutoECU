@@ -99,10 +99,12 @@ inline GPIO_PinState sens_get_ign(uint32_t *time)
 
 STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
 {
-  if(map >= ref * 0.95f)
+  if(map >= ref * 0.97f)
     return HAL_ERROR;
 
-  return map * 19000.0f + 10000.0f;
+  *pressure = map * 19000.0f + 10000.0f;
+
+  return HAL_OK;
 }
 
 static float getTemperatureByResistance_airtemp(float resistance)
@@ -280,10 +282,9 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
-  float value = adc_get_voltage(AdcChEngineTemperature);
-  //TODO: calibrate throttle position sensor
-  float voltage_from = power_voltage * 0.12f;
-  float voltage_to = power_voltage * 0.92f;
+  float value = adc_get_voltage(AdcChThrottlePosition);
+  float voltage_from = power_voltage * 0.114f;
+  float voltage_to = power_voltage * 0.91f;
 
   if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
     status = HAL_ERROR;
