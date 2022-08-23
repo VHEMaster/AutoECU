@@ -384,9 +384,9 @@ int main(void)
   __HAL_DBGMCU_FREEZE_TIM5();
   __HAL_DBGMCU_FREEZE_IWDG();
 
-  __HAL_RCC_PWR_CLK_ENABLE();
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
+  HAL_PWREx_EnableBkUpReg();
 
   MX_IWDG_Init();
 
@@ -1573,7 +1573,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : KNOCK_INT_Pin */
   GPIO_InitStruct.Pin = KNOCK_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(KNOCK_INT_GPIO_Port, &GPIO_InitStruct);
 
