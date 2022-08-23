@@ -113,7 +113,7 @@ int8_t can_test(void)
 
 
   for(int i = 0; i < 10; i++) {
-    txid = 0x446;
+    txid = 0x100;
     txrtr = CAN_RTR_DATA;
     txlength = 4;
     for(int j = 0; j < txlength; j++)
