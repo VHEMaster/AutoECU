@@ -313,7 +313,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
   sMathInterpolateInput ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
-  math_pid_set_clamp(&gPidIdleAirFlow, -256, 256);
+  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   if(isidle) {
@@ -897,8 +897,8 @@ static void ecu_update(void)
 
   fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
 
-  if(idle_wish_valve_pos > 255.0f)
-    idle_wish_valve_pos = 255.0f;
+  if(idle_wish_valve_pos > IDLE_VALVE_POS_MAX)
+    idle_wish_valve_pos = IDLE_VALVE_POS_MAX;
   else if(idle_wish_valve_pos < 0.0f)
     idle_wish_valve_pos = 0.0f;
 
@@ -2842,6 +2842,9 @@ static void ecu_ign_process(void)
   uint32_t time;
 
   state = sens_get_ign(&time);
+#ifdef DEBUG
+  //state = GPIO_PIN_SET;
+#endif
 
   if(state == GPIO_PIN_SET) {
     gIgnShutdownReady = 0;

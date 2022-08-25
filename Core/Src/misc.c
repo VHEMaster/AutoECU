@@ -74,12 +74,13 @@ static const uint32_t StepPos[4] = {
 
 //Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
 #define STEP_IDLE() { IdleValveStepMode = 0; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
-#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
+//#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
+#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END 2.0f //in seconds
-#define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / 256.0f))
+#define STEP_MAX_SPEED_FROM_START_TO_END 0.5f //in seconds
+#define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_INJ_OFF() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_SET)
@@ -322,7 +323,9 @@ static void O2_SetHeaterVoltage(float voltage)
   float dutycycle;
   float power = adc_get_voltage(AdcChPowerVoltage);
 
-  if(voltage > power) {
+  if(power < 5.0f) {
+    dutycycle = 0;
+  } else if(voltage > power) {
     dutycycle = 1.0f;
     O2Status.HeaterVoltage = power;
   } else if(voltage < 0.0f) {
@@ -882,7 +885,7 @@ static void IdleValve_FastLoop(void)
             STEP_DECREMENT();
             STEP_APPEND();
 
-            if(++calibration_steps >= 256 && StepPhase == 0) {
+            if(++calibration_steps >= IDLE_VALVE_POS_MAX && StepPhase == 0) {
               is_calibrating = 0;
               calibration_steps = 0;
               IdleValvePositionCurrent = 0;
@@ -1004,7 +1007,6 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2PwmPeriod = pwm_period + 1;
   O2PwmDuty = pwm_duty;
 
-  O2_SetHeaterVoltage(0);
   O2Status.Available = 1;
   O2Status.Lambda = 1;
   O2Status.Valid = 0;

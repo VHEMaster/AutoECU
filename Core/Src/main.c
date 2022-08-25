@@ -392,6 +392,9 @@ int main(void)
 
   DelayInit(&htim5);
 
+  HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
+  HAL_GPIO_WritePin(LOGIC_OE_GPIO_Port, LOGIC_OE_Pin, GPIO_PIN_SET);
+
   sensors_init();
   outputs_init();
 
@@ -457,7 +460,6 @@ int main(void)
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_3);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
-  HAL_TIM_PWM_Start_IT(&htim9, TIM_CHANNEL_1);
 
   Mics_Knock_Init();
 
@@ -1468,9 +1470,6 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE,
       STEP_I0_Pin | STEP_I1_Pin | STEP_PH1_Pin | STEP_PH2_Pin | LOGIC_OE_Pin,
       GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LOGIC_OE_GPIO_Port, LOGIC_OE_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, IGN_4_Pin | SW_NRST_Pin, GPIO_PIN_RESET);
