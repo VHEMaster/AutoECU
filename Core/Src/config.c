@@ -30,8 +30,8 @@ static const float default_rotates[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_throttles[TABLE_THROTTLES_MAX] = {
-    0.0f, 6.67f, 13.33f, 20.0f, 26.67f, 33.33f, 40.00f, 46.67f,
-    53.33f, 60.00f, 66.67f, 73.33f, 80.00f, 86.67f, 93.33f, 100.0f
+    0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
+    24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
 };
 
 static const float default_fillings[TABLE_FILLING_MAX] = {
@@ -492,7 +492,7 @@ void config_default_params(sEcuParams *table)
   table->cutoffMode = 5;
   table->cutoffAngle = 5.0f;
   table->cutoffMixture = 12.1f;
-  table->oilPressureCutoffRPM = 1500;
+  table->oilPressureCutoffRPM = 2000;
   table->speedCorrection = 1.16f;
 
   table->useLambdaSensor = 1;
