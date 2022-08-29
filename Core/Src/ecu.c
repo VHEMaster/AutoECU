@@ -991,6 +991,8 @@ static void ecu_update(void)
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         if(gStatus.Knock.Updated[i]) {
           if(gStatus.Knock.Detonates[i] > 0.0f) {
+            gStatus.Knock.DetonationCount++;
+            gStatus.Knock.DetonationCountCy[i]++;
             gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
             gStatus.Knock.DetonationLast = hal_now;
             gStatus.Knock.Advances[i] += gStatus.Knock.Detonates[i];
@@ -1252,6 +1254,7 @@ static void ecu_update(void)
   gParameters.KnockSensorDetonate = gStatus.Knock.StatusDetonate;
   gParameters.KnockZone = knock_zone;
   gParameters.KnockAdvance = gStatus.Knock.Advance;
+  gParameters.KnockCount = gStatus.Knock.DetonationCount;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.ManifoldAirPressure = pressure;
@@ -1818,6 +1821,17 @@ static void ecu_process(void)
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns(csps);
+  float inj_lag = gParameters.InjectionLag;
+
+  float knock_injection_correctives[ECU_CYLINDERS_COUNT];
+  float knock_ignition_correctives[ECU_CYLINDERS_COUNT];
+  float cy_corr_injection[ECU_CYLINDERS_COUNT];
+  float cy_corr_ignition[ECU_CYLINDERS_COUNT];
+
+  memcpy(knock_injection_correctives, gEcuCorrections.knock_injection_correctives, sizeof(knock_injection_correctives));
+  memcpy(knock_ignition_correctives, gEcuCorrections.knock_ignition_correctives, sizeof(knock_ignition_correctives));
+  memcpy(cy_corr_injection, table->cy_corr_injection, sizeof(cy_corr_injection));
+  memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
 #ifndef SIMULATION
   map_status = sens_get_map_unfiltered(&pressure);
@@ -1906,8 +1920,8 @@ static void ecu_process(void)
     angles_ignition_per_turn = 720.0f;
     for(int i = 0; i < cy_count_ignition; i++) {
       var = angle_ignite;
-      var += table->cy_corr_ignition[i];
-      var += gEcuCorrections.knock_ignition_correctives[i];
+      var += cy_corr_ignition[i];
+      var += knock_ignition_correctives[i];
       if(!saturated[i] && !ignited[i]) {
         var2 = anglesbeforeignite[i] - var + cy_ignition[i];
         if(var2 > 0) {
@@ -1926,8 +1940,8 @@ static void ecu_process(void)
     }
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       var = angle_ignite;
-      var += (table->cy_corr_ignition[i] + table->cy_corr_ignition[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
-      var += (gEcuCorrections.knock_ignition_correctives[i] + gEcuCorrections.knock_ignition_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
+      var += (cy_corr_ignition[i] + cy_corr_ignition[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
+      var += (knock_ignition_correctives[i] + knock_ignition_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
       if(!saturated[i] && !ignited[i]) {
         var2 = anglesbeforeignite[i] - var + cy_ignition[i];
         if(var2 > 0) {
@@ -1940,17 +1954,25 @@ static void ecu_process(void)
   if(phased_injection) {
     angles_injection_per_turn = 720.0f;
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      cy_injection[i] = (table->cy_corr_injection[i] + 1.0f) * inj_pulse;
-      cy_injection[i] *= gEcuCorrections.knock_injection_correctives[i] + 1.0f;
+      cy_injection[i] = (cy_corr_injection[i] + 1.0f) * inj_pulse;
+      cy_injection[i] *= knock_injection_correctives[i] + 1.0f;
     }
   } else {
     angles_injection_per_turn = 360.0f;
-    inj_pulse *= 0.5;
+    if(inj_pulse < inj_lag) {
+      inj_pulse = 0;
+    } else {
+      inj_pulse = (inj_pulse - inj_lag) * 0.5f;
+    }
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       injection[ECU_CYLINDERS_COUNT - 1 - i] = 1;
       injected[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-      cy_injection[i] = ((table->cy_corr_injection[i] + table->cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f) * inj_pulse;
-      cy_injection[i] *= (gEcuCorrections.knock_injection_correctives[i] + gEcuCorrections.knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f;
+      if(cy_corr_injection[i] != 0.0f || cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i] != 0.0f)
+        cy_injection[i] = ((cy_corr_injection[i] + cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f) * inj_pulse;
+      else cy_injection[i] = inj_pulse;
+      if(fabsf(knock_injection_correctives[i]) > 0.0005f || fabsf(knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) > 0.0005f)
+        cy_injection[i] *= (knock_injection_correctives[i] + knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f;
+      cy_injection[i] += inj_lag;
     }
   }
 

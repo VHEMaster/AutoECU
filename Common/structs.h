@@ -320,6 +320,7 @@ typedef struct {
     float KnockSensorDetonate;
     float KnockZone;
     float KnockAdvance;
+    int32_t KnockCount;
     float AirTemp;
     float EngineTemp;
     float ManifoldAirPressure;
@@ -473,6 +474,8 @@ typedef struct {
         eKnockStatus GeneralStatus;
         uint32_t DetonationLast;
         uint32_t LowNoiseLast;
+        uint32_t DetonationCount;
+        uint32_t DetonationCountCy[ECU_CYLINDERS_COUNT];
         float Voltages[ECU_CYLINDERS_COUNT];
         float Denoised[ECU_CYLINDERS_COUNT];
         float Detonates[ECU_CYLINDERS_COUNT];
