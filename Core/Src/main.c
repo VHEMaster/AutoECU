@@ -1521,14 +1521,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(KLINE_LO_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SPI4_NSS_KNOCK_Pin O2_NRST_Pin CAN1_LBK_Pin OUT_FAN_Pin
+  /*Configure GPIO pins : SPI4_NSS_KNOCK_Pin O2_NRST_Pin OUT_FAN_Pin
    OUT_FAN_SWITCH_Pin OUT_IGN_Pin OUT_STARTER_Pin */
-  GPIO_InitStruct.Pin = SPI4_NSS_KNOCK_Pin | O2_NRST_Pin | CAN1_LBK_Pin
+  GPIO_InitStruct.Pin = SPI4_NSS_KNOCK_Pin | O2_NRST_Pin
       | OUT_FAN_Pin | OUT_FAN_SWITCH_Pin | OUT_IGN_Pin | OUT_STARTER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = CAN1_LBK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(CAN1_LBK_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : INJ_CH2_Pin INJ_CH1_Pin */
   GPIO_InitStruct.Pin = INJ_CH2_Pin | INJ_CH1_Pin;

@@ -173,7 +173,7 @@ int8_t can_send(const sCanMessage *message)
 {
   int8_t status = 0;
   if(protGetAvail(&cantxfifo)) {
-    if(protPush(&cantxfifo, &message)) {
+    if(protPush(&cantxfifo, message)) {
       status = 1;
     }
   }

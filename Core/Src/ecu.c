@@ -3892,16 +3892,16 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
   int8_t status = 0;
 
   if(message->id == 0x100) { //Loopback
-    if(message->rtr == CAN_RTR_REMOTE) {
-      transmit.id = message->id + 0x10;
+    if(message->rtr == CAN_RTR_DATA) {
+      transmit.id = message->id + 0x100;
       transmit.rtr = CAN_RTR_DATA;
       transmit.length = message->length;
       memcpy(transmit.data.bytes, message->data.bytes, message->length);
     }
   } else if(message->id == 0x102) { //Parameter request
-    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
       if(message->data.dwords[0] < sizeof(gParameters) / sizeof(uint32_t)) {
-        transmit.id = message->id + 0x10;
+        transmit.id = message->id + 0x100;
         transmit.rtr = CAN_RTR_DATA;
         transmit.length = 8;
         transmit.data.dwords[0] = message->data.dwords[0];
@@ -3914,9 +3914,9 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
       }
     }
   } else if(message->id == 0x103) { //Table memory request
-    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
       if(message->data.dwords[0] < sizeof(gEcuTable) / sizeof(uint32_t)) {
-        transmit.id = message->id + 0x10;
+        transmit.id = message->id + 0x100;
         transmit.rtr = CAN_RTR_DATA;
         transmit.length = 8;
         transmit.data.dwords[0] = message->data.dwords[0];
@@ -3924,9 +3924,9 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
       }
     }
   } else if(message->id == 0x104) { //Config memory request
-    if(message->rtr == CAN_RTR_REMOTE && message->length == 4) {
+    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
       if(message->data.dwords[0] < sizeof(gEcuParams) / sizeof(uint32_t)) {
-        transmit.id = message->id + 0x10;
+        transmit.id = message->id + 0x100;
         transmit.rtr = CAN_RTR_DATA;
         transmit.length = 8;
         transmit.data.dwords[0] = message->data.dwords[0];
