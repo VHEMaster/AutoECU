@@ -3032,7 +3032,9 @@ static void ecu_kline_loop(void)
 
   status = kline_receive(&rx_message);
   if(status > 0 && rx_message.length > 0) {
-    if(rx_message.dst == 0x10) {
+    //By the doc we need to expect 0x10, but ELM327 for some reason sends 0x33
+    if(rx_message.dst == 0x10 || rx_message.dst == 0x33) {
+      tx_message.addr_mode = rx_message.addr_mode;
       tx_message.dst = rx_message.src;
       tx_message.src = rx_message.dst;
       tx_message.length = 0;

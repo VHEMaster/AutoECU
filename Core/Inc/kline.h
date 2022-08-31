@@ -24,6 +24,7 @@ typedef struct {
     uint8_t data[KLINE_MSG_LEN_MAX];
     uint8_t src;
     uint8_t dst;
+    uint8_t addr_mode;
 } sKlineMessage;
 
 HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart);

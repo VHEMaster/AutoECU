@@ -92,18 +92,15 @@ static int8_t kline_parse(sKlineMessage *message, uint8_t is_lbk, const sKlineMe
           crc_actual += message->data[i];
         }
         if(crc == crc_actual) {
-          //TODO: is it really need to check it?
-          if(addr_mode == 0x80) {
-            message->src = src;
-            message->dst = dst;
-            for(int i = 0; i < len; i++) {
-              message->data[i] = *data++;
-            }
-            message->length = len;
-            status = 1;
-          } else {
-            status = -3;
+          message->src = src;
+          message->dst = dst;
+          message->addr_mode = addr_mode;
+          for(int i = 0; i < len; i++) {
+            message->data[i] = *data++;
           }
+          message->length = len;
+          status = 1;
+
         } else {
           status = -2;
         }
@@ -113,7 +110,7 @@ static int8_t kline_parse(sKlineMessage *message, uint8_t is_lbk, const sKlineMe
     }
   }
 
-  if(status != 0) {
+  if(status < 0) {
     message->length = 0;
   }
 
@@ -133,12 +130,14 @@ HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
   protInit(&klinerxfifo, kline_rx_fifo_buffer, sizeof(kline_rx_fifo_buffer[0]), ITEMSOF(kline_rx_fifo_buffer));
   kline_rxpointer = 0xFFFFFFFF;
 
+#ifdef SHORT_TO_GND_WHILE_INIT
   // Short K-Line to GND while initialization is ongoing
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+#endif /* SHORT_TO_GND_WHILE_INIT */
 
   return status;
 }
@@ -156,12 +155,14 @@ HAL_StatusTypeDef kline_start(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   HAL_StatusTypeDef status = HAL_OK;
 
+#ifdef SHORT_TO_GND_WHILE_INIT
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+#endif /* SHORT_TO_GND_WHILE_INIT */
 
   kline_rxpointer = 0xFFFFFFFF;
   kline_er_flag = 0;
@@ -213,6 +214,10 @@ void kline_loop(void)
       rx_last = now;
       receiving = 1;
     } else {
+      if(kline_er_flag) {
+        kline_start();
+      }
+
       if(receiving) {
         if((!transmitting && DelayDiff(now, rx_last) > KLINE_RX_TIMEOUT) ||
             (transmitting && DelayDiff(now, rx_last) > KLINE_TX_TIMEOUT)) {
@@ -293,7 +298,7 @@ int8_t kline_send(sKlineMessage *message)
     for(int i = message->length - 1; i >= 0; i--)
       message->data[i + inc] = message->data[i];
 
-    message->data[len++] = 0x80 + (message->length < 64 ? message->length : 0);
+    message->data[len++] = message->addr_mode + (message->length < 64 ? message->length : 0);
     message->data[len++] = message->dst;
     message->data[len++] = message->src;
     if(message->length >= 64)
