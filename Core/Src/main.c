@@ -399,10 +399,10 @@ int main(void)
   outputs_init();
 
   sensors_register(SensorOilPressure, SENS_OIL_GPIO_Port, SENS_OIL_Pin, 1);
-  sensors_register(SensorFanForceSwitch, SENS_FAN_SW_GPIO_Port, SENS_FAN_SW_Pin, 1);
-  sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 1);
+  sensors_register(SensorFanForceSwitch, SENS_FAN_SW_GPIO_Port, SENS_FAN_SW_Pin, 0);
+  sensors_register(SensorHandbrake, SENS_HANDBRAKE_GPIO_Port, SENS_HANDBRAKE_Pin, 0);
   sensors_register(SensorCharge, SENS_CHARGE_GPIO_Port, SENS_CHARGE_Pin, 1);
-  sensors_register(SensorClutch, SENS_CLUTCH_GPIO_Port, SENS_CLUTCH_Pin, 1);
+  sensors_register(SensorClutch, SENS_CLUTCH_GPIO_Port, SENS_CLUTCH_Pin, 0);
   sensors_register(SensorIgn, SENS_IGN_GPIO_Port, SENS_IGN_Pin, 1);
 
   outputs_register(OutFuelPumpRelay, FUEL_PUMP_GPIO_Port, FUEL_PUMP_Pin, 1, GPIO_PIN_SET);

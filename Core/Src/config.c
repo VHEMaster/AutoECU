@@ -480,7 +480,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
 void config_default_params(sEcuParams *table)
 {
-  table->engineVolume = 1551.0f;
+  table->engineVolume = 1550.0f;
 
   table->isSwitchByExternal = 0;
   table->startupTableNumber = 0;
