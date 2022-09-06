@@ -15,7 +15,8 @@ static volatile uint8_t speed_rotates = 0;
 static volatile float speed_speed = 0;
 static volatile float speed_prev = 0;
 static volatile uint32_t *speed_timebase;
-static volatile float speed_corrective = 1.0f;
+static volatile float speed_input_corrective = 1.0f;
+static volatile float speed_output_corrective = 1.0f;
 static volatile float speed_acceleration = 0;
 static volatile uint32_t speed_acceleration_time = 0;
 
@@ -55,10 +56,9 @@ void speed_exti(uint32_t timestamp)
   average /= (float)(IRQ_SIZE - 1);
 
   speed_speed = 1000000.0f / (average / 3.6f * 6.0f);
-  //pwm_speed = speed_speed * speed_corrective;
+  speed_speed *= speed_input_corrective;
 
-  //htim->Instance->PSC = (100000.0f / pwm_speed) / 6.0f * 3.6f;
-  htim->Instance->PSC = average * 0.1f / speed_corrective;
+  htim->Instance->PSC = average * 0.1f / speed_output_corrective;
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
 
@@ -102,7 +102,12 @@ float speed_getacceleration(void)
   return speed_acceleration;
 }
 
-void speed_setcorrective(float corrective)
+void speed_setinputcorrective(float corrective)
 {
-  speed_corrective = corrective;
+  speed_input_corrective = corrective;
+}
+
+void speed_setoutputcorrective(float corrective)
+{
+  speed_output_corrective = corrective;
 }

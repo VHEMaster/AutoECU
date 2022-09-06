@@ -119,7 +119,6 @@ static int8_t kline_parse(sKlineMessage *message, uint8_t is_lbk, const sKlineMe
 
 HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
   HAL_StatusTypeDef status = HAL_OK;
   huart = _huart;
 
@@ -131,6 +130,8 @@ HAL_StatusTypeDef kline_init(UART_HandleTypeDef *_huart)
   kline_rxpointer = 0xFFFFFFFF;
 
 #ifdef SHORT_TO_GND_WHILE_INIT
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
   // Short K-Line to GND while initialization is ongoing
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
   GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -152,10 +153,11 @@ HAL_StatusTypeDef kline_setbaud(uint32_t baudrate)
 
 HAL_StatusTypeDef kline_start(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
   HAL_StatusTypeDef status = HAL_OK;
 
 #ifdef SHORT_TO_GND_WHILE_INIT
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;

@@ -588,8 +588,6 @@ static void ecu_update(void)
     wish_fault_rpm = 0.0f;
   }
 
-  speed *= gEcuParams.speedCorrection;
-
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
@@ -2851,6 +2849,9 @@ static void ecu_corrections_loop(void)
       }
     }
   }
+
+  speed_setinputcorrective(gEcuParams.speedInputCorrection);
+  speed_setoutputcorrective(gEcuParams.speedOutputCorrection);
 }
 
 #ifndef SIMULATION

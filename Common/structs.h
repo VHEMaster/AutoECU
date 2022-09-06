@@ -263,7 +263,8 @@ typedef struct {
     float cutoffMixture;
     float oilPressureCutoffRPM;
 
-    float speedCorrection;
+    float speedInputCorrection;
+    float speedOutputCorrection;
 
     int32_t useLambdaSensor;
     int32_t isLambdaForceEnabled;
@@ -296,7 +297,7 @@ typedef struct {
 
     int32_t knockIntegratorTime;
 
-    int32_t Reserved32[981];
+    int32_t Reserved32[980];
 }sEcuParams;
 
 typedef struct {

@@ -19,7 +19,7 @@
 static uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
 static uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
 
-#define FLASH_VERSION 0x00000010
+#define FLASH_VERSION 0x00000011
 #define REGION_SIZE 0x200000
 #define PAGE_SIZE SST25_32KSIZE
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)

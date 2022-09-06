@@ -493,7 +493,8 @@ void config_default_params(sEcuParams *table)
   table->cutoffAngle = 5.0f;
   table->cutoffMixture = 12.1f;
   table->oilPressureCutoffRPM = 2000;
-  table->speedCorrection = 1.16f;
+  table->speedInputCorrection = 1.0f;
+  table->speedOutputCorrection = 1.0f;
 
   table->useLambdaSensor = 1;
   table->useTSPS = 1;
