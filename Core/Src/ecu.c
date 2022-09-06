@@ -1818,6 +1818,7 @@ static void ecu_process(void)
   uint8_t shift_inj_act, shift_ign_act;
   uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
   uint8_t is_phased = csps_isphased(csps);
+  uint8_t econ_flag = gParameters.IdleEconFlag;
   HAL_StatusTypeDef throttleStatus = HAL_OK;
   HAL_StatusTypeDef map_status = HAL_OK;
   GPIO_PinState clutch_pin;
@@ -2225,7 +2226,7 @@ static void ecu_process(void)
             injection[i] = 1;
             shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
             cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-            if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f)
+            if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
               ecu_inject(cy_count_injection, i, cy_injection[i]);
           }
         }
