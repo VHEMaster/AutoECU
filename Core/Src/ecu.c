@@ -471,7 +471,6 @@ static void ecu_update(void)
   float start_mixture;
   float tsps_rel_pos = 0;
 
-  static uint8_t econ_flag_old = 0;
   uint8_t econ_flag;
 
   HAL_StatusTypeDef knock_status;
@@ -1275,6 +1274,7 @@ static void ecu_update(void)
 
   gParameters.IdleFlag = idle_flag;
   gParameters.IdleCorrFlag = idle_corr_flag;
+  gParameters.IdleEconFlag = econ_flag;
   gParameters.RPM = rpm;
   gParameters.Acceleration = acceleration;
   gParameters.Speed = speed;

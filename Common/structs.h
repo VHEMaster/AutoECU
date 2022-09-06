@@ -341,6 +341,7 @@ typedef struct {
 
     int32_t IdleFlag;
     int32_t IdleCorrFlag;
+    int32_t IdleEconFlag;
     float RPM;
     float Speed;
     float Acceleration;
