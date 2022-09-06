@@ -273,6 +273,7 @@ typedef struct {
     int32_t performAdaptation;
     int32_t isSingleCoil;
     int32_t isIndividualCoils;
+    int32_t isEconEnabled;
 
     float fanHighTemperature;
     float fanMidTemperature;
@@ -297,7 +298,7 @@ typedef struct {
 
     int32_t knockIntegratorTime;
 
-    int32_t Reserved32[980];
+    int32_t Reserved32[979];
 }sEcuParams;
 
 typedef struct {

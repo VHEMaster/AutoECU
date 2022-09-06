@@ -502,6 +502,7 @@ void config_default_params(sEcuParams *table)
   table->performAdaptation = 0;
   table->isSingleCoil = 0;
   table->isIndividualCoils = 1;
+  table->isEconEnabled = 0;
 
   table->fanHighTemperature = 101;
   table->fanMidTemperature = 97;

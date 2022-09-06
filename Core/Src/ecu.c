@@ -471,6 +471,9 @@ static void ecu_update(void)
   float start_mixture;
   float tsps_rel_pos = 0;
 
+  static uint8_t econ_flag_old = 0;
+  uint8_t econ_flag;
+
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
   uint8_t running;
@@ -578,7 +581,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  idle_flag = throttle < 2.0f && running;
+  idle_flag = throttle < 1.0f && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     wish_fault_rpm = 1400.0f;
@@ -862,6 +865,7 @@ static void ecu_update(void)
   idle_wish_valve_pos = idle_table_valve_pos;
 
   idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
+  econ_flag = gEcuParams.isEconEnabled && idle_flag && rpm > idle_reg_rpm;
 
   ecu_pid_update(idle_corr_flag);
 
