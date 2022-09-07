@@ -2743,12 +2743,12 @@ static void ecu_mem_loop(void)
 
   if(Mem.issaving)
   {
-    flashstatus = config_save_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
+    flashstatus = config_save_all(&gEcuParams, gEcuTable, TABLE_SETUPS_MAX);
     if(flashstatus)
     {
-      PK_SaveConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
+      PK_SaveConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
       PK_SendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
-      gStatus.Flash.Struct.Save = flashstatus;
+      gStatus.Flash.Struct.Save = flashstatus > 0 ? HAL_OK : HAL_ERROR;
       Mem.issaving = 0;
       Mem.savereq = 0;
       Mem.lock = 0;
@@ -2756,12 +2756,12 @@ static void ecu_mem_loop(void)
   }
   else if(Mem.isloading)
   {
-    flashstatus = config_load_all(&gEcuParams, gEcuTable, ITEMSOF(gEcuTable));
+    flashstatus = config_load_all(&gEcuParams, gEcuTable, TABLE_SETUPS_MAX);
     if(flashstatus)
     {
-      PK_RestoreConfigAcknowledge.ErrorCode = flashstatus == 1 ? 0 : 1;
+      PK_RestoreConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
       PK_SendCommand(Mem.loadreqsrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
-      gStatus.Flash.Struct.Load = flashstatus;
+      gStatus.Flash.Struct.Load = flashstatus > 0 ? HAL_OK : HAL_ERROR;
       Mem.isloading = 0;
       Mem.loadreq = 0;
       Mem.lock = 0;

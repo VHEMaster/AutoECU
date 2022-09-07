@@ -738,13 +738,19 @@ int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_co
 {
   static uint8_t state = 0;
   static int8_t current_table = 0;
+  static int8_t tables_left = 0;
   int8_t status;
+
+  if(!tables_count)
+	  return -1;
+
   switch(state) {
     case 0 :
       status = config_load_params(params);
       if(status) {
         if(status > 0) {
           current_table = 0;
+          tables_left = tables_count;
           state++;
         } else {
           state = 0;
@@ -753,13 +759,12 @@ int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_co
       }
       break;
     case 1 :
-      status = config_load_table(tables, current_table);
+      status = config_load_table(&tables[current_table], current_table);
       if(status) {
         if(status > 0) {
-          if(tables_count) {
+          tables_left--;
+          if(tables_left) {
             current_table++;
-            tables_count--;
-            tables++;
           } else {
             current_table = 0;
             state = 0;
@@ -783,6 +788,11 @@ int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32
 {
   static uint8_t state = 0;
   static int8_t current_table = 0;
+  static int8_t tables_left = 0;
+
+  if(!tables_count)
+	  return -1;
+
   int8_t status;
   switch(state) {
     case 0 :
@@ -790,6 +800,7 @@ int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32
       if(status) {
         if(status > 0) {
           current_table = 0;
+          tables_left = tables_count;
           state++;
         } else {
           state = 0;
@@ -798,13 +809,12 @@ int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32
       }
       break;
     case 1 :
-      status = config_save_table(tables, current_table);
+      status = config_save_table(&tables[current_table], current_table);
       if(status) {
         if(status > 0) {
-          if(tables_count) {
+          tables_left--;
+          if(tables_left) {
             current_table++;
-            tables_count--;
-            tables++;
           } else {
             current_table = 0;
             state = 0;
