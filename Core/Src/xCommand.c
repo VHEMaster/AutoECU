@@ -85,6 +85,7 @@ typedef struct
     uint32_t dataLen;
     uint16_t packetId;
     uint32_t RxPointer;
+    uint8_t ErrorFlag;
 }sGetterHandle __attribute__((aligned(32)));
 
 extern UART_HandleTypeDef huart5;
@@ -663,8 +664,7 @@ void xDmaErIrqHandler(UART_HandleTypeDef *huart)
     handle = &xHandles[i];
     if(huart == handle->xUart)
     {
-      HAL_UART_Receive_DMA(handle->xUart, handle->BufRx, UART_DMA_BUFFER);
-      handle->RxPointer = handle->xUart->RxXferSize;
+      handle->ErrorFlag = 1;
       break;
     }
   }
@@ -678,6 +678,7 @@ void xFifosInit(void)
     protInit(&xHandles[i].xTxFifo,xHandles[i].xTxFifoBuf,1,MAX_PACK_LEN*4);
     protInit(&xHandles[i].xRxFifo,xHandles[i].xRxFifoBuf,1,MAX_PACK_LEN*4);
     xHandles[i].RxPointer = 0xFFFFFFFF;
+    xHandles[i].ErrorFlag = 0;
   }
 }
 
@@ -734,6 +735,12 @@ void xGetterLoop(void)
             }
 
             protPushSequence(&handle->xRxFifo, tempbuffer, length);
+          }
+
+          if(handle->ErrorFlag) {
+            handle->ErrorFlag = 0;
+            HAL_UART_Receive_DMA(handle->xUart, handle->BufRx, UART_DMA_BUFFER);
+            handle->RxPointer = handle->xUart->RxXferSize;
           }
         } while(length > 0);
       }
