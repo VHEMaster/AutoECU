@@ -22,6 +22,8 @@ typedef struct {
 
 static sSensor Sensors[SensorCount] = {{0}};
 
+#define SENS_ERROR_DELAY 300000
+
 void sensors_init(void)
 {
 
@@ -193,10 +195,32 @@ HAL_StatusTypeDef sens_get_adc_status(void)
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
+  uint32_t now = Delay_Tick;
+  static uint32_t last_ok = 0;
+  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static float result_old = 103000.0f;
+  float result = result_old;
   float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
 
-  status = getMapPressureByVoltages(voltage, power_voltage, output);
+  status = getMapPressureByVoltages(voltage, power_voltage, &result);
+
+  if(status == HAL_OK) {
+    status_old = HAL_OK;
+    last_ok = now;
+    result_old = result;
+    *output = result;
+  } else if(status_old == HAL_OK) {
+    *output = result_old;
+    status_old = HAL_OK;
+    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
+      status_old = HAL_ERROR;
+    }
+  } else {
+    status_old = HAL_ERROR;
+    *output = result;
+  }
+
 
   return status;
 }
@@ -204,10 +228,32 @@ HAL_StatusTypeDef sens_get_map(float *output)
 HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
+  uint32_t now = Delay_Tick;
+  static uint32_t last_ok = 0;
+  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static float result_old = 103000.0f;
+  float result = result_old;
   float voltage = adc_get_voltage_unfiltered(AdcChManifoldAbsolutePressure);
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
 
   status = getMapPressureByVoltages(voltage, power_voltage, output);
+
+  if(status == HAL_OK) {
+    status_old = HAL_OK;
+    last_ok = now;
+    result_old = result;
+    *output = result;
+  } else if(status_old == HAL_OK) {
+    *output = result_old;
+    status_old = HAL_OK;
+    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
+      status_old = HAL_ERROR;
+    }
+  } else {
+    status_old = HAL_ERROR;
+    *output = result;
+  }
+
 
   return status;
 }
@@ -215,11 +261,14 @@ HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
 HAL_StatusTypeDef sens_get_air_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
+  uint32_t now = Delay_Tick;
+  static uint32_t last_ok = 0;
+  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static float result_old = 150.0f;
+  float result = result_old;
   float reference_resistance, meter_resistance;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float temperature = adc_get_voltage(AdcChAirTemperature);
-
-  *output = 150.0f;
 
   if(power_voltage != 0.0f) {
     if(temperature > power_voltage)
@@ -229,30 +278,49 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
     meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
     temperature = getTemperatureByResistance_airtemp(meter_resistance);
     if(temperature < -40.0f) {
-      *output = -40.0f;
+      result = -40.0f;
       status = HAL_ERROR;
     }
     else if(temperature > 150.0f) {
-      *output = 150.0f;
+      result = 150.0f;
       status = HAL_ERROR;
     }
     else
-      *output = temperature;
+      result = temperature;
   }
   else
     status = HAL_ERROR;
 
-  return status;
+  if(status == HAL_OK) {
+    status_old = HAL_OK;
+    last_ok = now;
+    result_old = result;
+    *output = result;
+  } else if(status_old == HAL_OK) {
+    *output = result_old;
+    status_old = HAL_OK;
+    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
+      status_old = HAL_ERROR;
+    }
+  } else {
+    status_old = HAL_ERROR;
+    *output = result;
+  }
+
+  return status_old;
 }
 
 HAL_StatusTypeDef sens_get_engine_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
+  uint32_t now = Delay_Tick;
+  static uint32_t last_ok = 0;
+  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static float result_old = 150.0f;
+  float result = result_old;
   float reference_resistance, meter_resistance;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float temperature = adc_get_voltage(AdcChEngineTemperature);
-
-  *output = 150.0f;
 
   if(power_voltage != 0.0f) {
     if(temperature > power_voltage)
@@ -262,25 +330,46 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
     meter_resistance = (reference_resistance / (1.0f - (temperature/power_voltage))) - reference_resistance;
     temperature = getTemperatureByResistance_enginetemp(meter_resistance);
     if(temperature < -40.0f) {
-      *output = -40.0f;
+      result = -40.0f;
       status = HAL_ERROR;
     }
     else if(temperature > 150.0f) {
-      *output = 150.0f;
+      result = 150.0f;
       status = HAL_ERROR;
     }
     else
-      *output = temperature;
+      result = temperature;
   }
   else
     status = HAL_ERROR;
 
-  return status;
+  if(status == HAL_OK) {
+    status_old = HAL_OK;
+    last_ok = now;
+    result_old = result;
+    *output = result;
+  } else if(status_old == HAL_OK) {
+    *output = result_old;
+    status_old = HAL_OK;
+    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
+      status_old = HAL_ERROR;
+    }
+  } else {
+    status_old = HAL_ERROR;
+    *output = result;
+  }
+
+  return status_old;
 }
 
 HAL_StatusTypeDef sens_get_throttle_position(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
+  uint32_t now = Delay_Tick;
+  static uint32_t last_ok = 0;
+  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static float result_old = 0;
+  float result = result_old;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float value = adc_get_voltage(AdcChThrottlePosition);
   float voltage_from = power_voltage * 0.114f;
@@ -299,7 +388,21 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   value /= voltage_to - voltage_from;
   value *= 100.0f;
 
-  *output = value;
+  if(status == HAL_OK) {
+    status_old = HAL_OK;
+    last_ok = now;
+    result_old = result;
+    *output = result;
+  } else if(status_old == HAL_OK) {
+    *output = result_old;
+    status_old = HAL_OK;
+    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
+      status_old = HAL_ERROR;
+    }
+  } else {
+    status_old = HAL_ERROR;
+    *output = result;
+  }
 
   return status;
 }
