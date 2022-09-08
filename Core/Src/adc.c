@@ -163,8 +163,8 @@ static HAL_StatusTypeDef SPI_WriteRegister(uint8_t reg, uint8_t data)
   tx[0] = reg << 1 | 1;
   tx[1] = data;
   tx[2] = 0;
-  //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   SPI_NSS_ON();
+  //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
   while(!waitTxRxCplt()) {}
   //SPI_NSS_OFF();
@@ -185,8 +185,8 @@ static HAL_StatusTypeDef SPI_ReadRegister(uint8_t reg, uint8_t *data)
   tx[0] = reg << 1;
   tx[1] = 0;
   tx[2] = 0;
-  //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   SPI_NSS_ON();
+  //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
   while(!waitTxRxCplt()) {}
   //SPI_NSS_OFF();
@@ -224,6 +224,12 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 {
   HAL_StatusTypeDef result = HAL_OK;
   uint8_t data;
+
+  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
+    for(int j = 0; j < ADC_BUFFER_SIZE; j++) {
+      AdcBuffer[i][j] = 0x8000;
+    }
+  }
 
   SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
   SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
@@ -303,12 +309,6 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
     }
   }
 
-  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
-    for(int j = 0; j < ADC_BUFFER_SIZE; j++) {
-      AdcBuffer[i][j] = 0x8000;
-    }
-  }
-
   result = SPI_SendCommand(0xA000); //AUTO_RST command
   if(result != HAL_OK)
     goto ret;
@@ -353,8 +353,8 @@ HAL_StatusTypeDef adc_fast_loop(void)
         if(AdcStartSamplingEvent(AdcChannel) < 0)
           ChIgnoreNext[AdcChannel] = 1;
       memset(tx, 0, 4);
-      SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
       SPI_NSS_ON();
+      SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
       HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
       state++;
       break;
@@ -396,8 +396,8 @@ HAL_StatusTypeDef adc_fast_loop(void)
         }
 
         memset(tx, 0, 4);
-        SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
         SPI_NSS_ON();
+        SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
         HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
 
       }
