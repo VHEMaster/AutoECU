@@ -235,8 +235,8 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
     }
   }
 
-  SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
-  SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
+  //SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
+  //SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
   DelayMs(10);
 
@@ -367,7 +367,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
             ChIgnoreNext[AdcChannel] = 1;
         SPI_NSS_ON();
         memset(tx, 0, 4);
-        SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+        //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
         HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
         state++;
         break;
@@ -375,7 +375,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
         if(waitTxRxCplt())
         {
           //SPI_NSS_OFF();
-          SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
+          //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
           data = rx[2] << 8 | rx[3];
 
           if(!ChIgnoreNext[AdcChannel]) {
@@ -410,7 +410,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
 
           SPI_NSS_ON();
           memset(tx, 0, 4);
-          SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+          //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
           HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
 
         }
