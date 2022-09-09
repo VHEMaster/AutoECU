@@ -197,7 +197,7 @@ HAL_StatusTypeDef sens_get_map(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
   static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 103000.0f;
   float result = result_old;
   float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
@@ -222,7 +222,7 @@ HAL_StatusTypeDef sens_get_map(float *output)
   }
 
 
-  return status;
+  return status_old;
 }
 
 HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
@@ -230,7 +230,7 @@ HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
   static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 103000.0f;
   float result = result_old;
   float voltage = adc_get_voltage_unfiltered(AdcChManifoldAbsolutePressure);
@@ -255,7 +255,7 @@ HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
   }
 
 
-  return status;
+  return status_old;
 }
 
 HAL_StatusTypeDef sens_get_air_temperature(float *output)
@@ -263,7 +263,7 @@ HAL_StatusTypeDef sens_get_air_temperature(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
   static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 150.0f;
   float result = result_old;
   float reference_resistance, meter_resistance;
@@ -315,7 +315,7 @@ HAL_StatusTypeDef sens_get_engine_temperature(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
   static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 150.0f;
   float result = result_old;
   float reference_resistance, meter_resistance;
@@ -367,13 +367,13 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
   static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_ERROR;
+  static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 0;
   float result = result_old;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float value = adc_get_voltage(AdcChThrottlePosition);
-  float voltage_from = power_voltage * 0.114f;
-  float voltage_to = power_voltage * 0.91f;
+  float voltage_from = power_voltage * 0.248f; //0.114
+  float voltage_to = power_voltage * 0.89f; //0.91
 
   if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
     status = HAL_ERROR;
@@ -387,6 +387,8 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   value -= voltage_from;
   value /= voltage_to - voltage_from;
   value *= 100.0f;
+
+  result = value;
 
   if(status == HAL_OK) {
     status_old = HAL_OK;
@@ -404,7 +406,7 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
     *output = result;
   }
 
-  return status;
+  return status_old;
 }
 
 HAL_StatusTypeDef sens_get_power_voltage(float *output)

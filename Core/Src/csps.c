@@ -36,6 +36,7 @@ static const float csps_cors[116] = {
 static float cpsp_dynamic_corr[116] = {0.0f};
 #endif
 
+static sCspsData csps_data_empty = {0};
 static volatile uint32_t csps_pulse_last = 0;
 static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
 static volatile uint8_t csps_found = 0;
@@ -107,6 +108,18 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
     tval += csps_cors[i];
   csps_cors_sum = (120.0f / tval) * 3.0f;
   csps_cors_avg = tval / 120.0f;
+
+  csps_data_empty.AngleCur14 = 0;
+  csps_data_empty.AngleCur23 = 0;
+  csps_data_empty.AnglePrev14 = 0;
+  csps_data_empty.AnglePrev23 = 0;
+  csps_data_empty.DelayPrev = 0;
+  csps_data_empty.DelayCur = 0;
+  csps_data_empty.PhasedActive = 0;
+  csps_data_empty.PhasedAngleCur = 0;
+  csps_data_empty.PhasedAnglePrev = 0;
+  csps_data_empty.RPM = 0;
+  csps_data_empty.uSPA = 3000.0f;
 
 #ifdef CSPS_DYNAMIC_CORR
   for(int i = 0; i < 116; i++) {
@@ -335,17 +348,7 @@ INLINE void csps_exti(uint32_t timestamp)
   }
   else
   {
-    data.AngleCur14 = 0;
-    data.AngleCur23 = 0;
-    data.AnglePrev14 = 0;
-    data.AnglePrev23 = 0;
-    data.DelayPrev = 0;
-    data.DelayCur = 0;
-    data.PhasedActive = 0;
-    data.PhasedAngleCur = 0;
-    data.PhasedAnglePrev = 0;
-    data.RPM = 0;
-    data.uSPA = 3000.0f;
+    data = csps_data_empty;
     csps_period = 1000000.0f;
     csps_rpm = 0;
     csps_phase_found = 0;
@@ -555,7 +558,9 @@ INLINE uint32_t csps_getturns(sCspsData data)
 
 INLINE sCspsData csps_data(void)
 {
-  return *CspsDataPtr;
+  if(csps_found)
+	  return *CspsDataPtr;
+  return csps_data_empty;
 }
 
 INLINE float csps_gettspsrelpos(void)
