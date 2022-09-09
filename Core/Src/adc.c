@@ -20,11 +20,15 @@
 #define MCU_CHANNELS 1
 #define ADC_BUFFER_SIZE 8
 
+#define ADC_INIT_TIME (20*1000)
+
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
 static uint16_t AdcDataLast[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];
 static volatile HAL_StatusTypeDef adcInitStatus = HAL_OK;
 static volatile HAL_StatusTypeDef adcStatus = HAL_OK;
+static volatile uint32_t adcInitTime = 0;
+static volatile uint8_t adcInited = 0;
 
 static uint16_t ChData[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {0};
@@ -313,6 +317,9 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
   if(result != HAL_OK)
     goto ret;
 
+  adcInited = 0;
+  adcInitTime = Delay_Tick;
+
 ret:
   adcInitStatus = result;
   adcStatus = result;
@@ -342,70 +349,77 @@ HAL_StatusTypeDef adc_fast_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
+  uint32_t now = Delay_Tick;
   uint16_t data;
 
   if(adcInitStatus != HAL_OK)
     return adcInitStatus;
 
-  switch(state) {
-    case 0:
-      if(AdcStartSamplingEvent)
-        if(AdcStartSamplingEvent(AdcChannel) < 0)
-          ChIgnoreNext[AdcChannel] = 1;
-      memset(tx, 0, 4);
-      SPI_NSS_ON();
-      SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-      HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
-      state++;
-      break;
-    case 1:
-      if(waitTxRxCplt())
-      {
-        //SPI_NSS_OFF();
-        SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
-        data = rx[2] << 8 | rx[3];
+  if(!adcInited && DelayDiff(now, adcInitTime) >= ADC_INIT_TIME)
+    adcInited = 1;
 
-        if(!ChIgnoreNext[AdcChannel]) {
-          if(ChFilter[AdcChannel]) {
-            if(!AdcFirstTime)
-              AdcBuffer[AdcChannel][AdcWritePos] = data;
-            else {
-              AdcWritePos = 0;
-              for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
-                AdcBuffer[AdcChannel][i] = data;
-              }
-            }
-          } else {
-            AdcBuffer[AdcChannel][0] = data;
-          }
-          AdcDataLast[AdcChannel] = data;
-        } else {
-          ChIgnoreNext[AdcChannel] = 0;
-        }
+  if(adcInited) {
 
-        if(AdcSamplingDoneEvent)
-          if(AdcSamplingDoneEvent(AdcChannel) < 0)
+    switch(state) {
+      case 0:
+        if(AdcStartSamplingEvent)
+          if(AdcStartSamplingEvent(AdcChannel) < 0)
             ChIgnoreNext[AdcChannel] = 1;
-
-        if(++AdcChannel >= ADC_CHANNELS) {
-          if(++AdcWritePos >= ADC_BUFFER_SIZE) {
-            AdcWritePos = 0;
-          }
-          AdcChannel = 0;
-          AdcFirstTime = 0;
-        }
-
-        memset(tx, 0, 4);
         SPI_NSS_ON();
+        memset(tx, 0, 4);
         SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
         HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+        state++;
+        break;
+      case 1:
+        if(waitTxRxCplt())
+        {
+          //SPI_NSS_OFF();
+          SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
+          data = rx[2] << 8 | rx[3];
 
-      }
-      break;
+          if(!ChIgnoreNext[AdcChannel]) {
+            if(ChFilter[AdcChannel]) {
+              if(!AdcFirstTime)
+                AdcBuffer[AdcChannel][AdcWritePos] = data;
+              else {
+                AdcWritePos = 0;
+                for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
+                  AdcBuffer[AdcChannel][i] = data;
+                }
+              }
+            } else {
+              AdcBuffer[AdcChannel][0] = data;
+            }
+            AdcDataLast[AdcChannel] = data;
+          } else {
+            ChIgnoreNext[AdcChannel] = 0;
+          }
 
-    default:
-      state = 0;
-      break;
+          if(AdcSamplingDoneEvent)
+            if(AdcSamplingDoneEvent(AdcChannel) < 0)
+              ChIgnoreNext[AdcChannel] = 1;
+
+          if(++AdcChannel >= ADC_CHANNELS) {
+            if(++AdcWritePos >= ADC_BUFFER_SIZE) {
+              AdcWritePos = 0;
+            }
+            AdcChannel = 0;
+            AdcFirstTime = 0;
+          }
+
+          SPI_NSS_ON();
+          memset(tx, 0, 4);
+          SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+          HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+
+        }
+        break;
+
+      default:
+        state = 0;
+        break;
+    }
   }
 
   return result;
