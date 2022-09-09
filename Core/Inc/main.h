@@ -171,8 +171,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
-#define NVIC_PRIO_ADC1 7
-#define NVIC_PRIO_SPI1_ADC 7
+#define NVIC_PRIO_ADC1 6
+#define NVIC_PRIO_SPI1_ADC 6
 #define NVIC_PRIO_SPI1_ADC_DMA_TX 8
 #define NVIC_PRIO_SPI1_ADC_DMA_RX 8
 #define NVIC_PRIO_SPI2_FLASH 8
