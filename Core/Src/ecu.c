@@ -495,7 +495,7 @@ static void ecu_update(void)
 
   gStatus.AdcStatus = sens_get_adc_status();
 
-  halfturns = csps_gethalfturns(csps);
+  halfturns = csps_gethalfturns();
   running = csps_isrunning();
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
@@ -1823,7 +1823,7 @@ static void ecu_process(void)
   HAL_StatusTypeDef map_status = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
-  uint32_t turns_count = csps_getturns(csps);
+  uint32_t turns_count = csps_getturns();
   float inj_lag = gParameters.InjectionLag;
 
   float knock_injection_correctives[ECU_CYLINDERS_COUNT];

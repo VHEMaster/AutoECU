@@ -51,6 +51,10 @@ static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
 static volatile float csps_tsps_rel_pos = 0;
 
+static volatile uint32_t csps_turns = 0;
+static volatile uint32_t csps_turns_phase = 0;
+static volatile uint32_t csps_halfturns = 0;
+
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
 static __IO uint32_t *csps_timebase = NULL;
@@ -138,9 +142,6 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
 
 INLINE void csps_exti(uint32_t timestamp)
 {
-  static uint32_t csps_turns = 0;
-  static uint32_t csps_turns_phase = 0;
-  static uint32_t csps_halfturns = 0;
   static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
   static float adder_prev = 3.0f;
@@ -355,8 +356,8 @@ INLINE void csps_exti(uint32_t timestamp)
   }
 
   data.Period = csps_period;
-  data.turns = csps_turns;
-  data.halfturns = csps_halfturns;
+  csps_turns;
+  csps_halfturns;
 
   CspsData[dataindex] = data;
   CspsDataPtr = &CspsData[dataindex];
@@ -543,17 +544,17 @@ INLINE uint8_t csps_isfound(void)
 
 INLINE uint8_t csps_iserror(void)
 {
-  return csps_errors > 3.0f;
+  return csps_errors > 5.0f;
 }
 
-INLINE uint32_t csps_gethalfturns(sCspsData data)
+INLINE uint32_t csps_gethalfturns(void)
 {
-  return data.halfturns;
+  return csps_halfturns;
 }
 
-INLINE uint32_t csps_getturns(sCspsData data)
+INLINE uint32_t csps_getturns(void)
 {
-  return data.turns;
+  return csps_turns;
 }
 
 INLINE sCspsData csps_data(void)

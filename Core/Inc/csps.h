@@ -14,8 +14,6 @@ typedef struct
   uint32_t PhasedActive;
   float PhasedAngleCur;
   float PhasedAnglePrev;
-  uint32_t turns;
-  uint32_t halfturns;
 }sCspsData;
 
 void csps_loop(void);
@@ -33,8 +31,8 @@ uint8_t csps_isrunning(void);
 uint8_t csps_isfound(void);
 uint8_t csps_isphased(sCspsData data);
 uint8_t csps_iserror(void);
-uint32_t csps_getturns(sCspsData data);
-uint32_t csps_gethalfturns(sCspsData data);
+uint32_t csps_getturns(void);
+uint32_t csps_gethalfturns(void);
 float csps_getphasedangle(sCspsData data);
 float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle);
 sCspsData csps_data(void);
