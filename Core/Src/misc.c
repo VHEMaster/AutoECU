@@ -21,9 +21,9 @@
 #include "interpolation.h"
 #include <string.h>
 
-#define O2_PID_P  -2.0f
+#define O2_PID_P  -30.0f
 #define O2_PID_I  -2.0f
-#define O2_PID_D  -0.001f
+#define O2_PID_D  -0.01f
 
 #define O2_IDENT_DEVICE_CJ125 0x60
 #define O2_IDENT_MASK_DEVICE 0xF8
@@ -390,7 +390,7 @@ static void O2_CriticalLoop(void)
   float temperaturevoltage = adc_get_voltage(AdcChO2UR);
   float lambdavoltage = adc_get_voltage(AdcChO2UA);
   float o2heater;
-  uint8_t now = Delay_Tick;
+  uint32_t now = Delay_Tick;
   O2Status.Lambda = O2_GetLambda(lambdavoltage);
   O2Status.Temperature = O2_GetTemperature(temperaturevoltage);
   O2Status.TemperatureVoltage = temperaturevoltage;
@@ -455,7 +455,7 @@ static int8_t O2_Loop(void)
         state = 3;
       }
       else {
-        if(need_reset_factor) {
+        if(O2Status.Valid && need_reset_factor) {
           state = 7;
         } else {
           state = 0;
@@ -495,7 +495,7 @@ static int8_t O2_Loop(void)
         if(O2Status.Valid) {
           state = 8;
         }
-        else if(is_engine_running) {
+        else if(force || is_engine_running) {
           state++;
         }
         else {
@@ -520,7 +520,7 @@ static int8_t O2_Loop(void)
       }
       break;
     case 5 :
-      if(!is_engine_running) {
+      if(!force && !is_engine_running) {
         O2_SetHeaterVoltage(0.0f);
         O2Status.Valid = 0;
         state = 0;
@@ -541,7 +541,7 @@ static int8_t O2_Loop(void)
       }
       break;
     case 6 :
-      if(!is_engine_running) {
+      if(!force && !is_engine_running) {
         O2_SetHeaterVoltage(0.0f);
         O2Status.Valid = 0;
         state = 0;
@@ -1040,7 +1040,7 @@ HAL_StatusTypeDef Misc_Init(SPI_HandleTypeDef * _hspi)
 
   HAL_GPIO_WritePin(O2_NRST_GPIO_Port, O2_NRST_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SW_NRST_GPIO_Port, SW_NRST_Pin, GPIO_PIN_SET);
-  DelayMs(1);
+  DelayMs(5);
 
   memset(tx, 0, sizeof(tx));
   memset(rx, 0, sizeof(tx));
