@@ -20,7 +20,7 @@
 #define MCU_CHANNELS 1
 #define ADC_BUFFER_SIZE 8
 
-#define ADC_INIT_TIME (20*1000)
+#define ADC_INIT_TIME (15*1000)
 
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
 static uint16_t AdcDataLast[ADC_CHANNELS + MCU_CHANNELS] = {0};
