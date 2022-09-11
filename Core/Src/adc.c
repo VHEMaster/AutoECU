@@ -39,8 +39,8 @@ static float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static SPI_HandleTypeDef *hspi = NULL;
 static ADC_HandleTypeDef *hadc = NULL;
 
-static uint8_t tx[32] __attribute__((aligned(32)));
-static uint8_t rx[32] __attribute__((aligned(32)));
+static uint8_t tx[32] ALIGNED(32) BUFFER_DMA;
+static uint8_t rx[32] ALIGNED(32) BUFFER_DMA;
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
@@ -235,8 +235,8 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
     }
   }
 
-  //SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
-  //SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
+  SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
+  SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
   DelayMs(10);
 

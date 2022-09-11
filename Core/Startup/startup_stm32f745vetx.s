@@ -42,7 +42,7 @@ defined in linker script */
 /* start address for the .bss section. defined in linker script */
 .word  _sbss
 /* end address for the .bss section. defined in linker script */
-.word  _ebss
+.word  _edma_bss
 /* stack used for SystemInit_ExtMemCtl; always internal RAM used */
 
 /**
@@ -79,7 +79,7 @@ LoopCopyDataInit:
   
 /* Zero fill the bss segment. */
   ldr r2, =_sbss
-  ldr r4, =_ebss
+  ldr r4, =_edma_bss
   movs r3, #0
   b LoopFillZerobss
 

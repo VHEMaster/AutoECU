@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include "defines.h"
 #include "flash.h"
 #include "structs.h"
 #include "sst25vf032b.h"
@@ -17,14 +18,14 @@
 #define BACKUP_REGION_SIZE (BACKUP_SIZE / 2)
 
 static uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
-static uint8_t backup_buffer[BACKUP_SIZE / 2] __attribute__ ((aligned(32)));
+static uint8_t backup_buffer[BACKUP_SIZE / 2] ALIGNED(32);
 
 #define FLASH_VERSION 0x00000011
 #define REGION_SIZE 0x200000
 #define PAGE_SIZE SST25_32KSIZE
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
 
-static uint8_t page_buffer[PAGE_SIZE] __attribute__ ((aligned(32)));
+static uint8_t page_buffer[PAGE_SIZE] ALIGNED(32) BUFFER_DMA;
 static const uint32_t flash_addresses[2] = {0, REGION_SIZE};
 
 static volatile uint16_t save_sectors = 0;

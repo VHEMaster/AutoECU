@@ -41,6 +41,8 @@
 
 #define STATIC_INLINE __attribute__((always_inline)) static inline
 #define INLINE __attribute__((always_inline)) inline
+#define ALIGNED(x) __attribute__((aligned(x)))
+#define BUFFER_DMA __attribute__((section(".dma_bss")))
 
 #if __CORTEX_M == (7)
 STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)

@@ -1,4 +1,5 @@
 #include "sst25vf032b.h"
+#include "defines.h"
 #include "delay.h"
 
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI2_NSS_FLASH_GPIO_Port, SPI2_NSS_FLASH_Pin, GPIO_PIN_RESET)
@@ -6,8 +7,8 @@
 
 static SPI_HandleTypeDef * hspi;
 
-static uint8_t tx[32] __attribute__((aligned(32)));
-static uint8_t rx[32] __attribute__((aligned(32)));
+static uint8_t tx[32] ALIGNED(32) BUFFER_DMA;
+static uint8_t rx[32] ALIGNED(32) BUFFER_DMA;
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;

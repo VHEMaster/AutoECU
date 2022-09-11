@@ -27,7 +27,7 @@ static sProFIFO klinerxfifo;
 static sKlineMessage kline_tx_fifo_buffer[KLINE_TX_BUFFER_COUNT];
 static sKlineMessage kline_rx_fifo_buffer[KLINE_RX_BUFFER_COUNT];
 
-static uint8_t kline_rx_buffer[KLINE_RX_BUFFER_SIZE] __attribute__((aligned(32)));
+static uint8_t kline_rx_buffer[KLINE_RX_BUFFER_SIZE] ALIGNED(32);
 
 static volatile uint8_t kline_tx_busy = 0;
 static volatile uint8_t kline_er_flag = 0;

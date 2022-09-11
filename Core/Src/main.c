@@ -97,17 +97,17 @@ static uint8_t PK_ECU_TxSendingBuffers[ITEMSOF(PK_ECU_TxDests)][SENDING_BUFFER_S
 static volatile uint32_t o2_pwm_period = 0;
 
 #ifdef DEBUG
-static uint32_t fast_irq_start = 0;
-static uint32_t fast_irq_end = 0;
-static uint16_t fast_irq_times = 0;
-static uint32_t fast_irq_time = 0;
+volatile static uint32_t fast_irq_start = 0;
+volatile static uint32_t fast_irq_end = 0;
+volatile static uint16_t fast_irq_times = 0;
+volatile static uint32_t fast_irq_time = 0;
 volatile float fast_irq_avg = 0;
 volatile float fast_irq_max = 0;
 
-static uint32_t slow_irq_start = 0;
-static uint32_t slow_irq_end = 0;
-static uint16_t slow_irq_times = 0;
-static uint32_t slow_irq_time = 0;
+volatile static uint32_t slow_irq_start = 0;
+volatile static uint32_t slow_irq_end = 0;
+volatile static uint16_t slow_irq_times = 0;
+volatile static uint32_t slow_irq_time = 0;
 volatile float slow_irq_avg = 0;
 volatile float slow_irq_max = 0;
 #endif
@@ -388,7 +388,7 @@ int main(void)
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
   HAL_PWREx_EnableBkUpReg();
 
-  MX_IWDG_Init();
+  //MX_IWDG_Init();
 
   DelayInit(&htim5);
 
@@ -725,7 +725,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128; //DMA works on 64
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -1325,7 +1325,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 3375000;
+  huart5.Init.BaudRate = 960000;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;

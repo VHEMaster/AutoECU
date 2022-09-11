@@ -123,6 +123,7 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
   csps_data_empty.PhasedAngleCur = 0;
   csps_data_empty.PhasedAnglePrev = 0;
   csps_data_empty.RPM = 0;
+  csps_data_empty.Period = 1000000.0;
   csps_data_empty.uSPA = 3000.0f;
 
 #ifdef CSPS_DYNAMIC_CORR

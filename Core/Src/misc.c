@@ -95,8 +95,8 @@ static const uint32_t StepPos[4] = {
 
 static SPI_HandleTypeDef * hspi;
 
-static uint8_t tx[32] __attribute__((aligned(32)));
-static uint8_t rx[32] __attribute__((aligned(32)));
+static uint8_t tx[32] ALIGNED(32) BUFFER_DMA;
+static uint8_t rx[32] ALIGNED(32) BUFFER_DMA;
 
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
