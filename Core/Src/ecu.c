@@ -2917,7 +2917,7 @@ static int8_t ecu_shutdown_process(void)
       }
       break;
     case 2:
-      status = Misc_ResetIdleValve();
+      status = out_reset_idle_valve();
       if(status) {
     	  stage++;
       }
