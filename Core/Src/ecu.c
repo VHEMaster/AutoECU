@@ -3672,12 +3672,12 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       }
       else if(Mem.loadreq)
       {
-        PK_SaveConfigAcknowledge.ErrorCode = 3;
+        PK_SaveConfigAcknowledge.ErrorCode = 6;
         PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       }
       else
       {
-        PK_SaveConfigAcknowledge.ErrorCode = 2;
+        PK_SaveConfigAcknowledge.ErrorCode = 7;
         PK_SendCommand(xChaSrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
       }
       break;
@@ -3691,12 +3691,12 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       }
       else if(Mem.savereq)
       {
-        PK_RestoreConfigAcknowledge.ErrorCode = 3;
+        PK_RestoreConfigAcknowledge.ErrorCode = 6;
         PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
       }
       else
       {
-        PK_RestoreConfigAcknowledge.ErrorCode = 2;
+        PK_RestoreConfigAcknowledge.ErrorCode = 7;
         PK_SendCommand(xChaSrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
       }
       break;

@@ -13,19 +13,21 @@
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_OFF() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_SET)
 
-#define ADC_VREF 4.096f
-#define MCU_VREF 3.30f
+#define ADC_VREF          4.096f
+#define MCU_VREF          3.30f
 
-#define ADC_CHANNELS 8
-#define MCU_CHANNELS 1
-#define ADC_BUFFER_SIZE 8
+#define ADC_CHANNELS      8
+#define MCU_CHANNELS      1
+#define ADC_BUFFER_SIZE   8
 
-#define ADC_INIT_TIME (15*1000)
+#define ADC_INIT_TIME     (15000)
+#define ADC_TIMEOUT       (5000)
 
 static uint16_t AdcBuffer[ADC_CHANNELS + MCU_CHANNELS][ADC_BUFFER_SIZE] = {{0}};
 static uint16_t AdcDataLast[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float AdcVoltages[ADC_CHANNELS + MCU_CHANNELS];
 static volatile HAL_StatusTypeDef adcInitStatus = HAL_OK;
+static volatile HAL_StatusTypeDef adcTimeoutStatus = HAL_OK;
 static volatile HAL_StatusTypeDef adcStatus = HAL_OK;
 static volatile uint32_t adcInitTime = 0;
 static volatile uint8_t adcInited = 0;
@@ -42,10 +44,13 @@ static ADC_HandleTypeDef *hadc = NULL;
 static uint8_t tx[32] ALIGNED(32) BUFFER_DMA;
 static uint8_t rx[32] ALIGNED(32) BUFFER_DMA;
 
+static volatile uint8_t semEr = 0;
 static volatile uint8_t semTx = 0;
 static volatile uint8_t semRx = 0;
+static uint32_t AdcLastComm = 0;
 static uint32_t AdcWritePos = 0;
 static uint8_t AdcChannel = 0;
+static uint8_t AdcReset = 0;
 static uint8_t AdcFirstTime = 1;
 static uint8_t McuFirstTime = 1;
 static uint32_t McuWritePos = 0;
@@ -62,7 +67,7 @@ void adc_set_events(AdcChannelEvent startEvent, AdcChannelEvent doneEvent)
 void ADC_ErrorCallback(SPI_HandleTypeDef * _hspi)
 {
   if(_hspi == hspi) {
-
+    semEr = 1;
   }
 }
 
@@ -134,56 +139,76 @@ void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
 
 }
 
-static uint8_t waitTxRxCplt(void)
+static int8_t waitTxRxCplt(void)
 {
-  if(semRx && semTx) {
+  int8_t status = 0;
+
+  if(semEr) {
+    status = -1;
+  } else if(semRx && semTx) {
+    status = 1;
+  }
+
+  if(status) {
+    semEr = 0;
     semRx = 0;
     semTx = 0;
-    return 1;
   }
-  return 0;
+
+  return status;
 }
 
 static HAL_StatusTypeDef SPI_SendCommand(uint16_t cmd)
 {
+  int8_t status;
 
   tx[0] = cmd >> 8;
   tx[1] = cmd & 0xFF;
   //SCB_CleanDCache_by_Addr((uint32_t*)tx, 2);
   SPI_NSS_ON();
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 2);
-  while(!waitTxRxCplt()) {}
+  do {
+    status = waitTxRxCplt();
+  } while(!status);
   //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 2);
 
   //if(rx[0] != 0x00 || rx[1] != 0x00)
   //  return HAL_ERROR;
 
-  return HAL_OK;
+  return status > 0 ? HAL_OK : HAL_ERROR;
 }
 
 static HAL_StatusTypeDef SPI_WriteRegister(uint8_t reg, uint8_t data)
 {
+  int8_t status;
+
   tx[0] = reg << 1 | 1;
   tx[1] = data;
   tx[2] = 0;
   SPI_NSS_ON();
   //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
-  while(!waitTxRxCplt()) {}
+  do {
+    status = waitTxRxCplt();
+  } while(!status);
   //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 3);
 
-  if(rx[0] != 0x00 || rx[1] != 0x00)
-    return HAL_ERROR;
-  if(rx[2] != data)
-    return HAL_ERROR;
+  if(status > 0) {
+    if(rx[0] != 0x00 || rx[1] != 0x00)
+      status = -2;
+    if(rx[2] != data)
+      status = -3;
+  }
 
-  return HAL_OK;
+  return status > 0 ? HAL_OK : HAL_ERROR;
 }
 
 static HAL_StatusTypeDef SPI_ReadRegister(uint8_t reg, uint8_t *data)
 {
+  int8_t status;
+
   *data = 0;
 
   tx[0] = reg << 1;
@@ -192,16 +217,20 @@ static HAL_StatusTypeDef SPI_ReadRegister(uint8_t reg, uint8_t *data)
   SPI_NSS_ON();
   //SCB_CleanDCache_by_Addr((uint32_t*)tx, 3);
   HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 3);
-  while(!waitTxRxCplt()) {}
+  do {
+    status = waitTxRxCplt();
+  } while(!status);
   //SPI_NSS_OFF();
   //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 3);
 
-  if(rx[0] != 0x00 || rx[1] != 0x00)
-    return HAL_ERROR;
+  if(status > 0) {
+    if(rx[0] != 0x00 || rx[1] != 0x00)
+      status = -2;
+  }
 
   *data = rx[2];
 
-  return HAL_OK;
+  return status > 0 ? HAL_OK : HAL_ERROR;
 }
 
 static INLINE float ADC_Convert(uint8_t channel, float data)
@@ -234,9 +263,6 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
       AdcBuffer[i][j] = 0x8000;
     }
   }
-
-  SCB_CleanDCache_by_Addr((uint32_t*)tx, sizeof(tx));
-  SCB_CleanDCache_by_Addr((uint32_t*)rx, sizeof(rx));
 
   DelayMs(10);
 
@@ -319,6 +345,7 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
 
   adcInited = 0;
   adcInitTime = Delay_Tick;
+  AdcLastComm = Delay_Tick;
 
 ret:
   adcInitStatus = result;
@@ -349,6 +376,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
+  int8_t status;
   uint32_t now = Delay_Tick;
   uint16_t data;
 
@@ -372,47 +400,65 @@ HAL_StatusTypeDef adc_fast_loop(void)
         state++;
         break;
       case 1:
-        if(waitTxRxCplt())
-        {
-          //SPI_NSS_OFF();
-          //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
-          data = rx[2] << 8 | rx[3];
+        status = waitTxRxCplt();
+        if(status) {
+          if(status > 0) {
+            //SPI_NSS_OFF();
+            //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
+            data = rx[2] << 8 | rx[3];
 
-          if(!ChIgnoreNext[AdcChannel]) {
-            if(ChFilter[AdcChannel]) {
-              if(!AdcFirstTime)
-                AdcBuffer[AdcChannel][AdcWritePos] = data;
-              else {
-                AdcWritePos = 0;
-                for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
-                  AdcBuffer[AdcChannel][i] = data;
-                }
-              }
+            if(AdcReset) {
+              AdcReset = 0;
+              AdcChannel = 0;
             } else {
-              AdcBuffer[AdcChannel][0] = data;
+              if(!ChIgnoreNext[AdcChannel]) {
+                if(ChFilter[AdcChannel]) {
+                  if(!AdcFirstTime)
+                    AdcBuffer[AdcChannel][AdcWritePos] = data;
+                  else {
+                    AdcWritePos = 0;
+                    for(int i = 0; i < ADC_BUFFER_SIZE; i++) {
+                      AdcBuffer[AdcChannel][i] = data;
+                    }
+                  }
+                } else {
+                  AdcBuffer[AdcChannel][0] = data;
+                }
+                AdcDataLast[AdcChannel] = data;
+              } else {
+                ChIgnoreNext[AdcChannel] = 0;
+              }
+
+              if(AdcSamplingDoneEvent)
+                if(AdcSamplingDoneEvent(AdcChannel) < 0)
+                  ChIgnoreNext[AdcChannel] = 1;
+
+              if(++AdcChannel >= ADC_CHANNELS) {
+                if(++AdcWritePos >= ADC_BUFFER_SIZE) {
+                  AdcWritePos = 0;
+                }
+                AdcChannel = 0;
+                AdcFirstTime = 0;
+              }
             }
-            AdcDataLast[AdcChannel] = data;
+            AdcLastComm = now;
           } else {
-            ChIgnoreNext[AdcChannel] = 0;
+            AdcReset = 1;
           }
 
-          if(AdcSamplingDoneEvent)
-            if(AdcSamplingDoneEvent(AdcChannel) < 0)
-              ChIgnoreNext[AdcChannel] = 1;
-
-          if(++AdcChannel >= ADC_CHANNELS) {
-            if(++AdcWritePos >= ADC_BUFFER_SIZE) {
-              AdcWritePos = 0;
-            }
-            AdcChannel = 0;
-            AdcFirstTime = 0;
-          }
 
           SPI_NSS_ON();
           memset(tx, 0, 4);
+          if(AdcReset)
+            tx[0] = 0xA0;
           //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
           HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+        }
 
+        if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
+          adcTimeoutStatus = HAL_ERROR;
+        } else {
+          adcTimeoutStatus = HAL_OK;
         }
         break;
 
@@ -474,6 +520,6 @@ INLINE float adc_get_voltage_unfiltered(eAdcChannel channel)
 
 HAL_StatusTypeDef adc_get_status(void)
 {
-  return adcStatus;
+  return adcStatus | adcTimeoutStatus;
 }
 
