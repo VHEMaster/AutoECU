@@ -43,6 +43,8 @@
 #define INLINE __attribute__((always_inline)) inline
 #define ALIGNED(x) __attribute__((aligned(x)))
 #define BUFFER_DMA __attribute__((section(".dma_bss")))
+#define IS_DEBUGGER_ATTACHED() ((DBGMCU->CR & 0x07) > 0)
+#define BREAKPOINT(x) __BKPT((x))
 
 #if __CORTEX_M == (7)
 STATIC_INLINE void CacheInvalidate(void * buffer, uint32_t size)

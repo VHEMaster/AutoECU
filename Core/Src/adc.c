@@ -376,6 +376,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
+  HAL_StatusTypeDef hal_status;
   int8_t status;
   uint32_t now = Delay_Tick;
   uint16_t data;
@@ -396,8 +397,14 @@ HAL_StatusTypeDef adc_fast_loop(void)
         SPI_NSS_ON();
         memset(tx, 0, 4);
         //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-        HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
-        state++;
+        hal_status = HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+        if(hal_status != HAL_OK) {
+          if(IS_DEBUGGER_ATTACHED()) {
+            BREAKPOINT(0);
+          }
+        } else {
+          state++;
+        }
         break;
       case 1:
         status = waitTxRxCplt();
@@ -444,6 +451,9 @@ HAL_StatusTypeDef adc_fast_loop(void)
             AdcLastComm = now;
           } else {
             AdcReset = 1;
+            if(IS_DEBUGGER_ATTACHED()) {
+              BREAKPOINT(0);
+            }
           }
 
 
@@ -452,11 +462,20 @@ HAL_StatusTypeDef adc_fast_loop(void)
           if(AdcReset)
             tx[0] = 0xA0;
           //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-          HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+          hal_status = HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+          if(hal_status != HAL_OK) {
+            state = 0;
+            if(IS_DEBUGGER_ATTACHED()) {
+              BREAKPOINT(0);
+            }
+          }
         }
 
         if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
           adcTimeoutStatus = HAL_ERROR;
+          if(IS_DEBUGGER_ATTACHED()) {
+            BREAKPOINT(0);
+          }
         } else {
           adcTimeoutStatus = HAL_OK;
         }
