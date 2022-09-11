@@ -79,7 +79,7 @@ static const uint32_t StepPos[4] = {
 #define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END 0.5f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END 0.8f //in seconds
 #define STEP_MAX_FREQ ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
@@ -753,7 +753,7 @@ INLINE void Misc_SetIdleValvePosition(uint8_t position)
   IdleValvePositionTarget = position;
 }
 
-INLINE int8_t Misc_CalibrateIdleValve(void)
+INLINE int8_t Misc_ResetIdleValve(void)
 {
   static uint32_t calibrate_time = 0;
   static uint8_t state = 0;

@@ -172,8 +172,6 @@ static sForceParameters gForceParameters = {0};
 static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 
-static volatile uint8_t gEcuIdleValveCalibrate = 0;
-static volatile uint8_t gEcuIdleValveCalibrateOk = 0;
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
 static uint8_t gCanTestStarted = 0;
@@ -910,6 +908,7 @@ static void ecu_update(void)
 
   if(!gIgnCanShutdown)
     out_set_idle_valve(roundf(idle_wish_valve_pos));
+  else out_set_idle_valve(0);
 
   gStatus.Knock.Voltage = 0.0f;
   gStatus.Knock.Filtered = 0.0f;
@@ -1352,23 +1351,7 @@ static void ecu_update(void)
 
 static void ecu_init_post_init(void)
 {
-  Misc_EnableIdleValvePosition(gEcuCriticalBackup.idle_valve_position);
-  if(gStatus.Bkpsram.Struct.CriticalLoad != HAL_OK) {
-    gEcuIdleValveCalibrateOk = 0;
-    gEcuIdleValveCalibrate = 1;
-  }
-}
-
-static void ecu_idle_valve_process(void)
-{
-  int8_t status;
-  if(gEcuIdleValveCalibrate) {
-    status = Misc_CalibrateIdleValve();
-    if(status) {
-      gEcuIdleValveCalibrate = 0;
-      gEcuIdleValveCalibrateOk = status > 0;
-    }
-  }
+  Misc_EnableIdleValvePosition(0);
 }
 
 static void ecu_backup_save_process(void)
@@ -2888,6 +2871,7 @@ static void ecu_ign_process(void)
   else if(!gIgnCanShutdown && time >= 100000) {
     gIgnState = GPIO_PIN_RESET;
     gIgnCanShutdown = 1;
+
     tick_ready = now;
   }
 
@@ -2918,7 +2902,6 @@ static int8_t ecu_shutdown_process(void)
   static uint32_t last_idle_valve_moving = 0;
   uint32_t now = Delay_Tick;
   int8_t status = 0;
-  uint8_t idle_valve_position;
   uint8_t is_idle_valve_moving = out_is_idle_valve_moving();
 
   switch(stage) {
@@ -2934,22 +2917,26 @@ static int8_t ecu_shutdown_process(void)
       }
       break;
     case 2:
-      if(!Mem.critical_lock) {
-        Mem.critical_lock = 1;
-        idle_valve_position = out_get_idle_valve();
-        gEcuCriticalBackup.idle_valve_position = idle_valve_position;
-        config_save_critical_backup(&gEcuCriticalBackup);
-        Mem.critical_lock = 0;
-        stage++;
+      status = Misc_ResetIdleValve();
+      if(status) {
+    	  stage++;
       }
       break;
     case 3:
+        if(!Mem.critical_lock) {
+          Mem.critical_lock = 1;
+          config_save_critical_backup(&gEcuCriticalBackup);
+          Mem.critical_lock = 0;
+          stage++;
+        }
+        break;
+    case 4:
       if(!Mem.lock) {
         Mem.lock = 1;
         stage++;
       }
       break;
-    case 4:
+    case 5:
       Mem.lock = 0;
       stage = 0;
       status = 1;
@@ -3390,7 +3377,6 @@ void ecu_irq_slow_loop(void)
   ecu_update_current_table();
   ecu_config_process();
   ecu_update();
-  ecu_idle_valve_process();
   ecu_backup_save_process();
 
   ecu_mem_process();
