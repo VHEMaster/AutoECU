@@ -417,6 +417,7 @@ static void ecu_update(void)
   float knock_zone;
 
   float min, max;
+  static uint8_t ventilation_flag = 0;
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
@@ -972,7 +973,13 @@ static void ecu_update(void)
 
   if(!running) {
     ignition_angle = math_interpolate_1d(ipEngineTemp, table->ignition_initial);
-    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && throttle >= 80.0f)
+    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    	if(!rotates && throttle >= 95.0f)
+    		ventilation_flag = 1;
+    	else if(throttle < 90.0f)
+    		ventilation_flag = 0;
+    }
+    if(ventilation_flag)
       injection_time = 0;
   }
 
