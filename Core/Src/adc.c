@@ -384,8 +384,10 @@ HAL_StatusTypeDef adc_fast_loop(void)
   if(adcInitStatus != HAL_OK)
     return adcInitStatus;
 
-  if(!adcInited && DelayDiff(now, adcInitTime) >= ADC_INIT_TIME)
+  if(!adcInited && DelayDiff(now, adcInitTime) >= ADC_INIT_TIME) {
     adcInited = 1;
+    AdcLastComm = now;
+  }
 
   if(adcInited) {
 
@@ -396,8 +398,8 @@ HAL_StatusTypeDef adc_fast_loop(void)
             ChIgnoreNext[AdcChannel] = 1;
         SPI_NSS_ON();
         memset(tx, 0, 4);
-        //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-        hal_status = HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+        SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+        hal_status = HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
         if(hal_status != HAL_OK) {
           if(IS_DEBUGGER_ATTACHED()) {
             BREAKPOINT(0);
@@ -411,7 +413,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
         if(status) {
           if(status > 0) {
             //SPI_NSS_OFF();
-            //SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
+            SCB_InvalidateDCache_by_Addr((uint32_t*)rx, 4);
             data = rx[2] << 8 | rx[3];
 
             if(AdcReset) {
@@ -461,23 +463,23 @@ HAL_StatusTypeDef adc_fast_loop(void)
           memset(tx, 0, 4);
           if(AdcReset)
             tx[0] = 0xA0;
-          //SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
-          hal_status = HAL_SPI_TransmitReceive_IT(hspi, tx, rx, 4);
+          SCB_CleanDCache_by_Addr((uint32_t*)tx, 4);
+          hal_status = HAL_SPI_TransmitReceive_DMA(hspi, tx, rx, 4);
           if(hal_status != HAL_OK) {
             state = 0;
             if(IS_DEBUGGER_ATTACHED()) {
               BREAKPOINT(0);
             }
           }
-        }
-
-        if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
-          adcTimeoutStatus = HAL_ERROR;
-          if(IS_DEBUGGER_ATTACHED()) {
-            BREAKPOINT(0);
-          }
         } else {
-          adcTimeoutStatus = HAL_OK;
+			if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
+			  adcTimeoutStatus = HAL_ERROR;
+			  if(IS_DEBUGGER_ATTACHED()) {
+				BREAKPOINT(0);
+			  }
+			} else {
+			  adcTimeoutStatus = HAL_OK;
+			}
         }
         break;
 
