@@ -101,15 +101,22 @@ volatile static uint32_t fast_irq_start = 0;
 volatile static uint32_t fast_irq_end = 0;
 volatile static uint16_t fast_irq_times = 0;
 volatile static uint32_t fast_irq_time = 0;
-volatile float fast_irq_avg = 0;
-volatile float fast_irq_max = 0;
+volatile static float fast_irq_avg = 0;
+volatile static float fast_irq_max = 0;
 
 volatile static uint32_t slow_irq_start = 0;
 volatile static uint32_t slow_irq_end = 0;
 volatile static uint16_t slow_irq_times = 0;
 volatile static uint32_t slow_irq_time = 0;
-volatile float slow_irq_avg = 0;
-volatile float slow_irq_max = 0;
+volatile static float slow_irq_avg = 0;
+volatile static float slow_irq_max = 0;
+
+volatile static uint32_t csps_irq_start = 0;
+volatile static uint32_t csps_irq_end = 0;
+volatile static uint16_t csps_irq_times = 0;
+volatile static uint32_t csps_irq_time = 0;
+volatile static float csps_irq_avg = 0;
+volatile static float csps_irq_max = 0;
 #endif
 
 INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
@@ -220,7 +227,30 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
 #ifndef SIMULATION
 #ifndef CSPS_EXTI
+#ifdef DEBUG
+	  csps_irq_start = Delay_Tick;
+#endif
       csps_exti(htim->Instance->CCR1);
+#ifdef DEBUG
+	  //For time measurement taken by the csps irq handler. No need to optimize anything here
+	  csps_irq_end = Delay_Tick;
+	  csps_irq_time = DelayDiff(csps_irq_end, csps_irq_start);
+
+	  if(csps_irq_avg == 0)
+		csps_irq_avg = csps_irq_time;
+	  else if(csps_irq_times < 1000) {
+		csps_irq_avg = csps_irq_avg * 0.99f + csps_irq_time * 0.01f;
+		if(csps_irq_time > csps_irq_max)
+		  csps_irq_max = csps_irq_time;
+		else csps_irq_max = csps_irq_max * 0.99f + csps_irq_time * 0.01f;
+		csps_irq_times++;
+	  } else {
+		csps_irq_avg = csps_irq_avg * 0.99999f + csps_irq_time * 0.00001f;
+		if(csps_irq_time > csps_irq_max)
+		  csps_irq_max = csps_irq_time;
+		else csps_irq_max = csps_irq_max * 0.99999f + csps_irq_time * 0.00001f;
+	  }
+#endif
 #endif
 #endif
     }
@@ -388,7 +418,7 @@ int main(void)
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
   HAL_PWREx_EnableBkUpReg();
 
-  //MX_IWDG_Init();
+  MX_IWDG_Init();
 
   DelayInit(&htim5);
 
