@@ -1059,7 +1059,7 @@ static void ecu_update(void)
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
 
-  if(adapt_diff >= period * 2.0f) {
+  if(adapt_diff >= period * 0.5f) {
     adaptation_last = now;
     if(running) {
       if(calibration && corr_math_interpolate_2d_set_func) {
