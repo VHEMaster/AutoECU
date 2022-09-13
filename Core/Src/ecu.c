@@ -40,7 +40,7 @@
 #include "math_fast.h"
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[], float new_value);
+    uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
@@ -1077,39 +1077,39 @@ static void ecu_update(void)
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK) {
             fill_correction_map += filling_diff * lpf_calculation;
-            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map);
+            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map, -1.0f, 1.0f);
 
             percentage = (filling_diff + 1.0f);
             if(percentage > 1.0f) percentage = 1.0f / percentage;
             calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map);
             calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map, calib_cur_progress);
+            corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_map, calib_cur_progress, 0.0f, 1.0f);
           }
         }
 
         if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
           map_diff_thr = (pressure / pressure_from_throttle) - 1.0f;
           map_correction_thr += map_diff_thr * lpf_calculation;
-          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr);
+          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr, map_correction_thr, -1.0f, 1.0f);
 
           percentage = (map_diff_thr + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr, calib_cur_progress);
+          corr_math_interpolate_2d_set_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_map_by_thr, calib_cur_progress, 0.0f, 1.0f);
         }
 
         if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.WishIdleValvePosition) {
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
-          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation);
+          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation, -1.0f, 1.0f);
 
           percentage = (idle_valve_pos_dif + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress);
+          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress, 0.0f, 1.0f);
         }
 
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
@@ -1121,11 +1121,11 @@ static void ecu_update(void)
             calib_cur_progress = 0.0f;
 
             ignition_correction = table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
-            corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction);
+            corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
           } else {
             calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
           }
-          corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress);
+          corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
@@ -2823,28 +2823,28 @@ static void ecu_corrections_loop(void)
     for(int y = 0; y < TABLE_FILLING_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
         float value = gEcuCorrectionsProgress.progress_ignitions[y][x];
-        if(value > 1.0f) value = 1.0f / value;
+        if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_ignitions[y][x] = value * 255.0f;
       }
     }
     for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
         float value = gEcuCorrectionsProgress.progress_fill_by_map[y][x];
-        if(value > 1.0f) value = 1.0f / value;
+        if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_fill_by_map[y][x] = value * 255.0f;
       }
     }
     for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
         float value = gEcuCorrectionsProgress.progress_map_by_thr[y][x];
-        if(value > 1.0f) value = 1.0f / value;
+        if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_map_by_thr[y][x] = value * 255.0f;
       }
     }
     for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
         float value = gEcuCorrectionsProgress.progress_idle_valve_to_rpm[y][x];
-        if(value > 1.0f) value = 1.0f / value;
+        if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_idle_valve_to_rpm[y][x] = value * 255.0f;
       }
     }

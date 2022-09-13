@@ -135,7 +135,7 @@ INLINE float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInter
   return result;
 }
 
-INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, float new_value)
+INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, float new_value, float limit_l, float limit_h)
 {
   float previous;
   float diff;
@@ -151,11 +151,19 @@ INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, 
   table[input.indexes[0]] = output[0] + diff * (1.0f - input.mult);
   table[input.indexes[1]] = output[1] + diff * input.mult;
 
+
+  for(int i = 0; i < 2; i++) {
+    if(table[input.indexes[i]] > limit_h)
+      table[input.indexes[i]] = limit_h;
+    else if(table[input.indexes[i]] < limit_l)
+      table[input.indexes[i]] = limit_l;
+  }
+
   return diff;
 }
 
 INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[y_size], float new_value)
+    uint32_t y_size, float (*table)[y_size], float new_value, float limit_l, float limit_h)
 {
   float previous;
   float diff;
@@ -177,11 +185,20 @@ INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpo
   table[input_y.indexes[1]][input_x.indexes[0]] = input_2d[1][0] + diff * (1.0f - input_x.mult) * input_y.mult;
   table[input_y.indexes[1]][input_x.indexes[1]] = input_2d[1][1] + diff * input_x.mult * input_y.mult;
 
+  for(int i = 0; i < 2; i++) {
+    for(int j = 0; j < 2; j++) {
+      if(table[input_y.indexes[i]][input_x.indexes[j]] > limit_h)
+        table[input_y.indexes[i]][input_x.indexes[j]] = limit_h;
+      else if(table[input_y.indexes[i]][input_x.indexes[j]] < limit_l)
+        table[input_y.indexes[i]][input_x.indexes[j]] = limit_l;
+    }
+  }
+
   return diff;
 }
 
 INLINE float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[y_size], float new_value)
+    uint32_t y_size, float (*table)[y_size], float new_value, float limit_l, float limit_h)
 {
   float previous;
   float diff;
@@ -195,6 +212,11 @@ INLINE float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathI
 
   previous = table[input_y.indexes[index_y]][input_x.indexes[index_x]];
   diff = new_value - previous;
+
+  if(new_value > limit_h)
+    new_value = limit_h;
+  else if(new_value < limit_l)
+    new_value = limit_l;
 
   table[input_y.indexes[index_y]][input_x.indexes[index_x]] = new_value;
 
