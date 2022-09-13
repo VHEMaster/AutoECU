@@ -1014,7 +1014,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Status.Lambda = 1;
   O2Status.Valid = 0;
   O2Status.Working = 0;
-  O2Status.AmplificationFactor = O2AmplificationFactor17;
+  O2Status.AmplificationFactor = O2AmplificationFactor8;
 
   math_pid_init(&o2_pid);
   math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);

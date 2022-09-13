@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define ANGLE_INITIAL (-114.0f)
-#define IRQ_SIZE 16
+#define IRQ_SIZE 5
 #define DATA_SIZE 16
 
 #ifdef DEBUG
