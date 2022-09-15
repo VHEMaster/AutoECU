@@ -79,8 +79,8 @@ static const uint32_t StepPos[4] = {
 #define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE   0.5f //in seconds
-#define STEP_MAX_SPEED_FROM_START_TO_END_NORMAL       1.0f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE   0.8f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_NORMAL       1.2f //in seconds
 #define STEP_MAX_FREQ_ACCELERATE  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 #define STEP_MAX_FREQ_NORMAL      ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_NORMAL * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 #define STEP_ACC_TO_NORM_DELAY    (STEP_MAX_FREQ_ACCELERATE * 5.0f)
@@ -500,6 +500,9 @@ static int8_t O2_Loop(void)
         O2Status.Diag.Byte = diag ^ 0xFF;
         O2Status.Working = 1;
         if(O2Status.Valid) {
+          O2Status.Diag.Fields.IAIP = O2DiagOK;
+          O2Status.Diag.Fields.UN = O2DiagOK;
+          O2Status.Diag.Fields.VM = O2DiagOK;
           state = 9;
         }
         else if(force || is_engine_running) {
