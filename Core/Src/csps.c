@@ -66,6 +66,45 @@ static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
 
+static void csps_handle(uint32_t timestamp);
+
+#ifdef DEBUG
+volatile static uint32_t csps_irq_start = 0;
+volatile static uint32_t csps_irq_end = 0;
+volatile static uint16_t csps_irq_times = 0;
+volatile static uint32_t csps_irq_time = 0;
+volatile static float csps_irq_avg = 0;
+volatile static float csps_irq_max = 0;
+#endif
+
+INLINE void csps_exti(uint32_t timestamp)
+{
+#ifdef DEBUG
+    csps_irq_start = Delay_Tick;
+#endif
+      csps_handle(timestamp);
+#ifdef DEBUG
+    //For time measurement taken by the csps irq handler. No need to optimize anything here
+    csps_irq_end = Delay_Tick;
+    csps_irq_time = DelayDiff(csps_irq_end, csps_irq_start);
+
+    if(csps_irq_avg == 0)
+    csps_irq_avg = csps_irq_time;
+    else if(csps_irq_times < 1000) {
+    csps_irq_avg = csps_irq_avg * 0.99f + csps_irq_time * 0.01f;
+    if(csps_irq_time > csps_irq_max)
+      csps_irq_max = csps_irq_time;
+    else csps_irq_max = csps_irq_max * 0.99f + csps_irq_time * 0.01f;
+    csps_irq_times++;
+    } else {
+    csps_irq_avg = csps_irq_avg * 0.99999f + csps_irq_time * 0.00001f;
+    if(csps_irq_time > csps_irq_max)
+      csps_irq_max = csps_irq_time;
+    else csps_irq_max = csps_irq_max * 0.99999f + csps_irq_time * 0.00001f;
+    }
+#endif
+}
+
 #ifdef SIMULATION
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
@@ -141,7 +180,7 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
   }
 }
 
-INLINE void csps_exti(uint32_t timestamp)
+STATIC_INLINE void csps_handle(uint32_t timestamp)
 {
   static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
