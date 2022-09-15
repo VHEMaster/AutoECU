@@ -54,8 +54,8 @@ static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
     { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f }
 };
 
-static const float o2_ur_voltage[14] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f };
-static const float o2_temperature[14] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630 };
+static const float o2_ur_voltage[15] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f, 4.06f };
+static const float o2_temperature[15] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630, 20 };
 
 static volatile uint32_t StepPhase = 0;
 
@@ -343,11 +343,11 @@ static void O2_SetHeaterVoltage(float voltage)
 
 }
 
-static float O2_GetLambda(float voltage)
+static float O2_GetLambda(float voltage, float offset)
 {
   float lambda = 1.0f;
 
-  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_lambda));
+  sMathInterpolateInput ipVoltage = math_interpolate_input(voltage + offset, o2_ua_voltage[O2Status.AmplificationFactor], ITEMSOF(o2_lambda));
   lambda = math_interpolate_1d(ipVoltage, o2_lambda);
   if(lambda < 0)
     lambda = 0.0f;
@@ -392,9 +392,10 @@ static void O2_CriticalLoop(void)
   static uint32_t last_process = 0;
   float temperaturevoltage = adc_get_voltage(AdcChO2UR);
   float lambdavoltage = adc_get_voltage(AdcChO2UA);
+  float offsetvoltage = O2Status.OffsetVoltage;
   float o2heater;
   uint32_t now = Delay_Tick;
-  O2Status.Lambda = O2_GetLambda(lambdavoltage);
+  O2Status.Lambda = O2_GetLambda(lambdavoltage, offsetvoltage);
   O2Status.Temperature = O2_GetTemperature(temperaturevoltage);
   O2Status.TemperatureVoltage = temperaturevoltage;
 
@@ -427,7 +428,10 @@ static int8_t O2_Loop(void)
   uint32_t diff;
   int8_t status;
   int8_t retvalue = 1;
+  sMathInterpolateInput ipLambda;
   uint8_t force = LambdaConfig.isLambdaForceEnabled;
+  float offset_voltage;
+  float expected_voltage;
   float engine_temperature;
 
   is_engine_running = force || csps_isrunning();
@@ -453,13 +457,13 @@ static int8_t O2_Loop(void)
         last_spi_check = now;
         state = 1;
       } else if(O2Status.Valid) {
-        state = 8;
+        state = 9;
       } else if(O2Status.Available && is_engine_running) {
         state = 3;
       }
       else {
         if(O2Status.Valid && need_reset_factor) {
-          state = 7;
+          state = 8;
         } else {
           state = 0;
         }
@@ -496,7 +500,7 @@ static int8_t O2_Loop(void)
         O2Status.Diag.Byte = diag ^ 0xFF;
         O2Status.Working = 1;
         if(O2Status.Valid) {
-          state = 8;
+          state = 9;
         }
         else if(force || is_engine_running) {
           state++;
@@ -507,12 +511,7 @@ static int8_t O2_Loop(void)
       }
       break;
     case 3 :
-      sens_get_engine_temperature(&engine_temperature);
-      if(force || engine_temperature > 30.0f) {
-        state++;
-      }
-      break;
-    case 4 :
+      O2_SetHeaterVoltage(1.5f);
       status = O2_Calibrate(factor);
       retvalue = 0;
       if(status) {
@@ -522,23 +521,26 @@ static int8_t O2_Loop(void)
         state++;
       }
       break;
-    case 5 :
-      if(!force && !is_engine_running) {
-        O2_SetHeaterVoltage(0.0f);
-        O2Status.Valid = 0;
-        state = 0;
-        break;
-      }
-      O2_SetHeaterVoltage(1.5f);
-      sens_get_engine_temperature(&engine_temperature);
+    case 4 :
       diff = DelayDiff(now, calibrate_timestamp);
-      if(diff > 15000000 ||
-          (engine_temperature > 75.0f && diff > 5000000) ||
-          (engine_temperature > 50.0f && diff > 8000000) ||
-          (engine_temperature > 30.0f && diff > 10000000) ||
-          (engine_temperature > 10.0f && diff > 12000000)) {
-        o2heater = 8.5f;
-        O2_SetHeaterVoltage(o2heater);
+      if(diff > 100000) {
+        O2Status.ReferenceVoltage = adc_get_voltage(AdcChO2UR);
+        offset_voltage = adc_get_voltage(AdcChO2UA);
+
+        ipLambda = math_interpolate_input(1.0f, o2_lambda, ITEMSOF(o2_lambda));
+        expected_voltage = math_interpolate_1d(ipLambda, o2_ua_voltage[factor]);
+
+        O2Status.OffsetVoltage = expected_voltage - offset_voltage;
+
+        state++;
+      }
+      break;
+    case 5 :
+      status = O2_Enable(factor);
+      retvalue = 0;
+      if(status) {
+        need_reset_factor = 0;
+        retvalue = 1;
         calibrate_timestamp = now;
         state++;
       }
@@ -550,9 +552,29 @@ static int8_t O2_Loop(void)
         state = 0;
         break;
       }
+      O2_SetHeaterVoltage(1.5f);
+      sens_get_engine_temperature(&engine_temperature);
+      diff = DelayDiff(now, calibrate_timestamp);
+      if(diff > 20000000 ||
+          (engine_temperature > 75.0f && diff > 5000000) ||
+          (engine_temperature > 50.0f && diff > 8000000) ||
+          (engine_temperature > 30.0f && diff > 12000000) ||
+          (engine_temperature > 10.0f && diff > 15000000)) {
+        o2heater = 8.5f;
+        O2_SetHeaterVoltage(o2heater);
+        calibrate_timestamp = now;
+        state++;
+      }
+      break;
+    case 7 :
+      if(!force && !is_engine_running) {
+        O2_SetHeaterVoltage(0.0f);
+        O2Status.Valid = 0;
+        state = 0;
+        break;
+      }
       if(o2heater >= 13.0f) {
         O2_SetHeaterVoltage(0);
-        O2Status.ReferenceVoltage = adc_get_voltage(AdcChO2UR);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         state++;
@@ -563,7 +585,7 @@ static int8_t O2_Loop(void)
         calibrate_timestamp = now;
       }
       break;
-    case 7 :
+    case 8 :
       status = O2_Enable(factor);
       retvalue = 0;
       if(status) {
@@ -572,7 +594,7 @@ static int8_t O2_Loop(void)
         state++;
       }
       break;
-    case 8 :
+    case 9 :
       O2Status.Valid = 1;
       state = 0;
       break;

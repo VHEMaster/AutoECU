@@ -559,7 +559,9 @@ static void ecu_update(void)
     }
     sens_get_o2_temperaturevoltage(&o2_data, &lambda_temperaturevoltage);
     sens_get_o2_heatervoltage(&o2_data, &lambda_heatervoltage);
-    fuel_ratio = lambda_value * table->fuel_afr;
+    if(o2_valid) {
+      fuel_ratio = lambda_value * table->fuel_afr;
+    }
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }

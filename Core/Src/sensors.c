@@ -145,7 +145,7 @@ INLINE HAL_StatusTypeDef sens_get_o2_labmda(const sO2Status *p_status, float *ou
   *output = p_status->Lambda;
   if(p_status->Available) {
     if(valid)
-      *valid =p_status->Valid && p_status->Working;
+      *valid = p_status->Valid && p_status->Working;
   } else {
     if(valid)
       *valid = 0;
