@@ -180,7 +180,7 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
   }
 }
 
-STATIC_INLINE void csps_handle(uint32_t timestamp)
+ITCM_FUNC void csps_handle(uint32_t timestamp)
 {
   static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
   static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
@@ -427,7 +427,7 @@ STATIC_INLINE void csps_handle(uint32_t timestamp)
     HAL_TIM_PWM_Start(htim, tim_channel);
 }
 
-INLINE float csps_getangle14(sCspsData data)
+ITCM_FUNC INLINE float csps_getangle14(sCspsData data)
 {
   static float angle_prev = 0;
   float angle, acur, aprev, mult, cur;
@@ -466,7 +466,7 @@ INLINE float csps_getangle14(sCspsData data)
   return angle;
 }
 
-INLINE float csps_getangle23from14(float angle)
+ITCM_FUNC INLINE float csps_getangle23from14(float angle)
 {
   if(!csps_rotates)
     return 0.0f;
@@ -476,7 +476,7 @@ INLINE float csps_getangle23from14(float angle)
   return angle;
 }
 
-INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
+ITCM_FUNC INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
 {
   uint8_t phased = csps_isphased(data);
   switch(cylinder) {
@@ -508,7 +508,7 @@ INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angl
   return angle;
 }
 
-float csps_getphasedangle(sCspsData data)
+ITCM_FUNC float csps_getphasedangle(sCspsData data)
 {
   static float angle_prev = 0;
   float angle, acur, aprev, mult, cur;
@@ -547,64 +547,64 @@ float csps_getphasedangle(sCspsData data)
   return angle;
 }
 
-INLINE float csps_getrpm(sCspsData data)
+ITCM_FUNC INLINE float csps_getrpm(sCspsData data)
 {
   return data.RPM;
 }
 
-INLINE float csps_getuspa(sCspsData data)
+ITCM_FUNC INLINE float csps_getuspa(sCspsData data)
 {
   return data.uSPA;
 }
 
-INLINE float csps_getperiod(sCspsData data)
+ITCM_FUNC INLINE float csps_getperiod(sCspsData data)
 {
   return data.Period;
 }
 
-uint8_t csps_isrunning(void)
+ITCM_FUNC INLINE uint8_t csps_isrunning(void)
 {
   return csps_running;
 }
 
-INLINE uint8_t csps_isrotates(void)
+ITCM_FUNC INLINE uint8_t csps_isrotates(void)
 {
   return csps_rotates;
 }
 
-INLINE uint8_t csps_isphased(sCspsData data)
+ITCM_FUNC INLINE uint8_t csps_isphased(sCspsData data)
 {
   return data.PhasedActive;
 }
 
-INLINE uint8_t csps_isfound(void)
+ITCM_FUNC INLINE uint8_t csps_isfound(void)
 {
   return csps_found;
 }
 
-INLINE uint8_t csps_iserror(void)
+ITCM_FUNC INLINE uint8_t csps_iserror(void)
 {
   return csps_errors > 5.0f;
 }
 
-INLINE uint32_t csps_gethalfturns(void)
+ITCM_FUNC INLINE uint32_t csps_gethalfturns(void)
 {
   return csps_halfturns;
 }
 
-INLINE uint32_t csps_getturns(void)
+ITCM_FUNC INLINE uint32_t csps_getturns(void)
 {
   return csps_turns;
 }
 
-INLINE sCspsData csps_data(void)
+ITCM_FUNC INLINE sCspsData csps_data(void)
 {
   if(csps_found)
 	  return *CspsDataPtr;
   return csps_data_empty;
 }
 
-INLINE float csps_gettspsrelpos(void)
+ITCM_FUNC INLINE float csps_gettspsrelpos(void)
 {
   if(csps_phased)
     return csps_tsps_rel_pos;

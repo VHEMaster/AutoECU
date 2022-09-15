@@ -96,7 +96,7 @@ void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi)
   }
 }
 
-void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
+ITCM_FUNC void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
 {
   static uint8_t McuChannel = 0;
   uint16_t data;
@@ -372,7 +372,7 @@ HAL_StatusTypeDef adc_register(eAdcChannel channel, uint8_t range, float divider
   return result;
 }
 
-HAL_StatusTypeDef adc_fast_loop(void)
+ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   static uint8_t state = 0;
@@ -492,7 +492,7 @@ HAL_StatusTypeDef adc_fast_loop(void)
   return result;
 }
 
-HAL_StatusTypeDef adc_slow_loop(void)
+ITCM_FUNC HAL_StatusTypeDef adc_slow_loop(void)
 {
   static HAL_StatusTypeDef result = HAL_OK;
   uint32_t data;

@@ -7,6 +7,7 @@
 
 #include "injector.h"
 #include "delay.h"
+#include "defines.h"
 #include <string.h>
 
 typedef struct {
@@ -51,7 +52,7 @@ HAL_StatusTypeDef injector_isenabled(eInjector injector, uint8_t *enabled)
   return HAL_OK;
 }
 
-inline HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
+ITCM_FUNC INLINE HAL_StatusTypeDef injector_enable(eInjector injector, uint32_t usec)
 {
   uint32_t psc;
   uint32_t now;

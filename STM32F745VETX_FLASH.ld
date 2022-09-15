@@ -46,6 +46,7 @@ MEMORY
 {
   RAM     (xrw)    : ORIGIN = 0x20000000,   LENGTH = 284K
   RAM_DMA (xrw)    : ORIGIN = 0x20047000,   LENGTH = 36K
+  ITCM     (rx)    : ORIGIN = 0x00000000,   LENGTH = 16K
   FLASH    (rx)    : ORIGIN = 0x00200000,   LENGTH = 512K
 }
 
@@ -139,8 +140,6 @@ SECTIONS
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
-    *(.RamFunc)        /* .RamFunc sections */
-    *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
@@ -178,6 +177,23 @@ SECTIONS
     _edma_bss = .;         /* define a global symbol at bss end */
     __dma_bss_end__ = _edma_bss;
   } >RAM_DMA
+
+  /* Initialized data sections into "RAM" Ram type memory */
+  _siitcm_func = LOADADDR(.itcm_func);
+  . = ALIGN(4);
+  .itcm_func :
+  {
+    . = ALIGN(4);
+    _sitcm_func = .;        /* create a global symbol at data start */
+    __itcm_func_start__ = _sitcm_func;
+    *(.itcm_func)        /* .itcm_func sections */
+    *(.itcm_func*)       /* .itcm_func* sections */
+
+    . = ALIGN(4);
+    _eitcm_func = .;        /* define a global symbol at data end */
+    __itcm_func_end__ = _eitcm_func;
+
+  } >ITCM AT> FLASH
 
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :
