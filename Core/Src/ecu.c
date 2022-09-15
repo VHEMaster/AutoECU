@@ -404,6 +404,7 @@ static void ecu_update(void)
   float ignition_angle;
   float ignition_time;
   float injector_lag;
+  float injector_lag_mult;
   float cycle_air_flow;
   float mass_air_flow;
   float injection_time;
@@ -769,6 +770,7 @@ static void ecu_update(void)
   }
 
   injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
+  injector_lag_mult = injector_lag * 1000.0f;
 
   ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
   ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
@@ -779,7 +781,6 @@ static void ecu_update(void)
   if(shift_processing && !cutoff_processing) {
     ignition_angle = gEcuParams.shiftAngle;
     wish_fuel_ratio = gEcuParams.shiftMixture;
-    ignition_time *= 3.0f;
   }
 
   if(cutoff_processing) {
@@ -824,11 +825,19 @@ static void ecu_update(void)
   injection_time *= short_term_correction + 1.0f;
 
   if(injection_time > 100.0f)
-    injection_time += injector_lag * 1000.0f;
+    injection_time += injector_lag_mult;
   else injection_time = 0;
 
-  if(gForceParameters.Enable.InjectionPulse)
+  if(gForceParameters.Enable.InjectionPulse) {
     injection_time = gForceParameters.InjectionPulse;
+    if(injection_time > injector_lag_mult) {
+      fuel_amount_per_cycle = (injection_time - injector_lag_mult) * fuel_flow_per_us;
+      wish_fuel_ratio = cycle_air_flow * 0.001f / fuel_amount_per_cycle;
+    } else {
+      fuel_amount_per_cycle = 0;
+      wish_fuel_ratio = 30.0f;
+    }
+  }
 
   if(Cutoff.FuelCutoff)
     injection_time = 0;
@@ -1067,8 +1076,7 @@ static void ecu_update(void)
         if(lpf_calculation > 0.1f)
           lpf_calculation = 0.1f;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK &&
-            o2_valid && !gForceParameters.Enable.InjectionPulse) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
@@ -1128,7 +1136,7 @@ static void ecu_update(void)
           corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
         }
       } else {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && !gForceParameters.Enable.InjectionPulse && o2_valid) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
           lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
