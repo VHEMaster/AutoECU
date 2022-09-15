@@ -489,6 +489,7 @@ static void ecu_update(void)
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
+  sO2Status o2_data = sens_get_o2_status();
 
   math_interpolate_2d_set_func_t corr_math_interpolate_2d_set_func = math_interpolate_2d_set;
   math_interpolate_2d_func_t corr_math_interpolate_2d_func = math_interpolate_2d;
@@ -552,12 +553,12 @@ static void ecu_update(void)
   lambda_temperaturevoltage = 0;
   lambda_heatervoltage = 0;
   if(gEcuParams.useLambdaSensor) {
-    gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&lambda_value, &o2_valid);
+    gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&o2_data, &lambda_value, &o2_valid);
     if(gStatus.Sensors.Struct.Lambda == HAL_OK) {
-      sens_get_o2_temperature(&lambda_temperature);
+      sens_get_o2_temperature(&o2_data, &lambda_temperature);
     }
-    sens_get_o2_temperaturevoltage(&lambda_temperaturevoltage);
-    sens_get_o2_heatervoltage(&lambda_heatervoltage);
+    sens_get_o2_temperaturevoltage(&o2_data, &lambda_temperaturevoltage);
+    sens_get_o2_heatervoltage(&o2_data, &lambda_heatervoltage);
     fuel_ratio = lambda_value * table->fuel_afr;
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
@@ -2793,6 +2794,7 @@ static void ecu_diagnostic_loop(void)
 {
   sOutputDiagnostic output_diagnostic;
   sO2Diagnostic o2_diagnostic;
+  sO2Status o2_status = sens_get_o2_status();
 
   if(outputs_get_diagnostic(&output_diagnostic) == HAL_OK) {
     gStatus.OutputStatus = HAL_OK;
@@ -2801,7 +2803,7 @@ static void ecu_diagnostic_loop(void)
     gStatus.OutputStatus = HAL_ERROR;
   }
 
-  if(sens_get_o2_diagnostic(&o2_diagnostic) == HAL_OK) {
+  if(sens_get_o2_diagnostic(&o2_status, &o2_diagnostic) == HAL_OK) {
     gStatus.O2Status = HAL_OK;
     gStatus.O2Diagnostic = o2_diagnostic;
   } else {

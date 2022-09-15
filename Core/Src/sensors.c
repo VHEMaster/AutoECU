@@ -128,14 +128,24 @@ static float getTemperatureByResistance_enginetemp(float resistance)
   return math_interpolate_1d(ipResistance, temperatures);
 }
 
-HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid)
+INLINE sO2Status sens_get_o2_status(void)
+{
+  sO2Status o2status = Misc_O2_GetStatus();
+
+  return o2status;
+}
+
+INLINE HAL_StatusTypeDef sens_get_o2_labmda(const sO2Status *p_status, float *output, uint8_t *valid)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.Lambda;
-  if(o2status.Available) {
+
+  if(!p_status)
+    return HAL_ERROR;
+
+  *output = p_status->Lambda;
+  if(p_status->Available) {
     if(valid)
-      *valid = o2status.Valid && o2status.Working;
+      *valid =p_status->Valid && p_status->Working;
   } else {
     if(valid)
       *valid = 0;
@@ -144,50 +154,62 @@ HAL_StatusTypeDef sens_get_o2_labmda(float *output, uint8_t *valid)
   return status;
 }
 
-HAL_StatusTypeDef sens_get_o2_temperature(float *output)
+INLINE HAL_StatusTypeDef sens_get_o2_temperature(const sO2Status *p_status, float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.Temperature;
-  if(!o2status.Available) {
+
+  if(!p_status)
+    return HAL_ERROR;
+
+  *output = p_status->Temperature;
+  if(!p_status->Available) {
     status = HAL_ERROR;
   }
   return status;
 }
 
-HAL_StatusTypeDef sens_get_o2_heatervoltage(float *output)
+INLINE HAL_StatusTypeDef sens_get_o2_heatervoltage(const sO2Status *p_status, float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.HeaterVoltage;
-  if(!o2status.Available) {
+
+  if(!p_status)
+    return HAL_ERROR;
+
+  *output = p_status->HeaterVoltage;
+  if(!p_status->Available) {
     status = HAL_ERROR;
   }
   return status;
 }
 
-HAL_StatusTypeDef sens_get_o2_temperaturevoltage(float *output)
+INLINE HAL_StatusTypeDef sens_get_o2_temperaturevoltage(const sO2Status *p_status, float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.TemperatureVoltage;
-  if(!o2status.Available) {
+
+  if(!p_status)
+    return HAL_ERROR;
+
+  *output = p_status->TemperatureVoltage;
+  if(!p_status->Available) {
     status = HAL_ERROR;
   }
   return status;
 }
 
-HAL_StatusTypeDef sens_get_o2_diagnostic(sO2Diagnostic *output)
+INLINE HAL_StatusTypeDef sens_get_o2_diagnostic(const sO2Status *p_status, sO2Diagnostic *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
-  sO2Status o2status = Misc_O2_GetStatus();
-  *output = o2status.Diag.Fields;
-  status = o2status.Available == 0 ? HAL_ERROR : HAL_OK;
+
+  if(!p_status)
+    return HAL_ERROR;
+
+  *output = p_status->Diag.Fields;
+  status = p_status->Available == 0 ? HAL_ERROR : HAL_OK;
 
   return status;
 }
 
-HAL_StatusTypeDef sens_get_adc_status(void)
+INLINE HAL_StatusTypeDef sens_get_adc_status(void)
 {
   return adc_get_status();
 }
