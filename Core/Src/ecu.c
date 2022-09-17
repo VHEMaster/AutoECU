@@ -316,8 +316,6 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
   sMathInterpolateInput ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
-  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
-  math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   if(isidle) {
     math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_p),
@@ -325,8 +323,8 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
     math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_p),
         math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_d));
   } else {
-    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_p), 0, 0);
-    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_p), 0, 0);
+    math_pid_set_koffs(&gPidIdleIgnition, 0, 0, 0);
+    math_pid_set_koffs(&gPidIdleAirFlow, 0, 0, 0);
   }
   math_pid_set_koffs(&gPidShortTermCorr, table->short_term_corr_pid_p, table->short_term_corr_pid_i, table->short_term_corr_pid_d);
 }
@@ -336,6 +334,10 @@ static void ecu_pid_init(void)
   math_pid_init(&gPidIdleIgnition);
   math_pid_init(&gPidIdleAirFlow);
   math_pid_init(&gPidShortTermCorr);
+
+  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
+  math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
+
   ecu_pid_update(0);
 }
 
@@ -637,11 +639,6 @@ static void ecu_update(void)
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
-  if(halfturns != prev_halfturns) {
-    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
-    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-  }
-
   if(!rotates)
   {
     for(int i = 0; i < ENRICHMENT_STATES_COUNT; i++)
@@ -868,15 +865,20 @@ static void ecu_update(void)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
   if(!running) {
+
+  if(running) {
+    idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
+    idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
+    idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+    math_pid_set_clamp(&gPidIdleAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
+    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+  } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
     idle_valve_pos_adaptation = 0;
     idle_valve_pos_correction = 0;
-  } else {
-    idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
-    idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
   }
 
-  idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
   idle_wish_valve_pos = idle_table_valve_pos;
 
   idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
