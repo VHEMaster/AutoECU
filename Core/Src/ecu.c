@@ -2322,10 +2322,10 @@ static void ecu_fan_process(void)
   GPIO_PinState force = sens_get_fan_force_switch(NULL);
   GPIO_PinState fan_pin_state = out_get_fan(NULL);
   GPIO_PinState switch_state = out_get_fan_switch(NULL);
-  GPIO_PinState starter_state = out_get_starter(NULL);
+  GPIO_PinState starter_state = GPIO_PIN_RESET;
 
-  GPIO_PinState out_fan_state = GPIO_PIN_RESET;
-  GPIO_PinState out_fan_sw_state = GPIO_PIN_RESET;
+  GPIO_PinState out_fan_state = fan_pin_state;
+  GPIO_PinState out_fan_sw_state = switch_state;
 
   temp_low = gEcuParams.fanLowTemperature;
   temp_mid = gEcuParams.fanMidTemperature;
