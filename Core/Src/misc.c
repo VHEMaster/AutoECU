@@ -82,10 +82,10 @@ static const uint32_t StepPos[4] = {
 #define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE   0.8f //in seconds
-#define STEP_MAX_SPEED_FROM_START_TO_END_NORMAL       1.2f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE    2.0f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE     1.0f //in seconds
 #define STEP_MAX_FREQ_ACCELERATE  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
-#define STEP_MAX_FREQ_NORMAL      ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_NORMAL * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
+#define STEP_MAX_FREQ_CALIBRATE      ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 #define STEP_ACC_TO_NORM_DELAY    (STEP_MAX_FREQ_ACCELERATE * 5.0f)
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
@@ -911,7 +911,7 @@ static void IdleValve_FastLoop(void)
           last_tick = now;
         } else {
 
-          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_NORMAL) {
+          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
             last_tick = now;
             STEP_DECREMENT();
             STEP_APPEND();
