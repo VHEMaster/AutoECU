@@ -7,7 +7,6 @@
 
 /* TODO: error handling
  * Lambda: No reaction on heater
- * Idle Valve: fix/handle error from HW
  */
 
 #include "main.h"
@@ -864,7 +863,8 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
 
-  if(!running) {
+  idle_valve_pos_adaptation = 0;
+  idle_valve_pos_correction = 0;
 
   if(running) {
     idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
@@ -875,8 +875,6 @@ static void ecu_update(void)
     idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
-    idle_valve_pos_adaptation = 0;
-    idle_valve_pos_correction = 0;
   }
 
   idle_wish_valve_pos = idle_table_valve_pos;
@@ -2324,6 +2322,10 @@ static void ecu_fan_process(void)
   GPIO_PinState force = sens_get_fan_force_switch(NULL);
   GPIO_PinState fan_pin_state = out_get_fan(NULL);
   GPIO_PinState switch_state = out_get_fan_switch(NULL);
+  GPIO_PinState starter_state = out_get_starter(NULL);
+
+  GPIO_PinState out_fan_state = GPIO_PIN_RESET;
+  GPIO_PinState out_fan_sw_state = GPIO_PIN_RESET;
 
   temp_low = gEcuParams.fanLowTemperature;
   temp_mid = gEcuParams.fanMidTemperature;
@@ -2337,8 +2339,8 @@ static void ecu_fan_process(void)
     } else if(!fan_pin_state && !switch_state) {
       fan_state = 0;
     } else {
-      out_set_fan(GPIO_PIN_SET);
-      out_set_fan_switch(GPIO_PIN_SET);
+      out_fan_state = GPIO_PIN_SET;
+      out_fan_sw_state = GPIO_PIN_SET;
       fan_state = 2;
       return;
     }
@@ -2347,31 +2349,39 @@ static void ecu_fan_process(void)
   status = sens_get_engine_temperature(&engine_temp);
 
   if(force_enabled) {
-    out_set_fan(gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    out_set_fan_switch(gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    out_fan_sw_state = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
   } else if(status != HAL_OK || force == GPIO_PIN_SET) {
-    out_set_fan(GPIO_PIN_SET);
-    out_set_fan_switch(GPIO_PIN_SET);
+    out_fan_state  = GPIO_PIN_SET;
+    out_fan_sw_state = GPIO_PIN_SET;
     fan_state = 2;
   } else if(fan_state == 0) {
     if(engine_temp > temp_mid) {
-      out_set_fan(GPIO_PIN_SET);
-      out_set_fan_switch(GPIO_PIN_RESET);
+      out_fan_state = GPIO_PIN_SET;
+      out_fan_sw_state = GPIO_PIN_RESET;
     }
   } else if(fan_state == 1) {
     if(engine_temp > temp_high) {
-      out_set_fan(GPIO_PIN_SET);
-      out_set_fan_switch(GPIO_PIN_SET);
+      out_fan_state = GPIO_PIN_SET;
+      out_fan_sw_state = GPIO_PIN_SET;
     } else if(engine_temp < temp_low) {
-      out_set_fan(GPIO_PIN_RESET);
-      out_set_fan_switch(GPIO_PIN_RESET);
+      out_fan_state = GPIO_PIN_RESET;
+      out_fan_sw_state = GPIO_PIN_RESET;
     }
   } else if(fan_state == 2) {
     if(engine_temp < temp_mid) {
-      out_set_fan(GPIO_PIN_SET);
-      out_set_fan_switch(GPIO_PIN_RESET);
+      out_fan_state = GPIO_PIN_SET;
+      out_fan_sw_state = GPIO_PIN_RESET;
     }
   }
+
+  if(starter_state == GPIO_PIN_SET) {
+    out_fan_state = GPIO_PIN_RESET;
+    out_fan_sw_state = GPIO_PIN_RESET;
+  }
+
+  out_set_fan(out_fan_state);
+  out_set_fan_switch(out_fan_sw_state);
 }
 
 #define CHECK_STATUS(iserror, cod, link) \
