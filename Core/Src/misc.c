@@ -54,8 +54,8 @@ static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
     { 0.015f, 0.050f, 0.192f, 0.525f, 0.658f, 0.814f, 1.074f, 1.307f, 1.388f, 1.458f, 1.5f, 1.515f, 1.602f, 1.703f, 1.763f, 1.846f, 2.206f, 2.487f, 2.71f, 2.958f, 3.289f, 3.605f, 3.762f, 3.868f }
 };
 
-static const float o2_ur_voltage[15] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f, 4.06f };
-static const float o2_temperature[15] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630, 20 };
+static const float o2_ur_voltage[15] = { 0.441f, 0.466f, 0.490f, 0.515f, 0.539f, 0.784f, 1.029f, 1.273f, 1.518f, 1.763f, 2.008f, 2.253f, 2.498f, 2.743f, 4.10f };
+static const float o2_temperature[15] = { 1180, 1108, 1056, 1021, 992, 847, 780, 739, 710, 689, 670, 653, 640, 630, 0 };
 
 static volatile uint32_t StepPhase = 0;
 
@@ -75,8 +75,11 @@ static const uint32_t StepPos[4] = {
 //Works for STEP_I0_GPIO_Port == STEP_I1_GPIO_Port
 #define STEP_IDLE() { IdleValveStepMode = 0; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = (STEP_I0_Pin | STEP_I1_Pin) << 16; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
 //#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin | (STEP_I1_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin << 16; } }
-#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
-#define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
+//#define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | (STEP_I0_Pin << 16); } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin << 16; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
+//#define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
+
+#define STEP_HOLD() { IdleValveStepMode = 1; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
+#define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
 #define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE   0.8f //in seconds
@@ -361,8 +364,8 @@ static float O2_GetTemperature(float voltage)
 
   sMathInterpolateInput ipVoltage = math_interpolate_input(voltage, o2_ur_voltage, ITEMSOF(o2_ur_voltage));
   temperature = math_interpolate_1d(ipVoltage, o2_temperature);
-  if(temperature < 100)
-    temperature = 100.0f;
+  if(temperature < 0)
+    temperature = 0.0f;
 
   return temperature;
 }
