@@ -26,7 +26,7 @@ static const float default_pressures[TABLE_PRESSURES_MAX] = {
 
 static const float default_rotates[TABLE_ROTATES_MAX] = {
     600, 740, 870, 1050, 1250, 1490, 1800, 2150,
-    2560, 3040, 3590, 4310, 5100, 6600, 7190, 8500
+    2560, 3040, 3590, 4310, 5100, 6060, 7190, 8500
 };
 
 static const float default_throttles[TABLE_THROTTLES_MAX] = {
