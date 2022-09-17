@@ -316,7 +316,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
   sMathInterpolateInput ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
-  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX / 3, IDLE_VALVE_POS_MAX);
+  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   if(isidle) {
@@ -637,12 +637,9 @@ static void ecu_update(void)
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
-  if(running) {
+  if(halfturns != prev_halfturns) {
     idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
     idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-  } else {
-	  math_pid_reset(&gPidIdleAirFlow);
-	  math_pid_reset(&gPidIdleIgnition);
   }
 
   if(!rotates)
@@ -869,20 +866,21 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
-  idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
+
   if(!running) {
+    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
     idle_valve_pos_adaptation = 0;
     idle_valve_pos_correction = 0;
   } else {
+    idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
     idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
   }
 
+  idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
+  idle_wish_valve_pos = idle_table_valve_pos;
+
   idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
   econ_flag = gEcuParams.isEconEnabled && idle_flag && rpm > idle_reg_rpm;
-
-  if(idle_corr_flag)
-	  idle_table_valve_pos += idle_valve_pos_correction;
-  idle_wish_valve_pos = idle_table_valve_pos;
 
   ecu_pid_update(idle_corr_flag);
 
@@ -890,9 +888,11 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
   if(!idle_corr_flag) {
+    idle_valve_pos_correction = 0;
     idle_angle_correction = 0;
   }
 
+  idle_wish_valve_pos += idle_valve_pos_correction;
   ignition_angle += idle_angle_correction;
 
   if(gForceParameters.Enable.IgnitionAngle)
@@ -902,6 +902,7 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.WishIdleValvePosition) {
     math_pid_reset(&gPidIdleAirFlow);
+    idle_valve_pos_correction = 0;
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
 
@@ -2869,22 +2870,24 @@ static void ecu_corrections_loop(void)
 static void ecu_ign_process(void)
 {
   static uint32_t tick_ready = 0;
-  static uint32_t state_ign_off_time = 0;
   static uint8_t shutdown_process = 0;
   int8_t status;
   GPIO_PinState state;
   uint32_t now = Delay_Tick;
+  uint32_t time;
 
-  state = sens_get_ign(NULL);
+  state = sens_get_ign(&time);
+#ifdef DEBUG
+  //state = GPIO_PIN_SET;
+#endif
 
   if(state == GPIO_PIN_SET) {
     gIgnShutdownReady = 0;
     gIgnCanShutdown = 0;
     gIgnState = GPIO_PIN_SET;
-    state_ign_off_time = now;
     out_set_ign(GPIO_PIN_SET);
   }
-  else if(!gIgnCanShutdown && DelayDiff(now, state_ign_off_time) >= 100000) {
+  else if(!gIgnCanShutdown && time >= 100000) {
     gIgnState = GPIO_PIN_RESET;
     gIgnCanShutdown = 1;
 
