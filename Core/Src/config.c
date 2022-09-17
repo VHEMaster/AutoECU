@@ -346,8 +346,8 @@ static const float default_idle_valve_to_massair_pid_i[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_MAX] = {
-    0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f,
-    0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f
+    0.060f, 0.060f, 0.050f, 0.040f, 0.030f, 0.020f, 0.010f, 0.005f,
+    0.003f, 0.002f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f, 0.001f
 };
 
 static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
@@ -380,7 +380,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   //Bosch 0280156095 - 315 cc/min
   //BMW 03762FA - 180 cc/min
-  table->injector_performance = 315.0f;
+  table->injector_performance = 130.0f;
 
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 0;
