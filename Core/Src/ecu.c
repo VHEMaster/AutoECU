@@ -484,6 +484,7 @@ static void ecu_update(void)
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
+  uint8_t throttle_idle_flag;
   uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
   uint8_t use_tsps = gEcuParams.useTSPS;
@@ -589,7 +590,8 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  idle_flag = throttle < 1.0f && running;
+  throttle_idle_flag = throttle < 1.0f;
+  idle_flag = throttle_idle_flag && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     wish_fault_rpm = 1400.0f;
@@ -797,20 +799,42 @@ static void ecu_update(void)
     lambda_value = wish_fuel_ratio / table->fuel_afr;
   }
 
+  idle_wish_rpm += idle_rpm_shift;
+
+  if(gForceParameters.Enable.WishIdleRPM)
+    idle_wish_rpm = gForceParameters.WishIdleRPM;
+
+  if(idle_wish_rpm < wish_fault_rpm) {
+    idle_wish_rpm = wish_fault_rpm;
+    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
+  }
+
+  idle_rpm_pid_act = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act);
+  idle_reg_rpm = idle_wish_rpm * (idle_rpm_pid_act + 1.0f);
+
+  idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
+  econ_flag = idle_flag && rpm > idle_reg_rpm;
+
+  if(gForceParameters.Enable.WishIdleMassAirFlow)
+    idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
+
   if(!running || !gEcuParams.useLambdaSensor || !o2_valid) {
     short_term_correction = 0.0f;
     math_pid_reset(&gPidShortTermCorr);
-  } else {
-    for(int i = 0; i < halfturns_performed; i++) {
-      short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
-    }
-    if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse && !cutoff_processing && !shift_processing) {
+  } else if(!econ_flag && !cutoff_processing && !shift_processing) {
+    if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse) {
+      for(int i = 0; i < halfturns_performed; i++) {
+        short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
+      }
       short_term_correction = -short_term_correction_pid;
     } else {
       math_pid_reset(&gPidShortTermCorr);
       short_term_correction = 0;
     }
+
   }
+
+  econ_flag = econ_flag && gEcuParams.isEconEnabled;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
@@ -847,22 +871,6 @@ static void ecu_update(void)
     injection_time = 0;
   }
 
-  idle_wish_rpm += idle_rpm_shift;
-
-  if(gForceParameters.Enable.WishIdleRPM)
-    idle_wish_rpm = gForceParameters.WishIdleRPM;
-
-  if(idle_wish_rpm < wish_fault_rpm) {
-    idle_wish_rpm = wish_fault_rpm;
-    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
-  }
-
-  idle_rpm_pid_act = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act);
-  idle_reg_rpm = idle_wish_rpm * (idle_rpm_pid_act + 1.0f);
-
-  if(gForceParameters.Enable.WishIdleMassAirFlow)
-    idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
-
   idle_valve_pos_adaptation = 0;
   idle_valve_pos_correction = 0;
 
@@ -878,9 +886,6 @@ static void ecu_update(void)
   }
 
   idle_wish_valve_pos = idle_table_valve_pos;
-
-  idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
-  econ_flag = gEcuParams.isEconEnabled && idle_flag && rpm > idle_reg_rpm;
 
   ecu_pid_update(idle_corr_flag);
 
@@ -1071,7 +1076,7 @@ static void ecu_update(void)
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
 
-  if(adapt_diff >= period * 0.5f) {
+  if(adapt_diff >= period * 0.5) {
     adaptation_last = now;
     if(running) {
       if(calibration && corr_math_interpolate_2d_set_func) {
@@ -1140,13 +1145,13 @@ static void ecu_update(void)
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
-          lpf_calculation = adapt_diff * 0.000001f * 0.016666667f;
+          lpf_calculation = adapt_diff * 0.000001f * 0.03333333f; //30 sec
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
-            if(!idle_flag && throttle > 10.0f) {
+            if(!idle_flag && throttle > 5.0f) {
               gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
             }
-            else if(idle_flag || throttle < 5.0f) {
+            else if(idle_flag || throttle < 2.0f) {
               gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
             }
           } else {
