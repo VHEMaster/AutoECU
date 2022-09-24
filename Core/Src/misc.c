@@ -85,7 +85,7 @@ static const uint32_t StepPos[4] = {
 #define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE    2.0f //in seconds
 #define STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE     1.0f //in seconds
 #define STEP_MAX_FREQ_ACCELERATE  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
-#define STEP_MAX_FREQ_CALIBRATE      ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
+#define STEP_MAX_FREQ_CALIBRATE   ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 #define STEP_ACC_TO_NORM_DELAY    (STEP_MAX_FREQ_ACCELERATE * 5.0f)
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
@@ -140,6 +140,7 @@ static volatile uint8_t IdleValvePositionCurrent = 0;
 static volatile uint8_t IdleValvePositionTarget = 0;
 static volatile uint8_t IdleValveCalibratedOk = 0;
 static volatile uint8_t IdleValveCalibrate = 0;
+static volatile uint8_t IdleValveResetPosition = 0;
 static volatile uint8_t IdleValveEnabled = 0;
 
 volatile uint8_t nss_o2_off = 0;
@@ -784,7 +785,7 @@ INLINE void Misc_SetIdleValvePosition(uint8_t position)
   IdleValvePositionTarget = position;
 }
 
-INLINE int8_t Misc_ResetIdleValve(void)
+INLINE int8_t Misc_ResetIdleValve(uint8_t reset_position)
 {
   static uint32_t calibrate_time = 0;
   static uint8_t state = 0;
@@ -792,6 +793,7 @@ INLINE int8_t Misc_ResetIdleValve(void)
 
   switch(state) {
     case 0:
+      IdleValveResetPosition = reset_position;
       IdleValveCalibratedOk = 0;
       IdleValveCalibrate = 1;
       calibrate_time = now;
@@ -804,7 +806,7 @@ INLINE int8_t Misc_ResetIdleValve(void)
         state = 0;
         return 1;
       } else {
-        if(DelayDiff(now, calibrate_time) > 3000000) {
+        if(DelayDiff(now, calibrate_time) > STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 3) {
           state = 0;
           IdleValveCalibrate = 0;
           IdleValveCalibratedOk = 0;
@@ -859,7 +861,7 @@ static void IdleValve_FastLoop(void)
   static uint8_t mode_prev = 1;
 
   if(IdleValveEnabled) {
-    if(IdleValveCalibrate == IdleValveCalibratedOk || !IdleValveCalibrate) {
+    if(!!IdleValveCalibrate == !!IdleValveCalibratedOk || !IdleValveCalibrate) {
       is_calibrating = 0;
       calibration_steps = 0;
       if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_ACCELERATE) {
@@ -899,34 +901,48 @@ static void IdleValve_FastLoop(void)
           }
         }
       }
-    } else {
-      if(IdleValveCalibrate) {
-        if(!is_calibrating) {
-          is_calibrating = 1;
-          calibration_steps = 0;
-          IdleValvePositionCurrent = 0;
-          //STEP_ACCELERATE();
-          STEP_NORMAL();
-          mode = mode_prev = 2;
-          last_tick = now;
-        } else {
-
+    } else if(IdleValveCalibrate) {
+      if(!is_calibrating) {
+        is_calibrating = 1;
+        calibration_steps = 0;
+        IdleValvePositionCurrent = 0;
+        //STEP_ACCELERATE();
+        STEP_NORMAL();
+        mode = mode_prev = 2;
+        last_tick = now;
+      } else {
+        if(IdleValveCalibrate == 1) {
           if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
             last_tick = now;
             STEP_DECREMENT();
             STEP_APPEND();
 
             if(++calibration_steps >= IDLE_VALVE_POS_MAX && StepPhase == 0) {
+              calibration_steps = 0;
+              IdleValveCalibrate = 2;
+              IdleValvePositionCurrent = 0;
+              STEP_NORMAL();
+            }
+          }
+        } else if(IdleValveCalibrate == 2) {
+          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
+            last_tick = now;
+            STEP_INCREMENT();
+            STEP_APPEND();
+
+            if(++calibration_steps >= IdleValveResetPosition) {
               is_calibrating = 0;
               calibration_steps = 0;
-              IdleValvePositionCurrent = 0;
               mode = mode_prev = 2;
               STEP_NORMAL();
               last_move = now;
               last_tick = now;
               IdleValveCalibratedOk = 1;
             }
+            IdleValvePositionCurrent = calibration_steps;
           }
+        } else {
+          IdleValveCalibrate = 1;
         }
       }
     }

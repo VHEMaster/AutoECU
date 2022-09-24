@@ -38,7 +38,7 @@ GPIO_PinState out_get_ign(uint32_t *time);
 void out_set_idle_valve(int32_t position);
 uint8_t out_get_idle_valve(void);
 uint8_t out_is_idle_valve_moving(void);
-int8_t out_reset_idle_valve(void);
+int8_t out_reset_idle_valve(uint32_t reset_position);
 void out_enable_idle_valve(uint32_t enablement_position);
 
 HAL_StatusTypeDef outputs_get_diagnostic(sOutputDiagnostic *diagnostic);

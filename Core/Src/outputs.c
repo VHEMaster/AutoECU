@@ -179,9 +179,9 @@ inline uint8_t out_is_idle_valve_moving(void)
   return Misc_IsIdleValveMoving();
 }
 
-inline int8_t out_reset_idle_valve(void)
+inline int8_t out_reset_idle_valve(uint32_t reset_position)
 {
-  return Misc_ResetIdleValve();
+  return Misc_ResetIdleValve(reset_position);
 }
 
 inline void out_enable_idle_valve(uint32_t enablement_position)

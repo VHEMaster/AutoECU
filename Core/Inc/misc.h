@@ -71,7 +71,7 @@ uint8_t Misc_IsIdleValveMoving(void);
 void Misc_SetIdleValvePosition(uint8_t position);
 HAL_StatusTypeDef Misc_GetIdleValveStatus(void);
 void Misc_EnableIdleValvePosition(uint8_t enablement_position);
-int8_t Misc_ResetIdleValve(void);
+int8_t Misc_ResetIdleValve(uint8_t reset_position);
 
 void Misc_Fast_Loop(void);
 void Misc_Loop(void);

@@ -38,6 +38,8 @@
 #include "arm_math.h"
 #include "math_fast.h"
 
+#define DEFAULT_IDLE_VALVE_POSITION 100
+
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
@@ -930,9 +932,7 @@ static void ecu_update(void)
   else if(idle_wish_valve_pos < 0.0f)
     idle_wish_valve_pos = 0.0f;
 
-  if(!gIgnCanShutdown)
-    out_set_idle_valve(roundf(idle_wish_valve_pos));
-  else out_set_idle_valve(0);
+  out_set_idle_valve(roundf(idle_wish_valve_pos));
 
   gStatus.Knock.Voltage = 0.0f;
   gStatus.Knock.Filtered = 0.0f;
@@ -1380,7 +1380,7 @@ static void ecu_update(void)
 
 static void ecu_init_post_init(void)
 {
-  Misc_EnableIdleValvePosition(0);
+  out_enable_idle_valve(DEFAULT_IDLE_VALVE_POSITION);
 }
 
 static void ecu_backup_save_process(void)
@@ -2969,7 +2969,7 @@ static int8_t ecu_shutdown_process(void)
       }
       break;
     case 2:
-      status = out_reset_idle_valve();
+      status = out_reset_idle_valve(DEFAULT_IDLE_VALVE_POSITION);
       if(status) {
     	  stage++;
       }
