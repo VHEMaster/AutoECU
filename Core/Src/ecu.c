@@ -2338,6 +2338,18 @@ static void ecu_fan_process(void)
   GPIO_PinState out_fan_state = fan_pin_state;
   GPIO_PinState out_fan_sw_state = switch_state;
 
+  uint8_t running = csps_isrunning();
+  static uint32_t running_last = 0;
+  uint32_t now = Delay_Tick;
+
+  if(running) {
+    running_last = !now ? 1 : now;
+  }
+
+  if(running_last > 0 && DelayDiff(now, running_last) > 3000000) {
+    running_last = 0;
+  }
+
   temp_low = gEcuParams.fanLowTemperature;
   temp_mid = gEcuParams.fanMidTemperature;
   temp_high = gEcuParams.fanHighTemperature;
@@ -2362,6 +2374,9 @@ static void ecu_fan_process(void)
   if(force_enabled) {
     out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
     out_fan_sw_state = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+  } else if(!running_last || starter_state == GPIO_PIN_SET) {
+    out_fan_state = GPIO_PIN_RESET;
+    out_fan_sw_state = GPIO_PIN_RESET;
   } else if(status != HAL_OK || force == GPIO_PIN_SET) {
     out_fan_state  = GPIO_PIN_SET;
     out_fan_sw_state = GPIO_PIN_SET;
@@ -2384,11 +2399,6 @@ static void ecu_fan_process(void)
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state = GPIO_PIN_RESET;
     }
-  }
-
-  if(starter_state == GPIO_PIN_SET) {
-    out_fan_state = GPIO_PIN_RESET;
-    out_fan_sw_state = GPIO_PIN_RESET;
   }
 
   out_set_fan(out_fan_state);
