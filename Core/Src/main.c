@@ -384,6 +384,8 @@ int main(void)
   __HAL_DBGMCU_FREEZE_TIM5();
   __HAL_DBGMCU_FREEZE_IWDG();
 
+  __HAL_DBGMCU_UNFREEZE_TIM9();
+
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_BKPSRAM_CLK_ENABLE();
   HAL_PWREx_EnableBkUpReg();
