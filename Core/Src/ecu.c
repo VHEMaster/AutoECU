@@ -2347,6 +2347,7 @@ static void ecu_fan_process(void)
   GPIO_PinState out_fan_sw_state = switch_state;
 
   uint8_t running = csps_isrunning();
+  uint8_t rotates = csps_isrotates();
   static uint32_t running_last = 0;
   uint32_t now = Delay_Tick;
 
@@ -2382,7 +2383,7 @@ static void ecu_fan_process(void)
   if(force_enabled) {
     out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
     out_fan_sw_state = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
-  } else if(!running_last || starter_state == GPIO_PIN_SET) {
+  } else if((!running && rotates) || !running_last || starter_state == GPIO_PIN_SET) {
     out_fan_state = GPIO_PIN_RESET;
     out_fan_sw_state = GPIO_PIN_RESET;
   } else if(status != HAL_OK || force == GPIO_PIN_SET) {
