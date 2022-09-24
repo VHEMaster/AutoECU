@@ -382,6 +382,7 @@ static void ecu_update(void)
   sMathInterpolateInput ipEnrichmentThr = {0};
 
   static uint32_t short_term_last = 0;
+  static uint32_t rotates_last = 0;
 
   float rpm;
   float pressure;
@@ -497,6 +498,8 @@ static void ecu_update(void)
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
 
+  idle_valve_position = out_get_idle_valve();
+
   math_interpolate_2d_set_func_t corr_math_interpolate_2d_set_func = math_interpolate_2d_set;
   math_interpolate_2d_func_t corr_math_interpolate_2d_func = math_interpolate_2d;
 
@@ -522,6 +525,9 @@ static void ecu_update(void)
   acceleration = speed_getacceleration();
   knock_status = Knock_GetStatus();
 
+  if(rotates)
+    rotates_last = now;
+
 #ifdef SIMULATION
   pressure = gDebugMap;
   air_temp = gDebugAirTemp;
@@ -538,6 +544,10 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
 
+  if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
+    if(pressure < 70000 && idle_valve_position > 10)
+      gStatus.Sensors.Struct.Map = HAL_ERROR;
+  }
 
   if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
     pressure = gParametersMapAcceptValue;
@@ -1178,8 +1188,6 @@ static void ecu_update(void)
     gEcuCorrections.idle_correction = 0.25f;
   if(gEcuCorrections.idle_correction < -0.25f)
     gEcuCorrections.idle_correction = -0.25f;
-
-  idle_valve_position = out_get_idle_valve();
 
   gEcuCriticalBackup.idle_valve_position = idle_valve_position;
 
@@ -1854,7 +1862,7 @@ ITCM_FUNC void ecu_process(void)
   memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
 #ifndef SIMULATION
-  map_status = sens_get_map_unfiltered(&pressure);
+  map_status = sens_get_map(&pressure);
 #else
   pressure = gDebugMap;
 #endif

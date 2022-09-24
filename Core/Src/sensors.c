@@ -101,7 +101,7 @@ inline GPIO_PinState sens_get_ign(uint32_t *time)
 
 STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
 {
-  if(map >= ref * 0.97f)
+  if(map >= ref * 0.98f || map < ref * 0.01f)
     return HAL_ERROR;
 
   *pressure = map * 19000.0f + 10000.0f;
