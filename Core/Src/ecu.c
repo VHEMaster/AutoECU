@@ -379,6 +379,8 @@ static void ecu_update(void)
   sMathInterpolateInput ipEnrichmentMap = {0};
   sMathInterpolateInput ipEnrichmentThr = {0};
 
+  static uint32_t short_term_last = 0;
+
   float rpm;
   float pressure;
   float fuel_ratio;
@@ -823,10 +825,14 @@ static void ecu_update(void)
     math_pid_reset(&gPidShortTermCorr);
   } else if(!econ_flag && !cutoff_processing && !shift_processing) {
     if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse) {
-      for(int i = 0; i < halfturns_performed; i++) {
-        short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, 1000);
+      if(halfturns_performed) {
+		  for(int i = 0; i < halfturns_performed; i++) {
+			short_term_last += 1000;
+			short_term_last &= DelayMask;
+			short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, short_term_last);
+		  }
+		  short_term_correction = -short_term_correction_pid;
       }
-      short_term_correction = -short_term_correction_pid;
     } else {
       math_pid_reset(&gPidShortTermCorr);
       short_term_correction = 0;
