@@ -112,8 +112,8 @@ STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, f
 static float getTemperatureByResistance_airtemp(float resistance)
 {
   //More here: http://www.vems.hu/wiki/index.php?page=EasyTherm%2FSensorTable
-  const static float resistances[31] = {46.88f,57.41f,71.20f,89.30f,112.7f,144.2f,186.6f,243.2f,322.5f,435.7f,595.5f,702.8f,833.9f,987.6f,1175,1412,1707,2057,2500,3069,3792,4712,5896,7415,9397,12002,15462,20003,26114,34281,45313};
-  const static float temperatures[31] = {160,150,140,130,120,110,100,90,80,70,60,55,50,45,40,35,30,25,20,15,10,5,0,-5,-10,-15,-20,-25,-30,-35,-40};
+  const static float resistances[28] = {89.30f,112.7f,144.2f,186.6f,243.2f,322.5f,435.7f,595.5f,702.8f,833.9f,987.6f,1175,1412,1707,2057,2500,3069,3792,4712,5896,7415,9397,12002,15462,20003,26114,34281,45313};
+  const static float temperatures[28] = {130,120,110,100,90,80,70,60,55,50,45,40,35,30,25,20,15,10,5,0,-5,-10,-15,-20,-25,-30,-35,-40};
   sMathInterpolateInput ipResistance = math_interpolate_input(resistance, resistances, ITEMSOF(resistances));
 
   return math_interpolate_1d(ipResistance, temperatures);
