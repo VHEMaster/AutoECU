@@ -152,6 +152,16 @@ union {
         uint8_t byte[4];
     } Bytes;
 } gDiagErrors;
+
+struct {
+    volatile uint32_t RequestFillLast;
+    volatile float MapAcceptValue;
+    volatile uint32_t MapAcceptLast;
+
+    float EnrichmentMapAccept;
+    float EnrichmentThrAccept;
+}gLocalParams;
+
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -186,13 +196,6 @@ static sMathPid gPidShortTermCorr = {0};
 
 static const float gKnockDetectStartAngle = -100;
 static const float gKnockDetectEndAngle = 70;
-
-static volatile uint32_t gParametersRequestFillLast = 0;
-static volatile float gParametersMapAcceptValue = 103000.0f;
-static volatile uint32_t gParametersMapAcceptLast = 0;
-
-static float gParametersEnrichmentMapAccept = 0;
-static float gParametersEnrichmentThrAccept = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -363,7 +366,7 @@ static void ecu_update(void)
   static uint32_t updated_last = 0;
   static float idle_angle_correction = 0;
   static float idle_valve_pos_correction = 0;
-  uint32_t params_map_accept_last = gParametersMapAcceptLast;
+  uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
@@ -564,10 +567,10 @@ static void ecu_update(void)
   }
 
   if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
-    pressure = gParametersMapAcceptValue;
+    pressure = gLocalParams.MapAcceptValue;
   } else {
-    gParametersMapAcceptValue = pressure;
-    gParametersMapAcceptLast = now;
+    gLocalParams.MapAcceptValue = pressure;
+    gLocalParams.MapAcceptLast = now;
   }
 
   tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
@@ -704,7 +707,7 @@ static void ecu_update(void)
             enrichment_map_accept = enrichment_map_diff;
             enrichment_status_map = enrichment_map_value;
 
-            gParametersEnrichmentMapAccept = enrichment_map_accept;
+            gLocalParams.EnrichmentMapAccept = enrichment_map_accept;
           }
         } else {
           //TODO: do we really need to abort enrichment here?
@@ -734,7 +737,7 @@ static void ecu_update(void)
             enrichment_thr_accept = enrichment_thr_diff;
             enrichment_status_thr = enrichment_thr_value;
 
-            gParametersEnrichmentThrAccept = enrichment_thr_accept;
+            gLocalParams.EnrichmentThrAccept = enrichment_thr_accept;
           }
         } else {
           //TODO: do we really need to abort enrichment here?
@@ -1013,12 +1016,12 @@ static void ecu_update(void)
   if(enrichment_status < enrichment)
     enrichment_status = enrichment;
 
-  if(gParametersRequestFillLast == 0 || DelayDiff(now, gParametersRequestFillLast) > 500000) {
+  if(gLocalParams.RequestFillLast == 0 || DelayDiff(now, gLocalParams.RequestFillLast) > 500000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
     enrichment_status = enrichment;
-    gParametersRequestFillLast = now;
+    gLocalParams.RequestFillLast = now;
   }
 
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -2264,8 +2267,8 @@ ITCM_FUNC void ecu_process(void)
               ignition_ignite_time[i] = now;
 
               if(map_status == HAL_OK) {
-                gParametersMapAcceptValue = pressure;
-                gParametersMapAcceptLast = now;
+                gLocalParams.MapAcceptValue = pressure;
+                gLocalParams.MapAcceptLast = now;
               }
             }
           }
@@ -3445,6 +3448,8 @@ static void ecu_battery_charge_process(void)
 
 void ecu_init(void)
 {
+
+
   ecu_config_init();
 
   ecu_set_table(gEcuParams.startupTableNumber);
@@ -3459,7 +3464,9 @@ void ecu_init(void)
 
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
+  memset(&gLocalParams, 0, sizeof(gLocalParams));
 
+  gLocalParams.MapAcceptValue = 103000.0f;
   gParameters.StartAllowed = 1;
   gEcuInitialized = 1;
 
@@ -3931,7 +3938,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     case PK_ParametersRequestID :
       //PK_Copy(&PK_ParametersRequest, msgBuf);
       PK_ParametersResponse.Parameters = gParameters;
-      gParametersRequestFillLast = 0;
+      gLocalParams.RequestFillLast = 0;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
       break;
 
@@ -4012,7 +4019,7 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
 
         if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
             OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
-          gParametersRequestFillLast = 0;
+          gLocalParams.RequestFillLast = 0;
         }
       }
     }
