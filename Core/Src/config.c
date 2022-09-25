@@ -137,23 +137,23 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
-    0.000f, 0.100f, 0.200f, 0.300f, 0.380f, 0.450f, 0.500f, 0.550f,
-    0.600f, 0.650f, 0.700f, 0.750f, 0.800f, 0.850f, 0.900f, 0.950f
+    0.000f, 0.100f, 0.200f, 0.300f, 0.400f, 0.500f, 0.600f, 0.700f,
+    0.800f, 0.900f, 1.000f, 1.100f, 1.200f, 1.300f, 1.400f, 1.500f
 };
 
 static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
-    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
-    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f
+    0.400f, 0.400f, 0.400f, 0.370f, 0.340f, 0.310f, 0.290f, 0.270f,
+    0.260f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f
 };
 
 static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
-    0.000f, 0.100f, 0.150f, 0.200f, 0.250f, 0.300f, 0.350f, 0.400f,
-    0.450f, 0.500f, 0.550f, 0.600f, 0.650f, 0.700f, 0.750f, 0.800f
+    0.000f, 0.100f, 0.200f, 0.300f, 0.400f, 0.500f, 0.600f, 0.700f,
+    0.800f, 0.900f, 1.000f, 1.100f, 1.200f, 1.300f, 1.400f, 1.500f
 };
 
 static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
-    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
-    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f
+    0.400f, 0.400f, 0.400f, 0.370f, 0.340f, 0.310f, 0.290f, 0.270f,
+    0.260f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
