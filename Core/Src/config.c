@@ -61,22 +61,22 @@ static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
 };
 
 static const float default_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f },
-    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f, 1.0f, 0.9f, 0.8f, 0.8f, 0.7f }
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f },
+    { 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.6f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.8f, 0.8f, 0.7f }
 };
 
 static const float default_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX] = {
@@ -137,23 +137,23 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
-    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
-    0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
+    0.000f, 0.100f, 0.200f, 0.300f, 0.380f, 0.450f, 0.500f, 0.550f,
+    0.600f, 0.650f, 0.700f, 0.750f, 0.800f, 0.850f, 0.900f, 0.950f
 };
 
 static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
-    0.116f, 0.113f, 0.109f, 0.105f, 0.101f, 0.098f, 0.094f, 0.090f,
-    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f, 0.060f,
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f
 };
 
 static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
-    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
-    0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
+    0.000f, 0.100f, 0.150f, 0.200f, 0.250f, 0.300f, 0.350f, 0.400f,
+    0.450f, 0.500f, 0.550f, 0.600f, 0.650f, 0.700f, 0.750f, 0.800f
 };
 
 static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
-    0.116f, 0.113f, 0.109f, 0.105f, 0.101f, 0.098f, 0.094f, 0.090f,
-    0.086f, 0.083f, 0.079f, 0.075f, 0.071f, 0.068f, 0.064f, 0.060f,
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
@@ -189,8 +189,8 @@ static const float default_warmup_mix_koffs[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
-    0.8f, 0.7f, 0.6f, 0.5f, 0.3f, 0.1f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+    0.20f, 0.15f, 0.10f, 0.05f, 0.03f, 0.03f, 0.02f, 0.02f,
+    0.01f, 0.01f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
 };
 
 static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
@@ -223,8 +223,8 @@ static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTAT
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
-    40.0f, 35.0f, 28.0f, 26.0f, 24.5, 23.0f, 22.0f, 20.0f,
-    17.0f, 15.0f, 15.0f, 15.0f, 15.0f, 15.5f, 16.0f, 16.5f
+    36.0f, 33.0f, 28.0f, 26.0f, 23.5, 18.0f, 16.0f, 15.0f,
+    12.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f
 };
 
 static const float default_idle_wish_ignition[TABLE_ROTATES_MAX] = {
@@ -318,11 +318,11 @@ static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_ROTA
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-1.0f,-2.0f,-2.0f,-2.0f,-2.0f,-3.0f,-3.0f,-3.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-3.0f,-4.0f,-5.0f,-6.0f,-6.0f,-6.0f,-7.0f,-7.0f,-7.0f,-7.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f,-4.0f,-6.0f,-8.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f },
 };
 
 static const float default_ignition_initial[TABLE_TEMPERATURES_MAX] = {
@@ -488,9 +488,9 @@ void config_default_params(sEcuParams *table)
   table->switchPos0Table = 0;
   table->switchPos2Table = 0;
 
-  table->cutoffRPM = 6200;
+  table->cutoffRPM = 8000;
   table->cutoffMode = 5;
-  table->cutoffAngle = 5.0f;
+  table->cutoffAngle = 3.0f;
   table->cutoffMixture = 12.1f;
   table->oilPressureCutoffRPM = 2000;
   table->speedInputCorrection = 1.0f;
@@ -516,7 +516,7 @@ void config_default_params(sEcuParams *table)
   table->shiftThrThr = 90;
   table->shiftRpmThr = 5000;
   table->shiftRpmTill = 2500;
-  table->shiftAngle = 5.0f;
+  table->shiftAngle = 3.0f;
   table->shiftMixture = 12.1f;
 
   table->tspsRelPos = -154.0f;
