@@ -45,7 +45,7 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
-#define ENRICHMENT_STATES_COUNT 6
+#define ENRICHMENT_STATES_COUNT (ECU_CYLINDERS_COUNT + 1)
 
 typedef volatile struct {
     uint8_t savereq;
@@ -190,6 +190,9 @@ static const float gKnockDetectEndAngle = 70;
 static volatile uint32_t gParametersRequestFillLast = 0;
 static volatile float gParametersMapAcceptValue = 103000.0f;
 static volatile uint32_t gParametersMapAcceptLast = 0;
+
+static float gParametersEnrichmentMapAccept = 0;
+static float gParametersEnrichmentThrAccept = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -432,8 +435,12 @@ static void ecu_update(void)
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_status_map = 0.0f;
   static float enrichment_status_thr = 0.0f;
+  static float enrichment_map_accept = 0.0f;
+  static float enrichment_thr_accept = 0.0f;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
+  float enrichment_map_diff;
+  float enrichment_thr_diff;
   float enrichment_map_value;
   float enrichment_thr_value;
   float enrichment_by_map_hpf;
@@ -527,6 +534,13 @@ static void ecu_update(void)
 
   if(rotates)
     rotates_last = now;
+
+
+
+  while(halfturns != prev_halfturns) {
+    halfturns_performed++;
+    prev_halfturns++;
+  }
 
 #ifdef SIMULATION
   pressure = gDebugMap;
@@ -654,7 +668,7 @@ static void ecu_update(void)
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
 
-  if(!rotates)
+  if(!rotates || !running)
   {
     for(int i = 0; i < ENRICHMENT_STATES_COUNT; i++)
     {
@@ -663,43 +677,72 @@ static void ecu_update(void)
     }
   }
 
-  while(halfturns != prev_halfturns) {
-    halfturns_performed++;
-    prev_halfturns++;
-    for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--)
-    {
-      enrichment_map_states[i] = enrichment_map_states[i + 1];
-      enrichment_thr_states[i] = enrichment_thr_states[i + 1];
+  for(int ht = 0; ht < halfturns_performed; ht++) {
+    for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--) {
+      enrichment_map_states[i + 1] = enrichment_map_states[i];
+      enrichment_thr_states[i + 1] = enrichment_thr_states[i];
     }
-    enrichment_map_states[ENRICHMENT_STATES_COUNT - 1] = pressure;
-    enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1] = throttle;
+    enrichment_map_states[0] = pressure;
+    enrichment_thr_states[0] = throttle;
 
     if(running) {
 
       if(gStatus.Sensors.Struct.Map == HAL_OK) {
-        max = enrichment_map_states[ENRICHMENT_STATES_COUNT - 1];
-        min = enrichment_map_states[0];
-        if(min > max) enrichment_map_value = 0.0f; else enrichment_map_value = max - min;
-        ipEnrichmentMap = math_interpolate_input(enrichment_map_value, table->pressures, table->pressures_count);
-        enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+        min = enrichment_map_states[ENRICHMENT_STATES_COUNT - 1];
+        max = enrichment_map_states[0];
         enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_hpf);
+
+        enrichment_map_diff = max - min;
+        ipEnrichmentMap = math_interpolate_input(fabsf(enrichment_map_diff), table->pressures, table->pressures_count);
+        enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
+
         enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
-        if(enrichment_map_value > enrichment_status_map)
-          enrichment_status_map = enrichment_map_value;
+        enrichment_map_accept *= 1.0f - enrichment_by_map_hpf;
+
+        if(enrichment_map_diff > 0) {
+          if(enrichment_map_value > enrichment_status_map) {
+            enrichment_map_accept = enrichment_map_diff;
+            enrichment_status_map = enrichment_map_value;
+
+            gParametersEnrichmentMapAccept = enrichment_map_accept;
+          }
+        } else {
+          //TODO: do we really need to abort enrichment here?
+          if(-enrichment_map_diff > enrichment_map_accept || enrichment_map_value > enrichment_status_map) {
+            enrichment_status_map = 0;
+            enrichment_map_accept = 0;
+          }
+        }
       } else {
         enrichment_status_map = 0.0f;
       }
 
       if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-        max = enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1];
-        min = enrichment_thr_states[0];
-        if(min > max) enrichment_thr_value = 0.0f; else enrichment_thr_value = max - min;
-        ipEnrichmentThr = math_interpolate_input(enrichment_thr_value, table->throttles, table->throttles_count);
-        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_thr_sens);
+        min = enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1];
+        max = enrichment_thr_states[0];
         enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_hpf);
+
+        enrichment_thr_diff = max - min;
+        ipEnrichmentThr = math_interpolate_input(fabsf(enrichment_thr_diff), table->pressures, table->pressures_count);
+        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_thr_sens);
+
         enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
-        if(enrichment_thr_value > enrichment_status_thr)
-          enrichment_status_thr = enrichment_thr_value;
+        enrichment_thr_accept *= 1.0f - enrichment_by_thr_hpf;
+
+        if(enrichment_thr_diff > 0) {
+          if(enrichment_thr_value > enrichment_status_thr) {
+            enrichment_thr_accept = enrichment_thr_diff;
+            enrichment_status_thr = enrichment_thr_value;
+
+            gParametersEnrichmentThrAccept = enrichment_thr_accept;
+          }
+        } else {
+          //TODO: do we really need to abort enrichment here?
+          if(-enrichment_thr_diff > enrichment_thr_accept || enrichment_thr_value > enrichment_status_thr) {
+            enrichment_status_thr = 0;
+            enrichment_thr_accept = 0;
+          }
+        }
       } else {
         enrichment_status_thr = 0.0f;
       }
@@ -838,12 +881,12 @@ static void ecu_update(void)
   } else if(!econ_flag && !cutoff_processing && !shift_processing) {
     if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse) {
       if(halfturns_performed) {
-		  for(int i = 0; i < halfturns_performed; i++) {
-			short_term_last += 1000;
-			short_term_last &= DelayMask;
-			short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, short_term_last);
-		  }
-		  short_term_correction = -short_term_correction_pid;
+        for(int i = 0; i < halfturns_performed; i++) {
+          short_term_last += 1000;
+          short_term_last &= DelayMask;
+          short_term_correction_pid = math_pid_update(&gPidShortTermCorr, fuel_ratio, short_term_last);
+        }
+        short_term_correction = -short_term_correction_pid;
       }
     } else {
       math_pid_reset(&gPidShortTermCorr);
