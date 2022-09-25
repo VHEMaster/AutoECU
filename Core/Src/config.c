@@ -137,8 +137,8 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
-    0.000f, 0.026f, 0.060f, 0.094f, 0.116f, 0.142f, 0.174f, 0.200f,
-    0.226f, 0.250f, 0.276f, 0.300f, 0.326f, 0.350f, 0.372f, 0.400f
+    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
+    0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
 };
 
 static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
@@ -147,8 +147,8 @@ static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
-    0.000f, 0.026f, 0.060f, 0.094f, 0.116f, 0.142f, 0.174f, 0.200f,
-    0.226f, 0.250f, 0.276f, 0.300f, 0.326f, 0.350f, 0.372f, 0.400f
+    0.000f, 0.013f, 0.030f, 0.047f, 0.058f, 0.071f, 0.087f, 0.100f,
+    0.113f, 0.125f, 0.138f, 0.150f, 0.163f, 0.175f, 0.188f, 0.200f
 };
 
 static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
