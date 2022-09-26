@@ -806,7 +806,7 @@ INLINE int8_t Misc_ResetIdleValve(uint8_t reset_position)
         state = 0;
         return 1;
       } else {
-        if(DelayDiff(now, calibrate_time) > STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 3) {
+        if(DelayDiff(now, calibrate_time) > STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 3 * 1000000) {
           state = 0;
           IdleValveCalibrate = 0;
           IdleValveCalibratedOk = 0;
@@ -911,7 +911,7 @@ static void IdleValve_FastLoop(void)
         mode = mode_prev = 2;
         last_tick = now;
       } else {
-        if(IdleValveCalibrate == 1) {
+        if(is_calibrating == 1) {
           if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
             last_tick = now;
             STEP_DECREMENT();
@@ -919,18 +919,22 @@ static void IdleValve_FastLoop(void)
 
             if(++calibration_steps >= IDLE_VALVE_POS_MAX && StepPhase == 0) {
               calibration_steps = 0;
-              IdleValveCalibrate = 2;
+              is_calibrating = 2;
               IdleValvePositionCurrent = 0;
               STEP_NORMAL();
             }
           }
-        } else if(IdleValveCalibrate == 2) {
+        } else if(is_calibrating == 2) {
           if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
             last_tick = now;
             STEP_INCREMENT();
             STEP_APPEND();
 
-            if(++calibration_steps >= IdleValveResetPosition) {
+            calibration_steps++;
+            IdleValvePositionCurrent = calibration_steps;
+            IdleValvePositionTarget = calibration_steps;
+
+            if(calibration_steps >= IdleValveResetPosition) {
               is_calibrating = 0;
               calibration_steps = 0;
               mode = mode_prev = 2;
@@ -939,10 +943,9 @@ static void IdleValve_FastLoop(void)
               last_tick = now;
               IdleValveCalibratedOk = 1;
             }
-            IdleValvePositionCurrent = calibration_steps;
           }
         } else {
-          IdleValveCalibrate = 1;
+        	is_calibrating = 1;
         }
       }
     }

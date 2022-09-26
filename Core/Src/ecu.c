@@ -988,7 +988,8 @@ static void ecu_update(void)
   else if(idle_wish_valve_pos < 0.0f)
     idle_wish_valve_pos = 0.0f;
 
-  out_set_idle_valve(roundf(idle_wish_valve_pos));
+  if(!gIgnCanShutdown)
+	  out_set_idle_valve(roundf(idle_wish_valve_pos));
 
   gStatus.Knock.Voltage = 0.0f;
   gStatus.Knock.Filtered = 0.0f;
@@ -1435,6 +1436,7 @@ static void ecu_update(void)
 static void ecu_init_post_init(void)
 {
   out_enable_idle_valve(DEFAULT_IDLE_VALVE_POSITION);
+  gEcuCriticalBackup.idle_valve_position = 0;
 }
 
 static void ecu_backup_save_process(void)
@@ -3009,6 +3011,7 @@ static int8_t ecu_shutdown_process(void)
   static uint32_t last_idle_valve_moving = 0;
   uint32_t now = Delay_Tick;
   int8_t status = 0;
+  int8_t retval = 0;
   uint8_t is_idle_valve_moving = out_is_idle_valve_moving();
 
   switch(stage) {
@@ -3026,6 +3029,7 @@ static int8_t ecu_shutdown_process(void)
     case 2:
       status = out_reset_idle_valve(DEFAULT_IDLE_VALVE_POSITION);
       if(status) {
+    	  gEcuCriticalBackup.idle_valve_position = 1;
     	  stage++;
       }
       break;
@@ -3046,14 +3050,14 @@ static int8_t ecu_shutdown_process(void)
     case 5:
       Mem.lock = 0;
       stage = 0;
-      status = 1;
+      retval = 1;
       break;
     default:
       stage = 0;
       break;
   }
 
-  return status;
+  return retval;
 }
 #endif
 
@@ -3448,8 +3452,6 @@ static void ecu_battery_charge_process(void)
 
 void ecu_init(void)
 {
-
-
   ecu_config_init();
 
   ecu_set_table(gEcuParams.startupTableNumber);
