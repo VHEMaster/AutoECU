@@ -420,7 +420,6 @@ static void ecu_update(void)
   float cycle_air_flow;
   float mass_air_flow;
   float injection_time;
-  float injection_phase;
   float injection_phase_duration;
   float knock_threshold;
   float air_destiny;
@@ -434,6 +433,7 @@ static void ecu_update(void)
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
+  static float injection_phase = 100;
   static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_status_map = 0.0f;
@@ -442,6 +442,8 @@ static void ecu_update(void)
   static float enrichment_thr_accept = 0.0f;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
+  float injection_phase_table;
+  float injection_phase_lpf;
   float enrichment_map_diff;
   float enrichment_thr_diff;
   float enrichment_map_value;
@@ -810,8 +812,18 @@ static void ecu_update(void)
   }
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
-  injection_phase = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+  injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
   air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
+  injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
+  injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 0.99f);
+
+  if(running) {
+    for(int ht = 0; ht < halfturns_performed; ht++) {
+      injection_phase = injection_phase * (1.0f - injection_phase_lpf) + injection_phase_table * injection_phase_lpf;
+    }
+  } else {
+    injection_phase = injection_phase_table;
+  }
 
   start_mixture = math_interpolate_1d(ipEngineTemp, table->start_mixtures);
 

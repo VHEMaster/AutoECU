@@ -150,6 +150,7 @@ typedef struct {
     float ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
     float injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float injection_phase_lpf[TABLE_ROTATES_MAX];
 
     float ignition_time_rpm_mult[TABLE_ROTATES_MAX];
     float ignition_time[TABLE_VOLTAGES_MAX];
@@ -212,7 +213,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1177];
+    int32_t Reserved[1161];
 }sEcuTable;
 
 typedef struct {

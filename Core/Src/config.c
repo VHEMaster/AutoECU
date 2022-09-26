@@ -8,6 +8,7 @@
 #include "config.h"
 #include "structs.h"
 #include "flash.h"
+#include "defines.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -16,7 +17,6 @@
 #define CONFIG_OFFSET_CORRECTIONS 0
 #define CONFIG_OFFSET_CRITICALS 1920
 
-#define CLAMP(val,min,max) ((val) < (min) ? (min) : (val) > (max) ? (max) : (val))
 static sEcuCorrectionsBackup tableBackupCorrections = {0};
 
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
@@ -135,6 +135,11 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
     { 185, 185, 200, 200, 200, 200, 200, 210, 230, 250, 300, 310, 330, 350, 360, 390 },
     { 185, 185, 200, 200, 200, 200, 200, 210, 240, 260, 300, 310, 340, 360, 370, 400 },
     { 185, 185, 200, 200, 200, 200, 200, 220, 250, 280, 300, 320, 350, 370, 390, 410 }
+};
+
+static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
+    0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f, 0.150f,
 };
 
 static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
@@ -415,6 +420,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
   memcpy(table->fuel_mixtures, default_fuel_mixtures, sizeof(default_fuel_mixtures));
   memcpy(table->injection_phase, default_injection_phase, sizeof(default_injection_phase));
+  memcpy(table->injection_phase_lpf, default_injection_phase_lpf, sizeof(default_injection_phase_lpf));
 
   memcpy(table->ignition_time_rpm_mult, default_ignition_time_rpm_mult, sizeof(default_ignition_time_rpm_mult));
   memcpy(table->ignition_time, default_ignition_time, sizeof(default_ignition_time));
