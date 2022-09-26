@@ -199,8 +199,18 @@ static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
     0.01f, 0.01f, 0.00f, 0.00f, 0.00f, 0.02f, 0.04f, 0.05f,
 };
 
+static const float default_cold_start_corrs[TABLE_TEMPERATURES_MAX] = {
+    0.80f, 0.60f, 0.50f, 0.40f, 0.25f, 0.17f, 0.10f, 0.06f,
+    0.03f, 0.02f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f,
+};
+
+static const float default_cold_start_times[TABLE_TEMPERATURES_MAX] = {
+    100.0f, 80.0f, 60.0f, 35.0f, 20.0f, 10.0f, 8.0f, 6.0f,
+    5.0f, 4.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+};
+
 static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
-    8.5f, 9.0f, 9.3f, 9.6f, 10.0f, 10.5f, 11.1f, 11.8f,
+    11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.3f, 11.8f,
     12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f
 };
 
@@ -445,6 +455,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->warmup_mixtures, default_warmup_mixtures, sizeof(default_warmup_mixtures));
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));
   memcpy(table->warmup_mix_corrs, default_warmup_mix_corrs, sizeof(default_warmup_mix_corrs));
+
+  memcpy(table->cold_start_corrs, default_cold_start_corrs, sizeof(default_cold_start_corrs));
+  memcpy(table->cold_start_times, default_cold_start_times, sizeof(default_cold_start_times));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
 
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));

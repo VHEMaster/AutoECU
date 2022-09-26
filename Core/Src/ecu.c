@@ -157,6 +157,7 @@ struct {
     volatile uint32_t RequestFillLast;
     volatile float MapAcceptValue;
     volatile uint32_t MapAcceptLast;
+    uint32_t RunningTime;
 
     float EnrichmentMapAccept;
     float EnrichmentThrAccept;
@@ -361,11 +362,14 @@ static void ecu_update(void)
 {
   static uint32_t adaptation_last = 0;
   static uint32_t phased_last = 0;
+  static uint32_t running_time_last = 0;
   static float fuel_consumed = 0;
   static float km_driven = 0;
   static uint32_t updated_last = 0;
   static float idle_angle_correction = 0;
   static float idle_valve_pos_correction = 0;
+  static uint8_t is_cold_start = 1;
+  static float cold_start_temperature = 0.0f;
   uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
@@ -377,6 +381,7 @@ static void ecu_update(void)
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipMap = {0};
   sMathInterpolateInput ipEngineTemp = {0};
+  sMathInterpolateInput ipColdStartTemp = {0};
   sMathInterpolateInput ipAirTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
   sMathInterpolateInput ipThr = {0};
@@ -407,6 +412,9 @@ static void ecu_update(void)
   float idle_valve_position;
   float uspa;
   float period;
+  float cold_start_mult;
+  float cold_start_time;
+  float cold_start_corr;
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
@@ -433,6 +441,7 @@ static void ecu_update(void)
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
+  float running_time = 0;
   static float injection_phase = 100;
   static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
   static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
@@ -540,7 +549,18 @@ static void ecu_update(void)
   if(rotates)
     rotates_last = now;
 
+  if(running) {
+    if(DelayDiff(now, running_time_last) > 1000000) {
+      running_time_last = now;
+      gLocalParams.RunningTime++;
+    }
+  } else {
+    running_time_last = now;
+  }
 
+  running_time = gLocalParams.RunningTime;
+  if(running)
+    running_time += (float)DelayDiff(now, running_time_last) * 0.000001f;
 
   while(halfturns != prev_halfturns) {
     halfturns_performed++;
@@ -578,9 +598,9 @@ static void ecu_update(void)
   tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
-    engine_temp = 40.0f;
+    engine_temp = 0.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
-    air_temp = 50.0f;
+    air_temp = 40.0f;
 
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
@@ -672,6 +692,23 @@ static void ecu_update(void)
 
   cycle_air_flow = effective_volume * 0.25f * air_destiny;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
+
+  if(is_cold_start) {
+    if(running) {
+      is_cold_start = 0;
+    }
+    cold_start_temperature = engine_temp;
+  }
+
+  ipColdStartTemp = math_interpolate_input(cold_start_temperature, table->air_temps, table->air_temp_count);
+  cold_start_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_corrs);
+  cold_start_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_times);
+
+  if(running_time < cold_start_time) {
+    cold_start_mult = cold_start_corr * (1.0f - (running_time / cold_start_time));
+  } else {
+    cold_start_mult = 0.0f;
+  }
 
   if(!rotates || !running)
   {
@@ -917,6 +954,7 @@ static void ecu_update(void)
   injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= enrichment + 1.0f;
+  injection_time *= cold_start_mult + 1.0f;
   if(idle_flag)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
   else
