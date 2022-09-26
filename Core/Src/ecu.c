@@ -45,7 +45,7 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
-#define ENRICHMENT_STATES_COUNT (ECU_CYLINDERS_COUNT + 1)
+#define ENRICHMENT_STATES_COUNT (2)
 
 typedef volatile struct {
     uint8_t savereq;
@@ -726,7 +726,7 @@ static void ecu_update(void)
         enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_hpf);
 
         enrichment_thr_diff = max - min;
-        ipEnrichmentThr = math_interpolate_input(fabsf(enrichment_thr_diff), table->pressures, table->pressures_count);
+        ipEnrichmentThr = math_interpolate_input(fabsf(enrichment_thr_diff), table->throttles, table->throttles_count);
         enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_thr_sens);
 
         enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
