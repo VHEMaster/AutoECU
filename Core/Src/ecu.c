@@ -158,6 +158,7 @@ struct {
     volatile float MapAcceptValue;
     volatile uint32_t MapAcceptLast;
     uint32_t RunningTime;
+    uint32_t LastRunned;
 
     float EnrichmentMapAccept;
     float EnrichmentThrAccept;
@@ -172,6 +173,7 @@ static const uint16_t gInjPins[ECU_CYLINDERS_COUNT] = { INJ_1_Pin, INJ_2_Pin, IN
 static GPIO_TypeDef * const gInjChPorts[2] = { INJ_CH1_GPIO_Port, INJ_CH2_GPIO_Port };
 static const uint16_t gInjChPins[2] = { INJ_CH1_Pin, INJ_CH2_Pin};
 
+static RTC_HandleTypeDef *hrtc = NULL;
 static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
 static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
@@ -216,6 +218,67 @@ static int8_t ecu_can_process_message(const sCanMessage *message);
 static uint8_t ecu_get_table(void)
 {
   return gParameters.CurrentTable;
+}
+
+static RTC_TimeTypeDef sTime = {0};
+static RTC_DateTypeDef sDate = {0};
+
+static HAL_StatusTypeDef ecu_rtc_reset(void)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+
+  if(!hrtc)
+    return HAL_ERROR;
+
+  sTime.Hours = 0;
+  sTime.Minutes = 0;
+  sTime.Seconds = 0;
+  sTime.SubSeconds = 0;
+  sTime.TimeFormat = RTC_HOURFORMAT12_AM;
+  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+  status |= HAL_RTC_SetTime(hrtc, &sTime, FORMAT_BIN);
+
+  sDate.WeekDay = RTC_WEEKDAY_SATURDAY;
+  sDate.Month = RTC_MONTH_JANUARY;
+  sDate.Date = 1;
+  sDate.Year = 0;
+  status |= HAL_RTC_SetDate(hrtc, &sDate, FORMAT_BIN);
+
+  return status;
+}
+
+static HAL_StatusTypeDef ecu_rtc_get_time(uint32_t *p_time)
+{
+  uint32_t seconds_since_reset = 0;
+  HAL_StatusTypeDef status = HAL_OK;
+
+  if(!hrtc)
+    return HAL_ERROR;
+
+  status |= HAL_RTC_GetTime(hrtc, &sTime, FORMAT_BIN);
+  status |= HAL_RTC_GetDate(hrtc, &sDate, FORMAT_BIN);
+
+  /* No need to return precise timestamp since reset */
+  if(status == HAL_OK) {
+    seconds_since_reset += sDate.Year;
+    seconds_since_reset *= 12;
+    seconds_since_reset += sDate.Month - 1;
+    seconds_since_reset *= 31;
+    seconds_since_reset += sDate.Date - 1;
+
+    seconds_since_reset *= 24;
+    seconds_since_reset += sTime.Hours;
+    seconds_since_reset *= 60;
+    seconds_since_reset += sTime.Minutes;
+    seconds_since_reset *= 60;
+    seconds_since_reset += sTime.Seconds;
+
+    if(p_time)
+      *p_time = seconds_since_reset;
+  }
+
+  return status;
 }
 
 static void ecu_set_table(uint8_t number)
@@ -3406,6 +3469,37 @@ static void ecu_kline_loop(void)
   }
 }
 
+static void ecu_rtc_loop(void)
+{
+  static uint32_t reset_last = 0;
+  static uint32_t get_last = 0;
+  uint8_t running = csps_isrunning();
+  uint32_t now = Delay_Tick;
+  uint32_t running_time = gLocalParams.RunningTime;
+  HAL_StatusTypeDef status;
+  uint32_t last_runned;
+
+  if(running) {
+    if(running_time > 3) {
+      if(DelayDiff(now, reset_last) > 500000) {
+        reset_last = now;
+        ecu_rtc_reset();
+      }
+    }
+  } else {
+    reset_last = now;
+  }
+
+  if(DelayDiff(now, get_last) > 500000) {
+    get_last = now;
+    status = ecu_rtc_get_time(&last_runned);
+    if(status == HAL_OK) {
+      gLocalParams.LastRunned = last_runned;
+    }
+  }
+
+}
+
 static void ecu_oil_pressure_process(void)
 {
   static GPIO_PinState prev = GPIO_PIN_RESET;
@@ -3500,8 +3594,10 @@ static void ecu_battery_charge_process(void)
   }
 }
 
-void ecu_init(void)
+void ecu_init(RTC_HandleTypeDef *_hrtc)
 {
+  hrtc = _hrtc;
+
   ecu_config_init();
 
   ecu_set_table(gEcuParams.startupTableNumber);
@@ -3564,6 +3660,7 @@ void ecu_loop(void)
   ecu_corrections_loop();
   ecu_can_loop();
   ecu_kline_loop();
+  ecu_rtc_loop();
 }
 
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length)

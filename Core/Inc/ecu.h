@@ -11,7 +11,7 @@
 #include "main.h"
 #include "xCommand.h"
 
-void ecu_init(void);
+void ecu_init(RTC_HandleTypeDef *_hrtc);
 void ecu_loop(void);
 void ecu_irq_slow_loop(void);
 void ecu_irq_fast_loop(void);
