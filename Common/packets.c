@@ -89,7 +89,9 @@ void PK_SendCommand(eTransChannels xDest, void *buffer, uint32_t size)
       if(txDests[i]) {
         if(txDests[i] == xDest) {
           fifo = &fifoSendingQueue[i];
-          protPushSequence(fifo, (uint8_t *)buffer, size);
+          if(protGetAvail(fifo) > size) {
+        	  protPushSequence(fifo, (uint8_t *)buffer, size);
+          }
           break;
         }
       } else {
