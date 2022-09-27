@@ -5,8 +5,13 @@
  *      Author: VHEMaster
  */
 
-/* TODO: error handling
- * Lambda: No reaction on heater
+/* TODO:
+ * Асинхронная подача топлива
+ *
+ * Холостой ход - коэффициент 2
+ *
+ * О холодном пуске: https://www.drive2.ru/l/469206692622499850/
+ *
  */
 
 #include "main.h"
@@ -492,6 +497,7 @@ static void ecu_update(void)
   float mass_air_flow;
   float injection_time;
   float injection_phase_duration;
+  float injection_start_mult;
   float knock_threshold;
   float air_destiny;
   float filling_relative;
@@ -540,8 +546,10 @@ static void ecu_update(void)
   float km_drive = 0;
   float fuel_consumption = 0;
 
-  float idle_rpm_pid_act;
-  float idle_reg_rpm;
+  float idle_rpm_pid_act_1;
+  float idle_rpm_pid_act_2;
+  float idle_reg_rpm_1;
+  float idle_reg_rpm_2;
   float idle_wish_rpm;
   float idle_wish_massair;
   float idle_wish_ignition;
@@ -568,6 +576,7 @@ static void ecu_update(void)
 
   uint8_t econ_flag;
 
+  static uint8_t idle_rpm_flag = 0;
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
   uint8_t running;
@@ -981,11 +990,29 @@ static void ecu_update(void)
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
 
-  idle_rpm_pid_act = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act);
-  idle_reg_rpm = idle_wish_rpm * (idle_rpm_pid_act + 1.0f);
+  idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
+  idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
+  idle_reg_rpm_1 = idle_wish_rpm * (idle_rpm_pid_act_1 + 1.0f);
+  idle_reg_rpm_2 = idle_wish_rpm * (idle_rpm_pid_act_2 + 1.0f);
 
-  idle_corr_flag = idle_flag && rpm <= idle_reg_rpm;
-  econ_flag = idle_flag && rpm > idle_reg_rpm;
+  if(idle_reg_rpm_1 > idle_reg_rpm_2) {
+    idle_reg_rpm_1 = idle_reg_rpm_2 = (idle_reg_rpm_1 + idle_reg_rpm_2) * 0.5f;
+  }
+
+  if(!running) {
+    idle_rpm_flag = 0;
+  } else {
+    if(idle_rpm_flag) {
+      if(rpm > idle_reg_rpm_2)
+        idle_rpm_flag = 0;
+    } else {
+      if(rpm < idle_reg_rpm_1)
+        idle_rpm_flag = 1;
+    }
+  }
+
+  idle_corr_flag = idle_flag && idle_rpm_flag;
+  econ_flag = idle_flag && !idle_rpm_flag;
 
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;
@@ -1010,6 +1037,7 @@ static void ecu_update(void)
 
   }
 
+  injection_start_mult = math_interpolate_1d(ipThr, table->start_tps_corrs);
   econ_flag = econ_flag && gEcuParams.isEconEnabled;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
@@ -1018,6 +1046,10 @@ static void ecu_update(void)
   injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= enrichment + 1.0f;
   injection_time *= cold_start_mult + 1.0f;
+
+  if(!running)
+    injection_time *= injection_start_mult;
+
   if(idle_flag)
     injection_time *= gEcuCorrections.idle_correction + 1.0f;
   else
