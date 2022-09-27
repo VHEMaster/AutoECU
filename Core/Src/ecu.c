@@ -3673,6 +3673,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
   uint32_t tablesize;
   uint32_t configsize;
   uint32_t dragpoint;
+  uint32_t *addr;
   if(xChaSrc == etrPC)
   {
     if(DelayDiff(now, pclastsent) > 100000)
@@ -4089,6 +4090,17 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_ParametersResponse.Parameters = gParameters;
       gLocalParams.RequestFillLast = 0;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
+      break;
+
+    case PK_SpecificParameterRequestID :
+      PK_Copy(&PK_SpecificParameterRequest, msgBuf);
+      PK_SpecificParameterResponse.addr = PK_SpecificParameterRequest.addr;
+      memset(&PK_SpecificParameterResponse.Parameter, 0, sizeof(PK_SpecificParameterResponse.Parameter));
+      if(PK_SpecificParameterRequest.addr < sizeof(gParameters) / 4) {
+        addr = &((uint32_t *)&gParameters)[PK_SpecificParameterRequest.addr];
+        memcpy(&PK_SpecificParameterResponse.Parameter, addr, sizeof(uint32_t));
+      }
+      PK_SendCommand(xChaSrc, &PK_SpecificParameterResponse, sizeof(PK_SpecificParameterResponse));
       break;
 
     case PK_ForceParametersDataID :

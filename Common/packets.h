@@ -328,6 +328,23 @@ typedef struct
   uint32_t ErrorCode;
 }PACKET_DEFINE(PK_IgnitionInjectionTestResponse, 40);
 
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t addr;
+}PACKET_DEFINE(PK_SpecificParameterRequest, 41);
+
+typedef struct
+{
+  PACKET_HEADER;
+  uint32_t addr;
+  union {
+      uint8_t b[4];
+      uint32_t u;
+      float f;
+  } Parameter;
+}PACKET_DEFINE(PK_SpecificParameterResponse, 42);
+
 
 
 int16_t PK_Copy(void * dest, void * source);
