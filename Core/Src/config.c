@@ -210,13 +210,18 @@ static const float default_cold_start_times[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
-    11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.3f, 11.8f,
-    12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f
+    12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.1f, 12.2f,
+    12.3f, 12.4f, 12.5f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f
 };
 
 static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
     1.00f, 1.00f, 1.00f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f,
     0.75f, 0.60f, 0.55f, 0.50f, 0.45f, 0.40f, 0.35f, 0.30f
+};
+
+static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
+    280, 212, 160, 120, 88, 72, 62, 57,
+    52, 48, 40, 40, 40, 40, 40, 40
 };
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
@@ -470,6 +475,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->cold_start_times, default_cold_start_times, sizeof(default_cold_start_times));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
   memcpy(table->start_tps_corrs, default_start_tps_corrs, sizeof(default_start_tps_corrs));
+  memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));
 
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));

@@ -201,6 +201,7 @@ typedef struct {
     float cold_start_times[TABLE_TEMPERATURES_MAX];
     float start_mixtures[TABLE_TEMPERATURES_MAX];
     float start_tps_corrs[TABLE_THROTTLES_MAX];
+    float start_async_filling[TABLE_TEMPERATURES_MAX];
 
     int32_t idle_speeds_shift_count;
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
@@ -217,7 +218,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1097];
+    int32_t Reserved[1081];
 }sEcuTable;
 
 typedef struct {

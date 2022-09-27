@@ -6,11 +6,17 @@
  */
 
 /* TODO:
- * Асинхронная подача топлива
  *
- * Холостой ход - коэффициент 2
+ * Пуск:
+ * Асинхронная цикловая подача
+ * Большая цикловая подача
+ * Малая цикловая подача
+ * Фаза впрыска при пуске
+ *
  *
  * О холодном пуске: https://www.drive2.ru/l/469206692622499850/
+ * https://www.drive2.ru/l/526420604807546577
+ * https://forum.injectorservice.com.ua/viewtopic.php?t=8147
  *
  */
 
@@ -168,6 +174,12 @@ struct {
     float EnrichmentMapAccept;
     float EnrichmentThrAccept;
 }gLocalParams;
+
+struct {
+    volatile uint32_t Time;
+    volatile uint8_t Request;
+    volatile uint8_t Status;
+}gInjectAsync;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
@@ -573,12 +585,18 @@ static void ecu_update(void)
   float wish_fault_rpm;
   float start_mixture;
   float tsps_rel_pos = 0;
+  float start_async_filling;
+  float async_flow_per_cycle;
+  float start_async_time;
 
   uint8_t econ_flag;
 
   static uint8_t idle_rpm_flag = 0;
+  static uint8_t was_found = 0;
+  static uint8_t was_start_async = 1;
   HAL_StatusTypeDef knock_status;
   uint8_t rotates;
+  uint8_t found;
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
@@ -590,6 +608,12 @@ static void ecu_update(void)
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
+
+  if(gInjectAsync.Request == gInjectAsync.Status && gInjectAsync.Status) {
+    gInjectAsync.Request = 0;
+    gInjectAsync.Status = 0;
+    gInjectAsync.Time = 0;
+  }
 
   idle_valve_position = out_get_idle_valve();
 
@@ -604,6 +628,7 @@ static void ecu_update(void)
   gStatus.AdcStatus = sens_get_adc_status();
 
   halfturns = csps_gethalfturns();
+  found = csps_isfound();
   running = csps_isrunning();
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
@@ -658,6 +683,13 @@ static void ecu_update(void)
   if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
     if(pressure < 70000 && idle_valve_position > 10)
       gStatus.Sensors.Struct.Map = HAL_ERROR;
+  }
+
+  if(found != was_found) {
+    was_found = found;
+    if(found) {
+      was_start_async = 0;
+    }
   }
 
   if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
@@ -772,9 +804,10 @@ static void ecu_update(void)
     cold_start_temperature = engine_temp;
   }
 
-  ipColdStartTemp = math_interpolate_input(cold_start_temperature, table->air_temps, table->air_temp_count);
+  ipColdStartTemp = math_interpolate_input(cold_start_temperature, table->engine_temps, table->engine_temp_count);
   cold_start_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_corrs);
   cold_start_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_times);
+  start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
 
   if(running_time < cold_start_time) {
     cold_start_mult = cold_start_corr * (1.0f - (running_time / cold_start_time));
@@ -1041,6 +1074,18 @@ static void ecu_update(void)
   econ_flag = econ_flag && gEcuParams.isEconEnabled;
 
   fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
+  async_flow_per_cycle = start_async_filling * 0.001f / start_mixture;
+
+  start_async_time = async_flow_per_cycle / fuel_flow_per_us;
+  if(found && !was_start_async) {
+    if(!gInjectAsync.Request) {
+      gInjectAsync.Time = start_async_time;
+      gInjectAsync.Status = 0;
+      gInjectAsync.Request = 1;
+      was_start_async = 1;
+    }
+  }
+
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
@@ -1067,7 +1112,7 @@ static void ecu_update(void)
       wish_fuel_ratio = cycle_air_flow * 0.001f / fuel_amount_per_cycle;
     } else {
       fuel_amount_per_cycle = 0;
-      wish_fuel_ratio = 30.0f;
+      wish_fuel_ratio = 200.0f;
     }
   }
 
@@ -1393,7 +1438,7 @@ static void ecu_update(void)
     km_driven = 0;
   }
 
-  if((!idle_flag || (rpm > idle_reg_rpm && engine_temp > 55.0f) || (rpm < idle_reg_rpm && engine_temp > 80.0f)) &&
+  if((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 55.0f) || (rpm < idle_reg_rpm_1 && engine_temp > 80.0f)) &&
       running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     float map_tps_relation = pressure / pressure_from_throttle;
     if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
@@ -1518,7 +1563,7 @@ static void ecu_update(void)
   gParameters.RelativeFilling = filling_relative;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
-  gParameters.IdleRegThrRPM = idle_reg_rpm;
+  gParameters.IdleRegThrRPM = idle_reg_rpm_1;
   gParameters.WishIdleRPM = idle_wish_rpm;
   gParameters.WishIdleMassAirFlow = idle_wish_massair;
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;
@@ -1959,6 +2004,12 @@ STATIC_INLINE ITCM_FUNC void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint
   }
 }
 
+STATIC_INLINE ITCM_FUNC void ecu_inject_async(uint32_t time)
+{
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+    injector_enable(i, time);
+}
+
 ITCM_FUNC void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
@@ -1999,7 +2050,7 @@ ITCM_FUNC void ecu_process(void)
   float throttle;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
-  float found = csps_isfound();
+  uint8_t found = csps_isfound();
   float uspa_koff = 0.8f;
   static float uspa = 1000.0f;
   float r_uspa;
@@ -2296,6 +2347,7 @@ ITCM_FUNC void ecu_process(void)
         }
       }
     } else if(found) {
+
       if(period < time_sat + time_pulse) {
         time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
       }
@@ -2427,6 +2479,10 @@ ITCM_FUNC void ecu_process(void)
       }
 
       //Injection part
+      if(gInjectAsync.Request != gInjectAsync.Status && gInjectAsync.Request) {
+        ecu_inject_async(gInjectAsync.Time);
+        gInjectAsync.Status = 1;
+      }
       for(int i = 0; i < cy_count_injection; i++)
       {
         if(angle_injection[i] < inj_phase_temp)
@@ -3645,6 +3701,7 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
+  memset(&gInjectAsync, 0, sizeof(gInjectAsync));
 
   gLocalParams.MapAcceptValue = 103000.0f;
   gParameters.StartAllowed = 1;
