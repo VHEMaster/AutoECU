@@ -211,11 +211,6 @@ static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 };
 
-static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
-    12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.1f, 12.2f,
-    12.3f, 12.4f, 12.5f, 12.6f, 12.6f, 12.6f, 12.6f, 12.6f
-};
-
 static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
     1.00f, 1.00f, 1.00f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f,
     0.75f, 0.60f, 0.55f, 0.50f, 0.45f, 0.40f, 0.35f, 0.30f
@@ -487,7 +482,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->cold_start_idle_corrs, default_cold_start_idle_corrs, sizeof(default_cold_start_idle_corrs));
   memcpy(table->cold_start_idle_times, default_cold_start_idle_times, sizeof(default_cold_start_idle_times));
-  memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
   memcpy(table->start_tps_corrs, default_start_tps_corrs, sizeof(default_start_tps_corrs));
   memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));
   memcpy(table->start_large_filling, default_start_large_filling, sizeof(default_start_large_filling));
