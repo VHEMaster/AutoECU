@@ -205,8 +205,10 @@ static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
-    100.0f, 80.0f, 60.0f, 35.0f, 20.0f, 10.0f, 8.0f, 6.0f,
-    5.0f, 4.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    //100.0f, 80.0f, 60.0f, 35.0f, 20.0f, 10.0f, 8.0f, 6.0f,
+    //5.0f, 4.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 };
 
 static const float default_start_mixtures[TABLE_TEMPERATURES_MAX] = {
