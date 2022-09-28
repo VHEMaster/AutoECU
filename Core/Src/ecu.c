@@ -871,7 +871,6 @@ static void ecu_update(void)
             gLocalParams.EnrichmentMapAccept = enrichment_map_accept;
           }
         } else {
-          //TODO: do we really need to abort enrichment here?
           if(-enrichment_map_diff > enrichment_map_accept || enrichment_map_value > enrichment_status_map) {
             enrichment_status_map = 0;
             enrichment_map_accept = 0;
@@ -901,7 +900,6 @@ static void ecu_update(void)
             gLocalParams.EnrichmentThrAccept = enrichment_thr_accept;
           }
         } else {
-          //TODO: do we really need to abort enrichment here?
           if(-enrichment_thr_diff > enrichment_thr_accept || enrichment_thr_value > enrichment_status_thr) {
             enrichment_status_thr = 0;
             enrichment_thr_accept = 0;
