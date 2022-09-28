@@ -569,6 +569,8 @@ static void ecu_update(void)
   float idle_wish_rpm;
   float idle_wish_massair;
   float idle_wish_ignition;
+  float idle_wish_ignition_table;
+  float idle_wish_ignition_static;
   float idle_rpm_shift;
   float idle_table_valve_pos;
   float idle_wish_valve_pos;
@@ -931,15 +933,55 @@ static void ecu_update(void)
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
-  idle_wish_ignition = math_interpolate_1d(ipRpm, table->idle_wish_ignition);
+  idle_wish_ignition_static = math_interpolate_1d(ipRpm, table->idle_wish_ignition_static);
+  idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
   knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
 
+  idle_wish_rpm += idle_rpm_shift;
+
+  if(gForceParameters.Enable.WishIdleRPM)
+    idle_wish_rpm = gForceParameters.WishIdleRPM;
+
+  if(idle_wish_rpm < wish_fault_rpm) {
+    idle_wish_rpm = wish_fault_rpm;
+    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
+  }
+
+  idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
+  idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
+  idle_reg_rpm_1 = idle_wish_rpm * (idle_rpm_pid_act_1 + 1.0f);
+  idle_reg_rpm_2 = idle_wish_rpm * (idle_rpm_pid_act_2 + 1.0f);
+
+  if(idle_reg_rpm_1 > idle_reg_rpm_2) {
+    idle_reg_rpm_1 = idle_reg_rpm_2 = (idle_reg_rpm_1 + idle_reg_rpm_2) * 0.5f;
+  }
+
+  if(!running) {
+    idle_rpm_flag = 0;
+  } else {
+    if(idle_rpm_flag) {
+      if(rpm > idle_reg_rpm_2)
+        idle_rpm_flag = 0;
+    } else {
+      if(rpm < idle_reg_rpm_1)
+        idle_rpm_flag = 1;
+    }
+  }
+
+  idle_corr_flag = idle_flag && idle_rpm_flag;
+  econ_flag = idle_flag && !idle_rpm_flag;
+
   ignition_corr_final = ignition_correction;
 
   if(idle_flag && running) {
+    if(idle_rpm_flag)
+      idle_wish_ignition = idle_wish_ignition_table;
+    else
+      idle_wish_ignition = idle_wish_ignition_static;
+
     ignition_angle = idle_wish_ignition;
 
     if(out_get_fan(NULL) != GPIO_PIN_RESET) {
@@ -1022,40 +1064,6 @@ static void ecu_update(void)
     fuel_ratio = wish_fuel_ratio;
     lambda_value = wish_fuel_ratio / table->fuel_afr;
   }
-
-  idle_wish_rpm += idle_rpm_shift;
-
-  if(gForceParameters.Enable.WishIdleRPM)
-    idle_wish_rpm = gForceParameters.WishIdleRPM;
-
-  if(idle_wish_rpm < wish_fault_rpm) {
-    idle_wish_rpm = wish_fault_rpm;
-    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
-  }
-
-  idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
-  idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
-  idle_reg_rpm_1 = idle_wish_rpm * (idle_rpm_pid_act_1 + 1.0f);
-  idle_reg_rpm_2 = idle_wish_rpm * (idle_rpm_pid_act_2 + 1.0f);
-
-  if(idle_reg_rpm_1 > idle_reg_rpm_2) {
-    idle_reg_rpm_1 = idle_reg_rpm_2 = (idle_reg_rpm_1 + idle_reg_rpm_2) * 0.5f;
-  }
-
-  if(!running) {
-    idle_rpm_flag = 0;
-  } else {
-    if(idle_rpm_flag) {
-      if(rpm > idle_reg_rpm_2)
-        idle_rpm_flag = 0;
-    } else {
-      if(rpm < idle_reg_rpm_1)
-        idle_rpm_flag = 1;
-    }
-  }
-
-  idle_corr_flag = idle_flag && idle_rpm_flag;
-  econ_flag = idle_flag && !idle_rpm_flag;
 
   if(gForceParameters.Enable.WishIdleMassAirFlow)
     idle_wish_massair = gForceParameters.WishIdleMassAirFlow;

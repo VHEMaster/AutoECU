@@ -273,9 +273,14 @@ static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
     12.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f
 };
 
-static const float default_idle_wish_ignition[TABLE_ROTATES_MAX] = {
+static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
     25.0f, 23.0f, 18.0f, 16.0f, 14.0f, 14.0f, 14.0f, 15.0f,
     16.0f, 18.5f, 21.0f, 24.0f, 27.0f, 30.0f, 33.0f, 35.0f
+};
+
+static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
+    25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f,
+    18.0f, 15.0f, 15.0f, 15.0f, 15.0f, 20.0f, 23.0f, 25.0f
 };
 
 static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
@@ -291,7 +296,6 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
-
 };
 
 static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
@@ -471,6 +475,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->idle_wish_rotates, default_idle_wish_rotates, sizeof(default_idle_wish_rotates));
   memcpy(table->idle_wish_massair, default_idle_wish_massair, sizeof(default_idle_wish_massair));
+  memcpy(table->idle_wish_ignition_static, default_idle_wish_ignition_static, sizeof(default_idle_wish_ignition_static));
   memcpy(table->idle_wish_ignition, default_idle_wish_ignition, sizeof(default_idle_wish_ignition));
   memcpy(table->idle_valve_to_rpm, default_idle_valve_to_rpm, sizeof(default_idle_valve_to_rpm));
 
