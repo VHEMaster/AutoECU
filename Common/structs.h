@@ -159,9 +159,6 @@ typedef struct {
     int32_t engine_temp_count;
     float engine_temps[TABLE_TEMPERATURES_MAX];
 
-    float ignition_initial[TABLE_TEMPERATURES_MAX];
-    float idle_valve_initial[TABLE_TEMPERATURES_MAX];
-
     int32_t air_temp_count;
     float air_temps[TABLE_TEMPERATURES_MAX];
     float air_temp_mix_corr[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX];
@@ -200,8 +197,14 @@ typedef struct {
     float cold_start_corrs[TABLE_TEMPERATURES_MAX];
     float cold_start_times[TABLE_TEMPERATURES_MAX];
     float start_mixtures[TABLE_TEMPERATURES_MAX];
+    float start_injection_phase[TABLE_TEMPERATURES_MAX];
+    float start_idle_valve_pos[TABLE_TEMPERATURES_MAX];
+    float start_ignition[TABLE_TEMPERATURES_MAX];
     float start_tps_corrs[TABLE_THROTTLES_MAX];
     float start_async_filling[TABLE_TEMPERATURES_MAX];
+    float start_large_filling[TABLE_TEMPERATURES_MAX];
+    float start_small_filling[TABLE_TEMPERATURES_MAX];
+    int32_t start_large_count;
 
     int32_t idle_speeds_shift_count;
     float idle_rpm_shift_speeds[TABLE_SPEEDS_MAX];
@@ -218,7 +221,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1081];
+    int32_t Reserved[1032];
 }sEcuTable;
 
 typedef struct {

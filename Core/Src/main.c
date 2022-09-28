@@ -125,7 +125,7 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
 #ifdef SIMULATION
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased);
 
-float gDebugRpm = 5650;
+float gDebugRpm = 200;
 uint8_t gPhased = 1;
 #endif
 

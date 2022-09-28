@@ -177,8 +177,10 @@ struct {
 
 struct {
     volatile uint32_t Time;
+    volatile uint32_t Timestamp;
     volatile uint8_t Request;
     volatile uint8_t Status;
+    volatile uint8_t Triggered;
 }gInjectAsync;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -430,10 +432,10 @@ static void ecu_pid_init(void)
 }
 
 #ifdef SIMULATION
-float gDebugMap = 75000;
+float gDebugMap = 95000;
 float gDebugAirTemp = 20.0f;
-float gDebugEngineTemp = 90.0f;
-float gDebugThrottle = 60;
+float gDebugEngineTemp = 20.0f;
+float gDebugThrottle = 0;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
 #endif
@@ -506,6 +508,7 @@ static void ecu_update(void)
   float injector_lag;
   float injector_lag_mult;
   float cycle_air_flow;
+  float cycle_air_flow_injection;
   float mass_air_flow;
   float injection_time;
   float injection_phase_duration;
@@ -532,6 +535,7 @@ static void ecu_update(void)
   static float enrichment_thr_accept = 0.0f;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
+  float injection_phase_start;
   float injection_phase_table;
   float injection_phase_lpf;
   float enrichment_map_diff;
@@ -583,18 +587,22 @@ static void ecu_update(void)
   float ignition_corr_final;
   float fan_ign_corr;
   float wish_fault_rpm;
-  float start_mixture;
   float tsps_rel_pos = 0;
   float start_async_filling;
+  float start_large_filling;
+  float start_small_filling;
   float async_flow_per_cycle;
   float start_async_time;
 
   uint8_t econ_flag;
 
   static uint8_t idle_rpm_flag = 0;
+  static uint8_t was_rotating = 0;
   static uint8_t was_found = 0;
   static uint8_t was_start_async = 1;
+  static uint32_t start_halfturns = 0;
   HAL_StatusTypeDef knock_status;
+  uint32_t start_large_count;
   uint8_t rotates;
   uint8_t found;
   uint8_t running;
@@ -612,6 +620,7 @@ static void ecu_update(void)
   if(gInjectAsync.Request == gInjectAsync.Status && gInjectAsync.Status) {
     gInjectAsync.Request = 0;
     gInjectAsync.Status = 0;
+    gInjectAsync.Triggered = 0;
     gInjectAsync.Time = 0;
   }
 
@@ -680,16 +689,20 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
 
+  if(found != was_found) {
+    was_found = found;
+  }
+
+  if(rotates != was_rotating) {
+    was_rotating = rotates;
+    if(rotates && !found) {
+      was_start_async = 0;
+    }
+  }
+
   if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
     if(pressure < 70000 && idle_valve_position > 10)
       gStatus.Sensors.Struct.Map = HAL_ERROR;
-  }
-
-  if(found != was_found) {
-    was_found = found;
-    if(found) {
-      was_start_async = 0;
-    }
   }
 
   if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
@@ -808,6 +821,8 @@ static void ecu_update(void)
   cold_start_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_corrs);
   cold_start_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_times);
   start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
+  start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
+  start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
 
   if(running_time < cold_start_time) {
     cold_start_mult = cold_start_corr * (1.0f - (running_time / cold_start_time));
@@ -955,6 +970,7 @@ static void ecu_update(void)
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+  injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
   air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
   injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
   injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 0.99f);
@@ -964,10 +980,8 @@ static void ecu_update(void)
       injection_phase = injection_phase * (1.0f - injection_phase_lpf) + injection_phase_table * injection_phase_lpf;
     }
   } else {
-    injection_phase = injection_phase_table;
+    injection_phase = injection_phase_start;
   }
-
-  start_mixture = math_interpolate_1d(ipEngineTemp, table->start_mixtures);
 
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
@@ -978,10 +992,6 @@ static void ecu_update(void)
     if(warmup_mixture < wish_fuel_ratio) {
       wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
     }
-  }
-
-  if(!running) {
-    wish_fuel_ratio = start_mixture;
   }
 
   injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
@@ -1070,17 +1080,34 @@ static void ecu_update(void)
 
   }
 
+  start_large_count = table->start_large_count;
   injection_start_mult = math_interpolate_1d(ipThr, table->start_tps_corrs);
   econ_flag = econ_flag && gEcuParams.isEconEnabled;
 
-  fuel_amount_per_cycle = cycle_air_flow * 0.001f / wish_fuel_ratio;
-  async_flow_per_cycle = start_async_filling * 0.001f / start_mixture;
+  for(int i = 0; i < halfturns_performed; i++) {
+    start_halfturns++;
+  }
+  if(!rotates)
+    start_halfturns = 0;
+
+  if(running) {
+    cycle_air_flow_injection = cycle_air_flow;
+  } else {
+    if(start_halfturns < start_large_count)
+      cycle_air_flow_injection = start_large_filling;
+    else cycle_air_flow_injection = start_small_filling;
+  }
+
+  fuel_amount_per_cycle = cycle_air_flow_injection * 0.001f / wish_fuel_ratio;
+  async_flow_per_cycle = start_async_filling * 0.001f / wish_fuel_ratio;
 
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
-  if(found && !was_start_async) {
+  if(rotates && !was_start_async) {
     if(!gInjectAsync.Request) {
       gInjectAsync.Time = start_async_time;
+      gInjectAsync.Timestamp = now ? now : 1;
       gInjectAsync.Status = 0;
+      gInjectAsync.Triggered = 0;
       gInjectAsync.Request = 1;
       was_start_async = 1;
     }
@@ -1136,7 +1163,7 @@ static void ecu_update(void)
     idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
   } else {
-    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_initial);
+    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
   }
 
   idle_wish_valve_pos = idle_table_valve_pos;
@@ -1242,7 +1269,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    ignition_angle = math_interpolate_1d(ipEngineTemp, table->ignition_initial);
+    ignition_angle = math_interpolate_1d(ipEngineTemp, table->start_ignition);
     if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     	if(!rotates && throttle >= 95.0f)
     		ventilation_flag = 1;
@@ -2013,6 +2040,7 @@ STATIC_INLINE ITCM_FUNC void ecu_inject_async(uint32_t time)
 ITCM_FUNC void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
+  uint8_t found = csps_isfound();
   sCspsData csps = csps_data();
   uint32_t now = Delay_Tick;
   static uint32_t last = 0;
@@ -2029,7 +2057,7 @@ ITCM_FUNC void ecu_process(void)
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
-  static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
+  //static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
@@ -2050,7 +2078,6 @@ ITCM_FUNC void ecu_process(void)
   float throttle;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
-  uint8_t found = csps_isfound();
   float uspa_koff = 0.8f;
   static float uspa = 1000.0f;
   float r_uspa;
@@ -2261,7 +2288,7 @@ ITCM_FUNC void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
-      ignition_ready[i] = 0;
+      //ignition_ready[i] = 0;
     }
   }
 
@@ -2283,7 +2310,7 @@ ITCM_FUNC void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
-  if((found || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
+  if((found || gInjectAsync.Timestamp || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
@@ -2346,178 +2373,188 @@ ITCM_FUNC void ecu_process(void)
           }
         }
       }
-    } else if(found) {
-
-      if(period < time_sat + time_pulse) {
-        time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
-      }
-
-      saturate = time_sat * r_uspa;
-      inj_angle = inj_pulse * r_uspa;
-
-      if(inj_angle < diff * r_uspa * 1.5f)
-        inj_angle = diff * r_uspa * 1.5f;
-
-      if(!injection_phase_by_end) {
-        inj_phase_temp += inj_angle;
-      }
-
-      while(inj_phase_temp > angles_injection_per_turn * 0.5f) {
-        inj_phase_temp -= angles_injection_per_turn;
-      }
-
-      //Knock part
-      for(int i = 0; i < cy_count_ignition; i++)
-      {
-        if(knock_busy) {
-          if(knock_process[i]) {
-            if(angle_ignition[i] < gKnockDetectStartAngle || angle_ignition[i] >= gKnockDetectEndAngle) {
-              Knock_SetState(0);
-              knock_process[i] = 0;
-              knock_cylinder = i;
-              knock_busy = 0;
-            }
-          }
+    } else {
+      if(gInjectAsync.Request != gInjectAsync.Status && gInjectAsync.Request) {
+        if(!gInjectAsync.Triggered) {
+          ecu_inject_async(gInjectAsync.Time);
+          gInjectAsync.Triggered = 1;
         } else {
-          if(angle_ignition[i] >= gKnockDetectStartAngle && angle_ignition[i] < gKnockDetectEndAngle) {
-            knock_busy = 1;
-            knock = adc_get_voltage(AdcChKnock);
-            if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-              gStatus.Knock.Voltages[knock_cylinder] = knock;
-              gStatus.Knock.Updated[knock_cylinder] = 1;
-              gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-              gStatus.Knock.LastTime[knock_cylinder] = now;
-            } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-              gStatus.Knock.Voltages[knock_cylinder] = knock;
-              gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
-              gStatus.Knock.Updated[knock_cylinder] = 1;
-              gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
-              gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-              gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
-              gStatus.Knock.LastTime[knock_cylinder] = now;
-              gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
-            }
-            knock_process[i] = 1;
-            Knock_SetState(1);
+          if(DelayDiff(now, gInjectAsync.Timestamp) > gInjectAsync.Time) {
+            gInjectAsync.Timestamp = 0;
+            gInjectAsync.Status = 1;
           }
         }
       }
+      if(found) {
 
-      //Ignition part
-      for(int i = 0; i < cy_count_ignition; i++)
-      {
-        if(angle_ignition[i] < -cy_ignition[i])
-          anglesbeforeignite[i] = -angle_ignition[i] - cy_ignition[i];
-        else
-          anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cy_ignition[i];
+        if(period < time_sat + time_pulse) {
+          time_sat = period * ((float)time_sat / (float)(time_sat + time_pulse));
+        }
 
-        if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
-          anglesbeforeignite[i] = oldanglesbeforeignite[i];
+        saturate = time_sat * r_uspa;
+        inj_angle = inj_pulse * r_uspa;
 
-        if(anglesbeforeignite[i] - saturate < 0.0f)
+        if(inj_angle < diff * r_uspa * 1.5f)
+          inj_angle = diff * r_uspa * 1.5f;
+
+        if(!injection_phase_by_end) {
+          inj_phase_temp += inj_angle;
+        }
+
+        while(inj_phase_temp > angles_injection_per_turn * 0.5f) {
+          inj_phase_temp -= angles_injection_per_turn;
+        }
+
+        //Knock part
+        for(int i = 0; i < cy_count_ignition; i++)
         {
-          if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
-          {
-            if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-              ignition_ready[i] = 1;
-            } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-              ignition_ready[i] = 1;
-              ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+          if(knock_busy) {
+            if(knock_process[i]) {
+              if(angle_ignition[i] < gKnockDetectStartAngle || angle_ignition[i] >= gKnockDetectEndAngle) {
+                Knock_SetState(0);
+                knock_process[i] = 0;
+                knock_cylinder = i;
+                knock_busy = 0;
+              }
             }
-            ignition_ignite_time[i] = 0;
-            ignition_ignite[i] = 0;
-            saturated[i] = 1;
-
-            if(single_coil) {
-              ecu_coil_saturate(1, 0);
-            } else {
-              shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
-              cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
-              if(shift_ign_act && cutoff_ign_act)
-                ecu_coil_saturate(cy_count_ignition, i);
+          } else {
+            if(angle_ignition[i] >= gKnockDetectStartAngle && angle_ignition[i] < gKnockDetectEndAngle) {
+              knock_busy = 1;
+              knock = adc_get_voltage(AdcChKnock);
+              if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
+                gStatus.Knock.Voltages[knock_cylinder] = knock;
+                gStatus.Knock.Updated[knock_cylinder] = 1;
+                gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                gStatus.Knock.LastTime[knock_cylinder] = now;
+              } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
+                gStatus.Knock.Voltages[knock_cylinder] = knock;
+                gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
+                gStatus.Knock.Updated[knock_cylinder] = 1;
+                gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
+                gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
+                gStatus.Knock.LastTime[knock_cylinder] = now;
+                gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
+              }
+              knock_process[i] = 1;
+              Knock_SetState(1);
             }
-
-            ignition_saturate_time[i] = now;
-            ignition_saturate[i] = time_sat;
           }
         }
 
-        if(ign_prepare[i] || oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
+        //Ignition part
+        for(int i = 0; i < cy_count_ignition; i++)
         {
-          if((!ignited[i] && saturated[i]) || ign_prepare[i])
+          if(angle_ignition[i] < -cy_ignition[i])
+            anglesbeforeignite[i] = -angle_ignition[i] - cy_ignition[i];
+          else
+            anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cy_ignition[i];
+
+          if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
+            anglesbeforeignite[i] = oldanglesbeforeignite[i];
+
+          if(anglesbeforeignite[i] - saturate < 0.0f)
           {
-            ign_prepare[i] = 1;
-            if(ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) >= ignition_saturate[i]) {
-              ign_prepare[i] = 0;
-              ignited[i] = 1;
-              saturated[i] = 0;
-              ignition_saturate_time[i] = 0;
-              ignition_saturate[i] = 0;
+            if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
+            {
+              if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
+                //ignition_ready[i] = 1;
+              } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
+                //ignition_ready[i] = 1;
+                //ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+              }
+              ignition_ignite_time[i] = 0;
+              ignition_ignite[i] = 0;
+              saturated[i] = 1;
 
               if(single_coil) {
+                ecu_coil_saturate(1, 0);
+              } else {
                 shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
                 cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
                 if(shift_ign_act && cutoff_ign_act)
-                  ecu_coil_ignite(1, 0);
-              } else {
-                ecu_coil_ignite(cy_count_ignition, i);
+                  ecu_coil_saturate(cy_count_ignition, i);
               }
-              ignition_ignite[i] = time_pulse;
-              ignition_ignite_time[i] = now;
 
-              if(map_status == HAL_OK) {
-                gLocalParams.MapAcceptValue = pressure;
-                gLocalParams.MapAcceptLast = now;
-              }
+              ignition_saturate_time[i] = now;
+              ignition_saturate[i] = time_sat;
             }
           }
-        } else {
-          ignited[i] = 0;
-        }
 
-        oldanglesbeforeignite[i] = anglesbeforeignite[i];
-      }
-
-      //Injection part
-      if(gInjectAsync.Request != gInjectAsync.Status && gInjectAsync.Request) {
-        ecu_inject_async(gInjectAsync.Time);
-        gInjectAsync.Status = 1;
-      }
-      for(int i = 0; i < cy_count_injection; i++)
-      {
-        if(angle_injection[i] < inj_phase_temp)
-          anglesbeforeinject[i] = -angle_injection[i] + inj_phase_temp;
-        else
-          anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase_temp;
-
-        if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
-          anglesbeforeinject[i] = oldanglesbeforeinject[i];
-
-        if(anglesbeforeinject[i] - inj_angle < 0.0f)
-        {
-          if(!injection[i])
+          if(ign_prepare[i] || oldanglesbeforeignite[i] - anglesbeforeignite[i] < -90.0f)
           {
-            injection[i] = 1;
-            shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
-            cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-            if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
-              ecu_inject(cy_count_injection, i, cy_injection[i]);
+            if((!ignited[i] && saturated[i]) || ign_prepare[i])
+            {
+              ign_prepare[i] = 1;
+              if(ignition_saturate_time[i] == 0 || DelayDiff(now, ignition_saturate_time[i]) >= ignition_saturate[i]) {
+                ign_prepare[i] = 0;
+                ignited[i] = 1;
+                saturated[i] = 0;
+                ignition_saturate_time[i] = 0;
+                ignition_saturate[i] = 0;
+
+                if(single_coil) {
+                  shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
+                  cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
+                  if(shift_ign_act && cutoff_ign_act)
+                    ecu_coil_ignite(1, 0);
+                } else {
+                  ecu_coil_ignite(cy_count_ignition, i);
+                }
+                ignition_ignite[i] = time_pulse;
+                ignition_ignite_time[i] = now;
+
+                if(map_status == HAL_OK) {
+                  gLocalParams.MapAcceptValue = pressure;
+                  gLocalParams.MapAcceptLast = now;
+                }
+              }
+            }
+          } else {
+            ignited[i] = 0;
           }
+
+          oldanglesbeforeignite[i] = anglesbeforeignite[i];
         }
 
-        if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -90.0f)
+        //Injection part
+        for(int i = 0; i < cy_count_injection; i++)
         {
-          if(!injected[i] && injection[i])
-          {
-            //TODO: this is probably a bug, but works well, without extra pulses on duty cycle >= 1.0
-            injection[i] = 0;
-            injector_isenabled(i, &injected[i]);
-            injected[i] ^= 1;
-          }
-        }
-        else injected[i] = 0;
+          if(angle_injection[i] < inj_phase_temp)
+            anglesbeforeinject[i] = -angle_injection[i] + inj_phase_temp;
+          else
+            anglesbeforeinject[i] = angles_injection_per_turn - angle_injection[i] + inj_phase_temp;
 
-        oldanglesbeforeinject[i] = anglesbeforeinject[i];
+          if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
+            anglesbeforeinject[i] = oldanglesbeforeinject[i];
+
+          if(anglesbeforeinject[i] - inj_angle < 0.0f)
+          {
+            if(!injection[i])
+            {
+              injection[i] = 1;
+              shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
+              cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
+              // ignition_ready[i] may be used here if something will be wrong with injection during startup
+              if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
+                ecu_inject(cy_count_injection, i, cy_injection[i]);
+            }
+          }
+
+          if(oldanglesbeforeinject[i] - anglesbeforeinject[i] < -90.0f)
+          {
+            if(!injected[i] && injection[i])
+            {
+              //TODO: this is probably a bug, but works well, without extra pulses on duty cycle >= 1.0
+              injection[i] = 0;
+              injector_isenabled(i, &injected[i]);
+              injected[i] ^= 1;
+            }
+          }
+          else injected[i] = 0;
+
+          oldanglesbeforeinject[i] = anglesbeforeinject[i];
+        }
       }
     }
   } else {
@@ -2525,11 +2562,11 @@ ITCM_FUNC void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
-      saturated[i] = 1;
+      saturated[i] = 0;
       ignited[i] = 1;
       injection[i] = 0;
       injected[i] = 0;
-      ignition_ready[i] = 0;
+      //ignition_ready[i] = 0;
       knock_process[i] = 0;
       knock_busy = 0;
     }

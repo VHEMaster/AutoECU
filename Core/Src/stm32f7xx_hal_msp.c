@@ -696,7 +696,11 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 
 #ifndef CSPS_EXTI
     GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
+#ifndef SIMULATION
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+#else
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+#endif
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM5;
@@ -722,7 +726,11 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /**TIM5 GPIO Configuration
     */
     GPIO_InitStruct.Pin = TIM8_CH2_SENS_SPEED_Pin | TIM8_CH3_SENS_TSPS_Pin;
+#ifndef SIMULATION
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+#else
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+#endif
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF3_TIM8;

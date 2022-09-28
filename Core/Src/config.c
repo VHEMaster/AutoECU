@@ -220,8 +220,28 @@ static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
 };
 
 static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
-    280, 212, 160, 120, 88, 72, 62, 57,
-    52, 48, 40, 40, 40, 40, 40, 40
+    1600, 1350, 1150, 1000, 900, 850, 800, 750,
+    700, 650, 600, 600, 600, 600, 600, 600
+};
+
+static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
+    1400, 1100, 1000, 800, 650, 500, 450, 400,
+    360, 350, 350, 350, 350, 350, 350, 350
+};
+
+static const float default_start_small_filling[TABLE_TEMPERATURES_MAX] = {
+    1200, 1000, 800, 600, 440, 380, 340, 280,
+    260, 240, 200, 200, 200, 200, 200, 200
+};
+
+static const float default_start_injection_phase[TABLE_TEMPERATURES_MAX] = {
+    50, 50, 60, 70, 80, 90, 100, 100,
+    100, 100, 100, 100, 100, 100, 100, 100
+};
+
+static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
+    140, 140, 140, 130, 120, 110, 90, 70,
+    60, 60, 60, 60, 60, 60, 60, 60,
 };
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
@@ -351,16 +371,6 @@ static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_ROTA
     { 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f,-4.0f,-6.0f,-8.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f },
 };
 
-static const float default_ignition_initial[TABLE_TEMPERATURES_MAX] = {
-    10, 10, 10, 10, 10, 10, 10, 10,
-    10, 10, 10, 10, 10, 10, 10, 10
-};
-
-static const float default_idle_valve_initial[TABLE_TEMPERATURES_MAX] = {
-    70, 65, 63, 62, 61, 60, 59, 58,
-    55, 55, 55, 55, 55, 55, 55, 55
-};
-
 static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_MAX] = {
     3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f,
     3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f
@@ -454,9 +464,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->engine_temp_count = ITEMSOF(default_engine_temps);
   memcpy(table->engine_temps, default_engine_temps, sizeof(default_engine_temps));
 
-  memcpy(table->ignition_initial, default_ignition_initial, sizeof(default_ignition_initial));
-  memcpy(table->idle_valve_initial, default_idle_valve_initial, sizeof(default_idle_valve_initial));
-
   table->air_temp_count = ITEMSOF(default_air_temps);
   memcpy(table->air_temps, default_air_temps, sizeof(default_air_temps));
   memcpy(table->air_temp_mix_corr, default_air_temp_mix_corrs, sizeof(default_air_temp_mix_corrs));
@@ -476,6 +483,11 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
   memcpy(table->start_tps_corrs, default_start_tps_corrs, sizeof(default_start_tps_corrs));
   memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));
+  memcpy(table->start_large_filling, default_start_large_filling, sizeof(default_start_large_filling));
+  memcpy(table->start_small_filling, default_start_small_filling, sizeof(default_start_small_filling));
+  memcpy(table->start_injection_phase, default_start_injection_phase, sizeof(default_start_injection_phase));
+  memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
+  table->start_large_count = 6;
 
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
@@ -535,7 +547,7 @@ void config_default_params(sEcuParams *table)
   table->speedOutputCorrection = 1.0f;
 
   table->useLambdaSensor = 1;
-  table->useTSPS = 1;
+  table->useTSPS = 0;
   table->useKnockSensor = 1;
   table->performAdaptation = 0;
   table->isSingleCoil = 0;

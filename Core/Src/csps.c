@@ -109,7 +109,7 @@ INLINE void csps_exti(uint32_t timestamp)
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
   static uint8_t phase = 0;
-  static uint32_t step = 0;
+  static uint32_t step = 60;
   static float time_prev = 0;
   float period = 60000000 / rpm;
   float time_needed = period * csps_cors[step] / 120.0f;
@@ -635,11 +635,11 @@ void csps_loop(void)
   }
 
   if(!csps_running) {
-    if(csps_rpm > 600.0f) {
+    if(csps_rpm > 550.0f) {
       csps_running = 1;
     }
   } else {
-    if(csps_rpm < 450.0f) {
+    if(csps_rpm < 400.0f) {
       csps_running = 0;
     }
   }
