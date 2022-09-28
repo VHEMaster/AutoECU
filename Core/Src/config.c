@@ -199,12 +199,12 @@ static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
     0.01f, 0.01f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
 };
 
-static const float default_cold_start_corrs[TABLE_TEMPERATURES_MAX] = {
+static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES_MAX] = {
     0.80f, 0.60f, 0.50f, 0.40f, 0.25f, 0.17f, 0.10f, 0.06f,
     0.03f, 0.02f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f,
 };
 
-static const float default_cold_start_times[TABLE_TEMPERATURES_MAX] = {
+static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
     100.0f, 80.0f, 60.0f, 35.0f, 20.0f, 10.0f, 8.0f, 6.0f,
     5.0f, 4.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
@@ -246,7 +246,7 @@ static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
     2050, 1970, 1780, 1580, 1460, 1390, 1320, 1240,
-    1090, 1000, 1000, 1000, 1000, 1100, 1200, 1250
+    1100, 1000, 860, 860, 860, 1100, 1200, 1250
 };
 
 static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX] = {
@@ -270,7 +270,7 @@ static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTAT
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
     36.0f, 33.0f, 28.0f, 26.0f, 23.5, 18.0f, 16.0f, 15.0f,
-    12.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f, 11.0f
+    12.0f, 11.0f, 10.0f, 10.0f, 10.0f, 11.0f, 12.0f, 15.0f
 };
 
 static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
@@ -280,7 +280,7 @@ static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
 
 static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
     25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f, 25.0f,
-    18.0f, 15.0f, 15.0f, 15.0f, 15.0f, 20.0f, 23.0f, 25.0f
+    18.0f, 15.0f, 15.0f, 15.0f, 15.0f, 18.0f, 19.0f, 20.0f
 };
 
 static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
@@ -483,8 +483,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));
   memcpy(table->warmup_mix_corrs, default_warmup_mix_corrs, sizeof(default_warmup_mix_corrs));
 
-  memcpy(table->cold_start_corrs, default_cold_start_corrs, sizeof(default_cold_start_corrs));
-  memcpy(table->cold_start_times, default_cold_start_times, sizeof(default_cold_start_times));
+  memcpy(table->cold_start_idle_corrs, default_cold_start_idle_corrs, sizeof(default_cold_start_idle_corrs));
+  memcpy(table->cold_start_idle_times, default_cold_start_idle_times, sizeof(default_cold_start_idle_times));
   memcpy(table->start_mixtures, default_start_mixtures, sizeof(default_start_mixtures));
   memcpy(table->start_tps_corrs, default_start_tps_corrs, sizeof(default_start_tps_corrs));
   memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));

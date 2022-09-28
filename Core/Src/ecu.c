@@ -451,7 +451,7 @@ static void ecu_update(void)
   static float idle_angle_correction = 0;
   static float idle_valve_pos_correction = 0;
   static uint8_t is_cold_start = 1;
-  static float cold_start_temperature = 0.0f;
+  static float cold_start_idle_temperature = 0.0f;
   uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
@@ -494,9 +494,9 @@ static void ecu_update(void)
   float idle_valve_position;
   float uspa;
   float period;
-  float cold_start_mult;
-  float cold_start_time;
-  float cold_start_corr;
+  float cold_start_idle_mult;
+  float cold_start_idle_time;
+  float cold_start_idle_corr;
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
@@ -816,20 +816,20 @@ static void ecu_update(void)
     if(running) {
       is_cold_start = 0;
     }
-    cold_start_temperature = engine_temp;
+    cold_start_idle_temperature = engine_temp;
   }
 
-  ipColdStartTemp = math_interpolate_input(cold_start_temperature, table->engine_temps, table->engine_temp_count);
-  cold_start_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_corrs);
-  cold_start_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_times);
+  ipColdStartTemp = math_interpolate_input(cold_start_idle_temperature, table->engine_temps, table->engine_temp_count);
+  cold_start_idle_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_idle_corrs);
+  cold_start_idle_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_idle_times);
   start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
   start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
   start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
 
-  if(running_time < cold_start_time) {
-    cold_start_mult = cold_start_corr * (1.0f - (running_time / cold_start_time));
+  if(running_time < cold_start_idle_time) {
+    cold_start_idle_mult = cold_start_idle_corr * (1.0f - (running_time / cold_start_idle_time));
   } else {
-    cold_start_mult = 0.0f;
+    cold_start_idle_mult = 0.0f;
   }
 
   if(!rotates || !running)
@@ -976,12 +976,12 @@ static void ecu_update(void)
 
   ignition_corr_final = ignition_correction;
 
-  if(idle_flag && running) {
-    if(idle_rpm_flag)
-      idle_wish_ignition = idle_wish_ignition_table;
-    else
-      idle_wish_ignition = idle_wish_ignition_static;
+  if(idle_rpm_flag)
+    idle_wish_ignition = idle_wish_ignition_table;
+  else
+    idle_wish_ignition = idle_wish_ignition_static;
 
+  if(idle_flag && running) {
     ignition_angle = idle_wish_ignition;
 
     if(out_get_fan(NULL) != GPIO_PIN_RESET) {
@@ -1125,7 +1125,7 @@ static void ecu_update(void)
   injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= enrichment + 1.0f;
-  injection_time *= cold_start_mult + 1.0f;
+  injection_time *= cold_start_idle_mult + 1.0f;
 
   if(!running)
     injection_time *= injection_start_mult;

@@ -195,8 +195,8 @@ typedef struct {
     float warmup_mix_koffs[TABLE_TEMPERATURES_MAX];
     float warmup_mix_corrs[TABLE_TEMPERATURES_MAX];
 
-    float cold_start_corrs[TABLE_TEMPERATURES_MAX];
-    float cold_start_times[TABLE_TEMPERATURES_MAX];
+    float cold_start_idle_corrs[TABLE_TEMPERATURES_MAX];
+    float cold_start_idle_times[TABLE_TEMPERATURES_MAX];
     float start_mixtures[TABLE_TEMPERATURES_MAX];
     float start_injection_phase[TABLE_TEMPERATURES_MAX];
     float start_idle_valve_pos[TABLE_TEMPERATURES_MAX];
