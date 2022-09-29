@@ -200,15 +200,13 @@ static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES_MAX] = {
-    0.80f, 0.60f, 0.50f, 0.40f, 0.25f, 0.17f, 0.10f, 0.06f,
-    0.03f, 0.02f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f, 0.01f,
+    0.80f, 0.60f, 0.50f, 0.40f, 0.25f, 0.17f, 0.10f, 0.08f,
+    0.06f, 0.05f, 0.04f, 0.03f, 0.02f, 0.01f, 0.01f, 0.01f,
 };
 
 static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
-    //100.0f, 80.0f, 60.0f, 35.0f, 20.0f, 10.0f, 8.0f, 6.0f,
-    //5.0f, 4.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+    150.0f, 120.0f, 80.0f, 60.0f, 50.0f, 40.0f, 30.0f, 20.0f,
+    15.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f,
 };
 
 static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
@@ -217,8 +215,8 @@ static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
 };
 
 static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
-    3200, 2600, 2400, 1500, 1400, 1300, 1200, 1100,
-    1000, 950, 900, 900, 900, 900, 900, 900
+    1600, 1400, 1200, 1000, 900, 800, 750, 700,
+    650, 600, 600, 600, 600, 600, 600, 600
 };
 
 static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
@@ -267,7 +265,7 @@ static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTAT
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
     36.0f, 33.0f, 28.0f, 26.0f, 23.5, 18.0f, 16.0f, 15.0f,
-    12.0f, 11.0f, 10.0f, 10.0f, 10.0f, 11.0f, 12.0f, 15.0f
+    12.0f, 11.2f, 10.5f, 10.5f, 10.5f, 11.0f, 12.0f, 15.0f
 };
 
 static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
