@@ -719,7 +719,7 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 0.0f;
   if(gStatus.Sensors.Struct.AirTemp != HAL_OK)
-    air_temp = 40.0f;
+    air_temp = 10.0f;
 
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
@@ -1108,6 +1108,7 @@ static void ecu_update(void)
   async_flow_per_cycle = start_async_filling * 0.001f / wish_fuel_ratio;
 
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
+  start_async_time *= injection_start_mult;
   if(rotates && !was_start_async) {
     if(!gInjectAsync.Request) {
       gInjectAsync.Time = start_async_time;
