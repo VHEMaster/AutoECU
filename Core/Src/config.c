@@ -217,8 +217,8 @@ static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
 };
 
 static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
-    1600, 1350, 1150, 1000, 900, 850, 800, 750,
-    700, 650, 600, 600, 600, 600, 600, 600
+    3200, 2600, 2400, 1500, 1400, 1300, 1200, 1100,
+    1000, 950, 900, 900, 900, 900, 900, 900
 };
 
 static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
