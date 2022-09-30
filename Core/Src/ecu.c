@@ -173,6 +173,7 @@ struct {
 
     float EnrichmentMapAccept;
     float EnrichmentThrAccept;
+    uint8_t PhasedInjection;
 }gLocalParams;
 
 struct {
@@ -511,6 +512,7 @@ static void ecu_update(void)
   float cycle_air_flow_injection;
   float mass_air_flow;
   float injection_time;
+  float min_injection_time;
   float injection_phase_duration;
   float injection_start_mult;
   float knock_threshold;
@@ -1138,6 +1140,11 @@ static void ecu_update(void)
   if(injection_time > 100.0f)
     injection_time += injector_lag_mult;
   else injection_time = 0;
+
+  min_injection_time = gLocalParams.PhasedInjection ? 400 : 800;
+  if(injection_time < min_injection_time) {
+    injection_time = min_injection_time;
+  }
 
   if(gForceParameters.Enable.InjectionPulse) {
     injection_time = gForceParameters.InjectionPulse;
@@ -2172,6 +2179,8 @@ ITCM_FUNC void ecu_process(void)
   injection_phase_by_end = table->is_fuel_phase_by_end;
   inj_phase_param = gParameters.InjectionPhase;
   inj_pulse = gParameters.InjectionPulse;
+
+  gLocalParams.PhasedInjection = phased_injection;
 
 
   if(found != was_found) {
