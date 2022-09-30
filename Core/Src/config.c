@@ -429,6 +429,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 0;
+  table->enrichment_sync_enabled = 1;
+  table->enrichment_async_enabled = 0;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
   table->fuel_afr = 14.7f;

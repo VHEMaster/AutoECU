@@ -121,6 +121,8 @@ typedef struct {
     float injector_performance;
     int32_t is_fuel_pressure_const;
     int32_t is_fuel_phase_by_end;
+    int32_t enrichment_async_enabled;
+    int32_t enrichment_sync_enabled;
     float fuel_pressure;
     float fuel_mass_per_cc;
     float fuel_afr;
@@ -221,7 +223,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1032];
+    int32_t Reserved[1030];
 }sEcuTable;
 
 typedef struct {

@@ -43,6 +43,7 @@
 #include "failures.h"
 #include "can.h"
 #include "kline.h"
+#include "xProFIFO.h"
 
 #include <string.h>
 #include <float.h>
@@ -57,6 +58,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
     uint32_t y_size, const float (*table)[]);
 
 #define ENRICHMENT_STATES_COUNT (2)
+#define ASYNC_INJECTION_FIFO_SIZE (32)
 
 typedef volatile struct {
     uint8_t savereq;
@@ -176,14 +178,6 @@ struct {
     uint8_t PhasedInjection;
 }gLocalParams;
 
-struct {
-    volatile uint32_t Time;
-    volatile uint32_t Timestamp;
-    volatile uint8_t Request;
-    volatile uint8_t Status;
-    volatile uint8_t Triggered;
-}gInjectAsync;
-
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
@@ -205,6 +199,8 @@ static sParameters gParameters = {0};
 static sForceParameters gForceParameters = {0};
 static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
+static sProFIFO fifoAsyncInjection = {0};
+static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE];
 
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
@@ -234,6 +230,27 @@ static int8_t ecu_shutdown_process(void);
 #endif
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
+
+static void ecu_async_injection_init(void)
+{
+  protInit(&fifoAsyncInjection, fifoAsyncInjectionBuffer, sizeof(fifoAsyncInjectionBuffer[0]), ITEMSOF(fifoAsyncInjectionBuffer));
+}
+
+static void ecu_async_injection_push(uint32_t time)
+{
+  protPush(&fifoAsyncInjection, &time);
+}
+
+static uint8_t ecu_async_injection_pull(uint32_t *p_time)
+{
+  *p_time = 0;
+  return protPull(&fifoAsyncInjection, &p_time);
+}
+
+static uint8_t ecu_async_injection_check(void)
+{
+  return protGetSize(&fifoAsyncInjection) > 0;
+}
 
 static uint8_t ecu_get_table(void)
 {
@@ -546,8 +563,11 @@ static void ecu_update(void)
   float enrichment_thr_value;
   float enrichment_by_map_hpf;
   float enrichment_by_thr_hpf;
+  static float enrichment_prev = 0.0f;
   static float enrichment = 0.0f;
   static float enrichment_status = 0.0f;
+  float enrichment_async;
+  float enrichment_async_time;
   float enrichment_proportion;
   float fuel_amount_per_cycle;
 
@@ -599,6 +619,8 @@ static void ecu_update(void)
   float start_async_time;
 
   uint8_t econ_flag;
+  uint8_t enrichment_async_enabled = table->enrichment_async_enabled;
+  uint8_t enrichment_sync_enabled = table->enrichment_sync_enabled;
 
   static uint8_t idle_rpm_flag = 0;
   static uint8_t was_rotating = 0;
@@ -621,12 +643,8 @@ static void ecu_update(void)
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
 
-  if(gInjectAsync.Request == gInjectAsync.Status && gInjectAsync.Status) {
-    gInjectAsync.Request = 0;
-    gInjectAsync.Status = 0;
-    gInjectAsync.Triggered = 0;
-    gInjectAsync.Time = 0;
-  }
+  if(!now)
+    now++;
 
   idle_valve_position = out_get_idle_valve();
 
@@ -1111,21 +1129,15 @@ static void ecu_update(void)
 
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
+  start_async_time += injector_lag_mult;
   if(rotates && !was_start_async) {
-    if(!gInjectAsync.Request) {
-      gInjectAsync.Time = start_async_time;
-      gInjectAsync.Timestamp = now ? now : 1;
-      gInjectAsync.Status = 0;
-      gInjectAsync.Triggered = 0;
-      gInjectAsync.Request = 1;
-      was_start_async = 1;
-    }
+    ecu_async_injection_push(start_async_time);
+    was_start_async = 1;
   }
 
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
-  injection_time *= enrichment + 1.0f;
   injection_time *= cold_start_idle_mult + 1.0f;
 
   if(!running)
@@ -1137,14 +1149,31 @@ static void ecu_update(void)
     injection_time *= gEcuCorrections.long_term_correction + 1.0f;
   injection_time *= short_term_correction + 1.0f;
 
-  if(injection_time > 100.0f)
-    injection_time += injector_lag_mult;
-  else injection_time = 0;
-
   min_injection_time = gLocalParams.PhasedInjection ? 400 : 800;
   if(injection_time < min_injection_time) {
     injection_time = min_injection_time;
   }
+
+  enrichment_async = 0.0f;
+  if(enrichment > enrichment_prev) {
+    if(enrichment_async_enabled) {
+      enrichment_async = enrichment - enrichment_prev;
+      if(enrichment_async > 0.005f) {
+        enrichment_async_time = injection_time;
+        enrichment_async_time *= enrichment_async + 1.0f;
+        enrichment_async_time += injector_lag_mult;
+        ecu_async_injection_push(enrichment_async_time);
+      }
+    }
+  }
+  enrichment_prev = enrichment;
+
+  if(enrichment_sync_enabled)
+    injection_time *= enrichment + 1.0f;
+
+  if(injection_time > 100.0f)
+    injection_time += injector_lag_mult;
+  else injection_time = 0;
 
   if(gForceParameters.Enable.InjectionPulse) {
     injection_time = gForceParameters.InjectionPulse;
@@ -2134,6 +2163,8 @@ ITCM_FUNC void ecu_process(void)
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns();
+  static uint32_t async_inject_time = 0;
+  static uint32_t async_inject_last = 0;
   float inj_lag = gParameters.InjectionLag;
 
   float knock_injection_correctives[ECU_CYLINDERS_COUNT];
@@ -2326,7 +2357,7 @@ ITCM_FUNC void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
-  if((found || gInjectAsync.Timestamp || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
+  if((found || ecu_async_injection_check() || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
     gInjChPorts[injector_channel]->BSRR = gInjChPins[injector_channel];
@@ -2390,14 +2421,13 @@ ITCM_FUNC void ecu_process(void)
         }
       }
     } else {
-      if(gInjectAsync.Request != gInjectAsync.Status && gInjectAsync.Request) {
-        if(!gInjectAsync.Triggered) {
-          ecu_inject_async(gInjectAsync.Time);
-          gInjectAsync.Triggered = 1;
-        } else {
-          if(DelayDiff(now, gInjectAsync.Timestamp) > gInjectAsync.Time) {
-            gInjectAsync.Timestamp = 0;
-            gInjectAsync.Status = 1;
+      if(!async_inject_time || DelayDiff(now, async_inject_last) > async_inject_time) {
+        async_inject_time = 0;
+        if(ecu_async_injection_pull(&async_inject_time)) {
+          if(async_inject_time > 0) {
+            ecu_inject_async(async_inject_time);
+            async_inject_time += inj_lag;
+            async_inject_last = now;
           }
         }
       }
@@ -3751,10 +3781,11 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
 
   ecu_kline_init();
 
+  ecu_async_injection_init();
+
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
-  memset(&gInjectAsync, 0, sizeof(gInjectAsync));
 
   gLocalParams.MapAcceptValue = 103000.0f;
   gParameters.StartAllowed = 1;
