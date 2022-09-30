@@ -186,12 +186,12 @@ static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
 
 static const float default_warmup_mixtures[TABLE_TEMPERATURES_MAX] = {
     13.4f, 13.5f, 13.6f, 13.7f, 13.8f, 13.9f, 14.0f, 14.0f,
-    14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 12.1f, 12.1f, 12.1f
+    14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 13.6f, 13.1f, 12.6f
 };
 
 static const float default_warmup_mix_koffs[TABLE_TEMPERATURES_MAX] = {
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.9f, 0.8f, 0.7f,
-    0.6f, 0.4f, 0.2f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f
+    0.6f, 0.4f, 0.2f, 0.0f, 0.0f, 0.7f, 1.0f, 1.0f
 };
 
 static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
@@ -211,7 +211,7 @@ static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
 
 static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
     1.00f, 1.00f, 1.00f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f,
-    0.75f, 0.60f, 0.55f, 0.50f, 0.45f, 0.40f, 0.35f, 0.30f
+    0.75f, 0.60f, 0.55f, 0.50f, 0.45f, 0.40f, 0.00f, 0.00f
 };
 
 static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
@@ -232,6 +232,11 @@ static const float default_start_small_filling[TABLE_TEMPERATURES_MAX] = {
 static const float default_start_injection_phase[TABLE_TEMPERATURES_MAX] = {
     50, 50, 60, 70, 80, 90, 100, 100,
     100, 100, 100, 100, 100, 100, 100, 100
+};
+
+static const float default_start_ignition[TABLE_TEMPERATURES_MAX] = {
+    10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f,
+    10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f
 };
 
 static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
@@ -484,6 +489,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));
   memcpy(table->start_large_filling, default_start_large_filling, sizeof(default_start_large_filling));
   memcpy(table->start_small_filling, default_start_small_filling, sizeof(default_start_small_filling));
+  memcpy(table->start_ignition, default_start_ignition, sizeof(default_start_ignition));
   memcpy(table->start_injection_phase, default_start_injection_phase, sizeof(default_start_injection_phase));
   memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
   table->start_large_count = 6;
