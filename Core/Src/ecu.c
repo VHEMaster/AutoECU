@@ -1153,7 +1153,7 @@ static void ecu_update(void)
       enrichment_async = enrichment - enrichment_prev;
       if(enrichment_async > 0.005f) {
         enrichment_async_time = injection_time;
-        enrichment_async_time *= enrichment_async + 1.0f;
+        enrichment_async_time *= enrichment_async;
         enrichment_async_time += injector_lag_mult;
         ecu_async_injection_push(enrichment_async_time);
       }
