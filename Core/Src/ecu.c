@@ -2158,7 +2158,7 @@ ITCM_FUNC void ecu_process(void)
   uint32_t turns_count = csps_getturns();
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
-  float inj_lag = gParameters.InjectionLag;
+  float inj_lag = gParameters.InjectionLag * 1000.0f;
 
   float knock_injection_correctives[ECU_CYLINDERS_COUNT];
   float knock_ignition_correctives[ECU_CYLINDERS_COUNT];
