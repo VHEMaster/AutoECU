@@ -456,7 +456,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));
 
-  table->enrichment_proportion_map_vs_thr = 0.1f;
+  table->enrichment_proportion_map_vs_thr = 0.9f;
   memcpy(table->fill_by_map, default_filling_by_map, sizeof(default_filling_by_map));
   memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
 
