@@ -50,7 +50,9 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
-#define ENRICHMENT_STATES_COUNT (2)
+//#define ENRICHMENT_STATES_COUNT (2)
+#define ENRICHMENT_STATES_COUNT (ECU_CYLINDERS_COUNT + 1)
+
 #define ASYNC_INJECTION_FIFO_SIZE (32)
 
 typedef volatile struct {
