@@ -193,7 +193,7 @@ static sForceParameters gForceParameters = {0};
 static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 static sProFIFO fifoAsyncInjection = {0};
-static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE];
+static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
 
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
@@ -237,7 +237,7 @@ static void ecu_async_injection_push(uint32_t time)
 static uint8_t ecu_async_injection_pull(uint32_t *p_time)
 {
   *p_time = 0;
-  return protPull(&fifoAsyncInjection, &p_time);
+  return protPull(&fifoAsyncInjection, p_time);
 }
 
 static uint8_t ecu_async_injection_check(void)
@@ -2156,6 +2156,7 @@ ITCM_FUNC void ecu_process(void)
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns();
+
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
   float inj_lag = gParameters.InjectionLag * 1000.0f;
