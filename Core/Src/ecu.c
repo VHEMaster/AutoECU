@@ -708,13 +708,13 @@ static void ecu_update(void)
 
   if(found != was_found) {
     was_found = found;
+    if(!found) {
+      was_start_async = 0;
+    }
   }
 
   if(rotates != was_rotating) {
     was_rotating = rotates;
-    if(rotates && !found) {
-      was_start_async = 0;
-    }
   }
 
   if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
@@ -1125,7 +1125,7 @@ static void ecu_update(void)
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
   start_async_time += injector_lag_mult;
-  if(rotates && !was_start_async) {
+  if(found && !was_start_async) {
     ecu_async_injection_push(start_async_time);
     was_start_async = 1;
   }
@@ -2095,7 +2095,7 @@ ITCM_FUNC void ecu_process(void)
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
-  //static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
+  static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
@@ -2331,7 +2331,7 @@ ITCM_FUNC void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
-      //ignition_ready[i] = 0;
+      ignition_ready[i] = 0;
     }
   }
 
@@ -2500,10 +2500,10 @@ ITCM_FUNC void ecu_process(void)
             if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
             {
               if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-                //ignition_ready[i] = 1;
+                ignition_ready[i] = 1;
               } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-                //ignition_ready[i] = 1;
-                //ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+                ignition_ready[i] = 1;
+                ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
               }
               ignition_ignite_time[i] = 0;
               ignition_ignite[i] = 0;
@@ -2577,8 +2577,7 @@ ITCM_FUNC void ecu_process(void)
               injection[i] = 1;
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-              // ignition_ready[i] may be used here if something will be wrong with injection during startup
-              if(cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
+              if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
                 ecu_inject(cy_count_injection, i, cy_injection[i]);
             }
           }
@@ -2608,7 +2607,7 @@ ITCM_FUNC void ecu_process(void)
       ignited[i] = 1;
       injection[i] = 0;
       injected[i] = 0;
-      //ignition_ready[i] = 0;
+      ignition_ready[i] = 0;
       knock_process[i] = 0;
       knock_busy = 0;
     }
