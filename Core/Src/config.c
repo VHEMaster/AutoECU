@@ -203,17 +203,15 @@ static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES_MAX] = {
-	    //0.80f, 0.60f, 0.50f, 0.40f, 0.25f, 0.17f, 0.10f, 0.08f,
-	    //0.06f, 0.05f, 0.04f, 0.03f, 0.02f, 0.01f, 0.01f, 0.01f,
-	    0.25f, 0.20f, 0.19f, 0.17f, 0.15f, 0.11f, 0.07f, 0.05f,
-	    0.04f, 0.02f, 0.03f, 0.02f, 0.01f, 0.01f, 0.01f, 0.01f,
+	0.35f, 0.30f, 0.25f, 0.21f, 0.17f, 0.11f, 0.07f, 0.05f,
+	0.04f, 0.02f, 0.03f, 0.02f, 0.01f, 0.01f, 0.01f, 0.01f,
+
 };
 
 static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
-	    //150.0f, 120.0f, 80.0f, 60.0f, 50.0f, 40.0f, 30.0f, 20.0f,
-	    //15.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f,
-	    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
-	    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+	40, 35, 30, 27, 25, 18, 9, 4,
+	3, 3, 3, 3, 3, 3, 3, 3,
+
 };
 
 static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
@@ -439,7 +437,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 0;
   table->enrichment_sync_enabled = 1;
-  table->enrichment_async_enabled = 0;
+  table->enrichment_async_enabled = 1;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
   table->fuel_afr = 14.7f;
