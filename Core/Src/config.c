@@ -165,6 +165,11 @@ static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
     0.260f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f,
 };
 
+static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
+    0.50f, 0.45f, 0.40f, 0.35f, 0.30f, 0.25f, 0.20f, 0.15f,
+    0.10f, 0.05f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
+};
+
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
     4.0f, 1.7f, 1.5f, 1.2f, 1.1f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -462,6 +467,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_by_map_hpf, default_enrichment_by_map_hpf, sizeof(default_enrichment_by_map_hpf));
   memcpy(table->enrichment_by_thr_sens, default_enrichment_by_thr_sens, sizeof(default_enrichment_by_thr_sens));
   memcpy(table->enrichment_by_thr_hpf, default_enrichment_by_thr_hpf, sizeof(default_enrichment_by_thr_hpf));
+  memcpy(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(default_enrichment_temp_mult));
 
   table->fillings_count = ITEMSOF(default_fillings);
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));

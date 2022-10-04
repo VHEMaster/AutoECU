@@ -558,6 +558,7 @@ static void ecu_update(void)
   float enrichment_thr_value;
   float enrichment_by_map_hpf;
   float enrichment_by_thr_hpf;
+  float enrichment_temp_mult;
   static float enrichment_prev = 0.0f;
   static float enrichment = 0.0f;
   static float enrichment_status = 0.0f;
@@ -840,6 +841,7 @@ static void ecu_update(void)
   start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
   start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
   start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
+  enrichment_temp_mult = math_interpolate_1d(ipEngineTemp, table->enrichment_temp_mult);
 
   if(running_time < cold_start_idle_time) {
     cold_start_idle_mult = cold_start_idle_corr * (1.0f - (running_time / cold_start_idle_time));
@@ -856,6 +858,7 @@ static void ecu_update(void)
     }
   }
 
+
   for(int ht = 0; ht < halfturns_performed; ht++) {
     for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--) {
       enrichment_map_states[i + 1] = enrichment_map_states[i];
@@ -870,6 +873,7 @@ static void ecu_update(void)
         min = enrichment_map_states[ENRICHMENT_STATES_COUNT - 1];
         max = enrichment_map_states[0];
         enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_hpf);
+        enrichment_by_map_hpf = CLAMP(enrichment_by_map_hpf, 0.0f, 1.0f);
 
         enrichment_map_diff = max - min;
         ipEnrichmentMap = math_interpolate_input(fabsf(enrichment_map_diff), table->pressures, table->pressures_count);
@@ -899,6 +903,7 @@ static void ecu_update(void)
         min = enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1];
         max = enrichment_thr_states[0];
         enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_hpf);
+        enrichment_by_thr_hpf = CLAMP(enrichment_by_thr_hpf, 0.0f, 1.0f);
 
         enrichment_thr_diff = max - min;
         ipEnrichmentThr = math_interpolate_input(fabsf(enrichment_thr_diff), table->throttles, table->throttles_count);
@@ -936,6 +941,8 @@ static void ecu_update(void)
     } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
       enrichment = enrichment_status_map;
     } else enrichment = 0;
+
+    enrichment *= enrichment_temp_mult + 1.0f;
   }
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);

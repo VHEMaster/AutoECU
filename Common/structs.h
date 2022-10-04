@@ -146,6 +146,7 @@ typedef struct {
     float enrichment_by_map_hpf[TABLE_ROTATES_MAX];
     float enrichment_by_thr_sens[TABLE_THROTTLES_MAX];
     float enrichment_by_thr_hpf[TABLE_ROTATES_MAX];
+    float enrichment_temp_mult[TABLE_TEMPERATURES_MAX];
 
     int32_t fillings_count;
     float fillings[TABLE_FILLING_MAX];
@@ -223,7 +224,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1030];
+    int32_t Reserved[1014];
 }sEcuTable;
 
 typedef struct {
