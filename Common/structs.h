@@ -207,6 +207,7 @@ typedef struct {
     float start_async_filling[TABLE_TEMPERATURES_MAX];
     float start_large_filling[TABLE_TEMPERATURES_MAX];
     float start_small_filling[TABLE_TEMPERATURES_MAX];
+    float start_filling_time[TABLE_TEMPERATURES_MAX];
     int32_t start_large_count;
 
     int32_t idle_speeds_shift_count;
@@ -224,7 +225,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[1014];
+    int32_t Reserved[998];
 }sEcuTable;
 
 typedef struct {

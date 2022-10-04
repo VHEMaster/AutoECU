@@ -445,7 +445,7 @@ static void ecu_pid_init(void)
 }
 
 #ifdef SIMULATION
-float gDebugMap = 95000;
+float gDebugMap = 35000;
 float gDebugAirTemp = 20.0f;
 float gDebugEngineTemp = 20.0f;
 float gDebugThrottle = 0;
@@ -522,6 +522,7 @@ static void ecu_update(void)
   float injector_lag_mult;
   float cycle_air_flow;
   float cycle_air_flow_injection;
+  float cycle_air_flow_injection_startup;
   float mass_air_flow;
   float injection_time;
   float min_injection_time;
@@ -611,6 +612,8 @@ static void ecu_update(void)
   float start_async_filling;
   float start_large_filling;
   float start_small_filling;
+  float start_filling_time;
+  float start_filling_mult;
   float async_flow_per_cycle;
   float start_async_time;
 
@@ -709,7 +712,7 @@ static void ecu_update(void)
 
   if(found != was_found) {
     was_found = found;
-    if(!found) {
+    if(found) {
       was_start_async = 0;
     }
   }
@@ -841,13 +844,8 @@ static void ecu_update(void)
   start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
   start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
   start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
+  start_filling_time = math_interpolate_1d(ipColdStartTemp, table->start_filling_time);
   enrichment_temp_mult = math_interpolate_1d(ipEngineTemp, table->enrichment_temp_mult);
-
-  if(running_time < cold_start_idle_time) {
-    cold_start_idle_mult = cold_start_idle_corr * (1.0f - (running_time / cold_start_idle_time));
-  } else {
-    cold_start_idle_mult = 0.0f;
-  }
 
   if(!rotates || !running)
   {
@@ -1118,12 +1116,14 @@ static void ecu_update(void)
   if(!rotates)
     start_halfturns = 0;
 
+  if(start_halfturns < start_large_count)
+    cycle_air_flow_injection_startup = start_large_filling;
+  else cycle_air_flow_injection_startup = start_small_filling;
+
   if(running) {
-    cycle_air_flow_injection = cycle_air_flow;
+      cycle_air_flow_injection = cycle_air_flow;
   } else {
-    if(start_halfturns < start_large_count)
-      cycle_air_flow_injection = start_large_filling;
-    else cycle_air_flow_injection = start_small_filling;
+    cycle_air_flow_injection = cycle_air_flow_injection_startup;
   }
 
   fuel_amount_per_cycle = cycle_air_flow_injection * 0.001f / wish_fuel_ratio;
@@ -1137,8 +1137,21 @@ static void ecu_update(void)
     was_start_async = 1;
   }
 
+  if(running_time < cold_start_idle_time) {
+    cold_start_idle_mult = cold_start_idle_corr * (1.0f - (running_time / cold_start_idle_time));
+  } else {
+    cold_start_idle_mult = 0.0f;
+  }
+
+  if(running_time < start_filling_time && cycle_air_flow_injection_startup > cycle_air_flow_injection) {
+    start_filling_mult = ((cycle_air_flow_injection_startup / cycle_air_flow_injection) - 1.0f) * (1.0f - (running_time / start_filling_time));
+  } else {
+    start_filling_mult = 0.0f;
+  }
+
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
   injection_time *= warmup_mix_corr + 1.0f;
+  injection_time *= start_filling_mult + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= cold_start_idle_mult + 1.0f;
 

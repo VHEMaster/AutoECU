@@ -239,6 +239,11 @@ static const float default_start_small_filling[TABLE_TEMPERATURES_MAX] = {
     260, 240, 200, 200, 200, 200, 200, 200
 };
 
+static const float default_start_filling_time[TABLE_TEMPERATURES_MAX] = {
+    5.0f, 4.5f, 4.0f, 3.5f, 3.0f, 2.5f, 2.0f, 1.5f,
+    1.0f, 0.6f, 0.3f, 0.1f, 0.0f, 0.0f, 0.0f, 0.0f
+};
+
 static const float default_start_injection_phase[TABLE_TEMPERATURES_MAX] = {
     50, 50, 60, 70, 80, 90, 100, 100,
     100, 100, 100, 100, 100, 100, 100, 100
@@ -504,6 +509,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_async_filling, default_start_async_filling, sizeof(default_start_async_filling));
   memcpy(table->start_large_filling, default_start_large_filling, sizeof(default_start_large_filling));
   memcpy(table->start_small_filling, default_start_small_filling, sizeof(default_start_small_filling));
+  memcpy(table->start_filling_time, default_start_filling_time, sizeof(default_start_filling_time));
   memcpy(table->start_ignition, default_start_ignition, sizeof(default_start_ignition));
   memcpy(table->start_injection_phase, default_start_injection_phase, sizeof(default_start_injection_phase));
   memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
