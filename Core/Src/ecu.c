@@ -618,8 +618,8 @@ static void ecu_update(void)
   float start_async_time;
 
   uint8_t econ_flag;
-  uint8_t enrichment_async_enabled = table->enrichment_async_enabled;
-  uint8_t enrichment_sync_enabled = table->enrichment_sync_enabled;
+  uint8_t enrichment_async_enabled;
+  uint8_t enrichment_sync_enabled;
 
   static uint8_t idle_rpm_flag = 0;
   static uint8_t was_rotating = 0;
@@ -757,6 +757,14 @@ static void ecu_update(void)
     }
   } else {
     gStatus.Sensors.Struct.Lambda = HAL_OK;
+  }
+
+  if(use_tsps && phased) {
+    enrichment_async_enabled = table->enrichment_ph_async_enabled;
+    enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
+  } else  {
+    enrichment_async_enabled = table->enrichment_pp_async_enabled;
+    enrichment_sync_enabled = table->enrichment_pp_sync_enabled;
   }
 
   if(running && use_tsps && !phased) {
