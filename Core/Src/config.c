@@ -225,8 +225,10 @@ static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
 };
 
 static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
-    1600, 1400, 1200, 1000, 900, 800, 750, 700,
-    650, 600, 600, 600, 600, 600, 600, 600
+    //1600, 1400, 1200, 1000, 900, 800, 750, 700,
+    //650, 600, 600, 600, 600, 600, 600, 600
+    600, 520, 450, 400, 350, 300, 270, 250,
+    220, 200, 200, 200, 200, 200, 200, 200
 };
 
 static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
@@ -575,11 +577,11 @@ void config_default_params(sEcuParams *table)
   table->speedOutputCorrection = 1.0f;
 
   table->useLambdaSensor = 1;
-  table->useTSPS = 0;
+  table->useTSPS = 1;
   table->useKnockSensor = 1;
   table->performAdaptation = 0;
   table->isSingleCoil = 0;
-  table->isIndividualCoils = 1;
+  table->isIndividualCoils = 0;
   table->isEconEnabled = 0;
 
   table->fanHighTemperature = 96;
@@ -597,7 +599,7 @@ void config_default_params(sEcuParams *table)
   table->shiftAngle = 3.0f;
   table->shiftMixture = 12.1f;
 
-  table->tspsRelPos = -154.0f;
+  table->tspsRelPos = -81.6f;
   table->tspsDesyncThr = 3.0f;
 
   table->useShortTermCorr = 0;

@@ -729,6 +729,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 #ifndef SIMULATION
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 #else
+    HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 #endif
     GPIO_InitStruct.Pull = GPIO_PULLUP;

@@ -129,12 +129,13 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
       phase ^= 1;
       if(phase) {
         HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
-        if(phased)
-          csps_tsps_exti(timestamp);
       }
     }
-    if(step == 12) {
+    if(step == 12 && phase) {
       HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
+      if(phased) {
+        csps_tsps_exti(timestamp);
+      }
     }
 
   }
@@ -250,7 +251,7 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
         csps_errors += 1.0f;
       }
 
-      if(t1 == 116) {
+      if(t1 > 12) {
         found = 1;
       }
       t1 = 0;
@@ -273,15 +274,15 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
 
   if(found)
   {
-    adder = csps_cors[t1] * csps_cors_sum;// * 3.0f;
-
-    //adder = 3.0f;
+    adder = csps_cors[t1] * csps_cors_sum;
 
     switch(t2)
     {
       case 2:
         csps_turns++;
-        adder = angle_initial - csps_angle14;
+
+        if(!csps_found)
+          adder = angle_initial - csps_angle14;
 
         csps_angle14 = angle_initial;
         if (angle_initial > 0)
@@ -396,8 +397,6 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   }
 
   data.Period = csps_period;
-  csps_turns;
-  csps_halfturns;
 
   CspsData[dataindex] = data;
   CspsDataPtr = &CspsData[dataindex];
@@ -405,7 +404,8 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
     dataindex = 0;
 
   csps_found = found;
-  if(t2 >= 2) t2 = 0;
+  if(t2 >= 2)
+    t2 = 0;
 
   /*
   const float tach_duty_cycle = 0.25f;

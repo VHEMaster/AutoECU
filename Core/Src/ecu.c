@@ -2605,7 +2605,7 @@ ITCM_FUNC void ecu_process(void)
               injection[i] = 1;
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-              if(ignition_ready[i] && cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
+              if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag)
                 ecu_inject(cy_count_injection, i, cy_injection[i]);
             }
           }
