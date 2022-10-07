@@ -106,16 +106,27 @@ INLINE void csps_exti(uint32_t timestamp)
 }
 
 #ifdef SIMULATION
+
+static float gDebugRpmFiltered = 0;
+
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
   static uint8_t phase = 0;
   static uint32_t step = 60;
   static float time_prev = 0;
-  float period = 60000000 / rpm;
+  float period = 60000000 / gDebugRpmFiltered;
   float time_needed = period * csps_cors[step] / 120.0f;
+  static uint32_t time_last = 0;
+  uint32_t diff = DelayDiff(timestamp, time_last);
 
   if(rpm == 0)
     time_prev = timestamp;
+
+  float lpf = diff * 0.000003f;
+
+  gDebugRpmFiltered = gDebugRpmFiltered * (1.0f - lpf) + rpm * lpf;
+
+  time_last = timestamp;
 
   if(DelayDiff(timestamp, time_prev) >= time_needed) {
     time_prev += time_needed;
