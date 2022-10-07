@@ -517,7 +517,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_ignition, default_start_ignition, sizeof(default_start_ignition));
   memcpy(table->start_injection_phase, default_start_injection_phase, sizeof(default_start_injection_phase));
   memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
-  table->start_large_count = 6;
+  table->start_large_count = 12;
 
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
