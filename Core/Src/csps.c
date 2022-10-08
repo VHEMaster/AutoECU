@@ -44,6 +44,7 @@ static volatile uint8_t csps_rotates = 0;
 static volatile uint8_t csps_running = 0;
 static volatile uint8_t csps_phased = 0;
 static volatile uint8_t csps_phase_found = 0;
+static volatile uint8_t csps_phase_simulation = 0;
 static volatile uint32_t csps_last = 0;
 static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
@@ -65,6 +66,8 @@ static sCspsData * volatile CspsDataPtr = &CspsData[0];
 static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
+
+static csps_rotated_callback_t csps_rotated_callback = NULL;
 
 static void csps_handle(uint32_t timestamp);
 
@@ -108,23 +111,34 @@ INLINE void csps_exti(uint32_t timestamp)
 #ifdef SIMULATION
 
 static float gDebugRpmFiltered = 0;
+volatile uint8_t gDebugPhasedDetection = 0;
 
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
 {
   static uint8_t phase = 0;
   static uint32_t step = 60;
   static float time_prev = 0;
-  float period = 60000000 / gDebugRpmFiltered;
-  float time_needed = period * csps_cors[step] / 120.0f;
+  float period;
+  float time_needed;
   static uint32_t time_last = 0;
   uint32_t diff = DelayDiff(timestamp, time_last);
 
   if(rpm == 0)
     time_prev = timestamp;
 
-  float lpf = diff * 0.000003f;
+  float lpf = diff * 0.000002f;
 
-  gDebugRpmFiltered = gDebugRpmFiltered * (1.0f - lpf) + rpm * lpf;
+
+  if(gDebugPhasedDetection && phase) {
+    gDebugRpmFiltered = gDebugRpmFiltered * (1.0f - lpf);
+  } else {
+    gDebugRpmFiltered = gDebugRpmFiltered * (1.0f - lpf) + rpm * lpf;
+  }
+
+
+
+  period = 60000000 / gDebugRpmFiltered;
+  time_needed = period * csps_cors[step] / 120.0f;
 
   time_last = timestamp;
 
@@ -152,6 +166,11 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
   }
 }
 #endif
+
+void csps_register_rotated_callback(csps_rotated_callback_t callback)
+{
+  csps_rotated_callback = callback;
+}
 
 void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel)
 {
@@ -189,13 +208,15 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
   if(csps_found && csps_rotates) {
     csps_tsps_rel_pos = csps_getangle14(csps_data());
     csps_phase_found = 1;
+    csps_phase_simulation = 0;
   }
 }
 
+static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
+static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
+
 ITCM_FUNC void csps_handle(uint32_t timestamp)
 {
-  static float csps_angle14 = ANGLE_INITIAL, csps_angle23 = ANGLE_INITIAL + 180, csps_angle_phased = 0;
-  static float cs14_p = 0, cs23_p = 0, cs_phased_p = 0;
   static float adder_prev = 3.0f;
   static float average_prev = 0;
   static uint8_t dataindex = 0;
@@ -204,6 +225,8 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   //static GPIO_PinState pin_prev = GPIO_PIN_RESET;
   //GPIO_PinState pin_state;
   static uint8_t found = 0;
+  static uint32_t period_last = 0;
+  uint32_t period_unfiltered = 0;
 
   float rpm_koff = 1.0f / 10.0f;
   float angle_initial = CspsAngleInitial;
@@ -304,6 +327,11 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
         cs14_p = csps_angle14 - adder;
         cs23_p = csps_angle23 - adder;
 
+        period_unfiltered = DelayDiff(timestamp, period_last);
+        if(csps_rotated_callback)
+          csps_rotated_callback(period_unfiltered);
+        period_last = timestamp;
+
         //adder = 9.0f;
         break;
       case 1:
@@ -383,7 +411,7 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
       csps_turns_phase = csps_turns;
       csps_angle_phased = csps_angle14;
       cs_phased_p = cs14_p;
-    } else {
+    } else if(!csps_phase_simulation) {
       if(csps_turns - csps_turns_phase > 5) {
         csps_phased = 0;
       }
@@ -436,6 +464,27 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   htim->Instance->PSC = value > 0xFFFF ? 0xFFFF : value;
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
+}
+
+void csps_set_tsps_simulation_egde(int8_t edge)
+{
+  csps_phase_simulation = edge != 0;
+  csps_phased = edge != 0;
+  csps_turns_phase = csps_turns;
+  if(edge > 0) {
+    csps_angle_phased = csps_angle14;
+    cs_phased_p = cs14_p;
+  } else if(edge < 0) {
+    csps_angle_phased = csps_angle14 - 360.0f;
+    cs_phased_p = cs14_p - 360.0f;
+  }
+
+  while(csps_angle_phased <= -360.0f)
+    csps_angle_phased += 720.0f;
+
+  while(cs_phased_p <= -360.0f)
+    cs_phased_p += 720.0f;
+
 }
 
 ITCM_FUNC INLINE float csps_getangle14(sCspsData data)
