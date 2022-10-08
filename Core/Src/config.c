@@ -171,7 +171,7 @@ static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
-    4.0f, 1.7f, 1.5f, 1.2f, 1.1f, 1.0f, 1.0f, 1.0f,
+    4.0f, 1.7f, 1.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 };
 
