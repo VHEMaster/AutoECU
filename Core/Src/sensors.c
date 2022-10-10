@@ -394,8 +394,8 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   float result = result_old;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float value = adc_get_voltage(AdcChThrottlePosition);
-  float voltage_from = power_voltage * 0.248f; //0.114
-  float voltage_to = power_voltage * 0.89f; //0.91
+  float voltage_from = power_voltage * 0.114; //0.248
+  float voltage_to = power_voltage * 0.91f; //0.89
 
   if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
     status = HAL_ERROR;
