@@ -492,16 +492,16 @@ ITCM_FUNC INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, 
   uint8_t phased = csps_isphased(data);
   switch(cylinder) {
     case 0 :
-      angle += 0.0f;
-      break;
-    case 2 :
-      angle -= 180.0f;
-      break;
-    case 3 :
       angle -= 360.0f;
       break;
-    case 1 :
+    case 2 :
       angle -= 540.0f;
+      break;
+    case 3 :
+      angle -= 0.0f;
+      break;
+    case 1 :
+      angle -= 180.0f;
       break;
     default:
       angle = 0;
