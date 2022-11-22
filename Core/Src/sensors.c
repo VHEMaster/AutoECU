@@ -436,6 +436,10 @@ HAL_StatusTypeDef sens_get_power_voltage(float *output)
   HAL_StatusTypeDef status = HAL_OK;
   float power_voltage = adc_get_voltage(AdcChPowerVoltage);
 
+  if(power_voltage < 6.0f || power_voltage > 16.5f) {
+    status = HAL_ERROR;
+  }
+
   *output = power_voltage;
 
   return status;
@@ -445,6 +449,10 @@ HAL_StatusTypeDef sens_get_reference_voltage(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;
   float reference_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+
+  if(reference_voltage < 4.5f || reference_voltage > 5.5f) {
+    status = HAL_ERROR;
+  }
 
   *output = reference_voltage;
 
