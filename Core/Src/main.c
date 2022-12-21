@@ -1660,6 +1660,7 @@ void Error_Handler(void)
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1) {
+    NVIC_SystemReset();
   }
   /* USER CODE END Error_Handler_Debug */
 }
