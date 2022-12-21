@@ -621,8 +621,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_ign_deviation_min = -14.0f;
   table->idle_ign_deviation_max = 14.0f;
 
-  table->idle_ign_fan_low_corr = 5.0f;
-  table->idle_ign_fan_high_corr = 10.0f;
+  table->idle_ign_fan_low_corr = 3.0f;
+  table->idle_ign_fan_high_corr = 5.0f;
+  table->idle_air_fan_low_corr = 1.0f;
+  table->idle_air_fan_high_corr = 2.0f;
 
   table->idle_speeds_shift_count = ITEMSOF(default_idle_rpm_shift_speeds);
   memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));

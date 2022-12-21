@@ -621,6 +621,7 @@ static void ecu_update(void)
   float ignition_correction;
   float ignition_corr_final;
   float fan_ign_corr;
+  float fan_air_corr;
   float wish_fault_rpm;
   float tsps_rel_pos = 0;
   float start_async_filling;
@@ -1033,11 +1034,16 @@ static void ecu_update(void)
     ignition_angle = idle_wish_ignition;
 
     if(out_get_fan(NULL) != GPIO_PIN_RESET) {
-      if(out_get_fan_switch(NULL) != GPIO_PIN_RESET)
+      if(out_get_fan_switch(NULL) != GPIO_PIN_RESET) {
         fan_ign_corr = table->idle_ign_fan_high_corr;
-      else fan_ign_corr = table->idle_ign_fan_low_corr;
+        fan_air_corr = table->idle_air_fan_high_corr;
+      } else {
+        fan_ign_corr = table->idle_ign_fan_low_corr;
+        fan_air_corr = table->idle_air_fan_low_corr;
+      }
 
       ignition_corr_final += fan_ign_corr;
+      idle_wish_massair += fan_air_corr;
 
       if(ignition_corr_final > table->idle_ign_deviation_max)
         ignition_corr_final = table->idle_ign_deviation_max;
