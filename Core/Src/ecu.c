@@ -656,6 +656,9 @@ static void ecu_update(void)
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
+  uint8_t start_allowed = gParameters.StartAllowed;
+
+  out_set_starter(start_allowed ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
   if(!now)
     now++;
