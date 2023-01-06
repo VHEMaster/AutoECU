@@ -656,9 +656,6 @@ static void ecu_update(void)
   uint8_t cutoff_processing = Cutoff.Processing;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
-  uint8_t start_allowed = gParameters.StartAllowed;
-
-  out_set_starter(start_allowed ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
   if(!now)
     now++;
@@ -3432,6 +3429,26 @@ static void ecu_config_process(void)
   }
 }
 
+static void ecu_immo_init(void)
+{
+  gParameters.StartAllowed = 0;
+}
+
+static void ecu_immo_process(void)
+{
+  uint8_t start_allowed;
+
+  start_allowed = 1;
+
+  if(gParameters.StartAllowed != start_allowed) {
+    gParameters.StartAllowed = start_allowed;
+
+    gParameters.StartAllowed = start_allowed;
+    out_set_starter(start_allowed ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  }
+
+}
+
 static void ecu_can_init(void)
 {
   gStatus.CanInitStatus = can_start(0x100, 0x7F0);
@@ -3846,6 +3863,8 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
 
   ecu_kline_init();
 
+  ecu_immo_init();
+
   ecu_async_injection_init();
 
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
@@ -3853,7 +3872,6 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gLocalParams, 0, sizeof(gLocalParams));
 
   gLocalParams.MapAcceptValue = 103000.0f;
-  gParameters.StartAllowed = 1;
   gEcuInitialized = 1;
 
 }
@@ -3887,6 +3905,8 @@ ITCM_FUNC void ecu_irq_slow_loop(void)
 #ifndef SIMULATION
   ecu_ign_process();
 #endif
+
+  ecu_immo_process();
 }
 
 void ecu_loop(void)
