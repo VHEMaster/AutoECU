@@ -50,10 +50,9 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
-//#define ENRICHMENT_STATES_COUNT (2)
-#define ENRICHMENT_STATES_COUNT (ECU_CYLINDERS_COUNT + 1)
-
-#define ASYNC_INJECTION_FIFO_SIZE (32)
+#define ENRICHMENT_STATES_COUNT     (ECU_CYLINDERS_COUNT + 1)
+#define ASYNC_INJECTION_FIFO_SIZE   (32)
+#define FUEL_PUMP_TIMEOUT           (1500000)
 
 typedef volatile struct {
     uint8_t savereq;
@@ -2694,13 +2693,21 @@ ITCM_FUNC void ecu_process(void)
 
 static void ecu_fuelpump_process(void)
 {
+  static uint8_t ftime = 1;
   static uint32_t active_last = 0;
   static uint8_t active = 0;
   static uint8_t was_rotating = 1;
   uint32_t now = Delay_Tick;
   uint8_t rotates = csps_isrotates();
   uint8_t can_shutdown = gIgnCanShutdown;
-  uint8_t time_to_last = DelayDiff(now, active_last) < 1000000;
+  uint8_t time_to_last;
+
+  if(ftime) {
+    active_last = now;
+    ftime = 0;
+  }
+
+  time_to_last = DelayDiff(now, active_last) < FUEL_PUMP_TIMEOUT;
 
   if(gForceParameters.Enable.FuelPumpRelay) {
     active = gForceParameters.FuelPumpRelay > 0;
