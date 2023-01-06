@@ -646,7 +646,7 @@ void csps_loop(void)
   }
 
   if(!csps_running) {
-    if(csps_rpm > 550.0f) {
+    if(csps_rpm > 650.0f) {
       csps_running = 1;
     }
   } else {

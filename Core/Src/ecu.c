@@ -3442,11 +3442,24 @@ static void ecu_immo_process(void)
 
   if(gParameters.StartAllowed != start_allowed) {
     gParameters.StartAllowed = start_allowed;
+  }
+}
 
-    gParameters.StartAllowed = start_allowed;
-    out_set_starter(start_allowed ? GPIO_PIN_SET : GPIO_PIN_RESET);
+static void ecu_starter_process(void)
+{
+  uint8_t start_allowed = gParameters.StartAllowed;
+  uint8_t running = csps_isrunning();
+  GPIO_PinState starter_state;
+
+  starter_state = out_get_starter(NULL);
+
+  if(start_allowed && !running) {
+    starter_state = GPIO_PIN_SET;
+  } else {
+    starter_state = GPIO_PIN_RESET;
   }
 
+  out_set_starter(starter_state);
 }
 
 static void ecu_can_init(void)
@@ -3892,6 +3905,7 @@ ITCM_FUNC void ecu_irq_slow_loop(void)
   ecu_update_current_table();
   ecu_config_process();
   ecu_update();
+  ecu_immo_process();
   ecu_backup_save_process();
 
   ecu_mem_process();
@@ -3899,14 +3913,13 @@ ITCM_FUNC void ecu_irq_slow_loop(void)
   ecu_fan_process();
   ecu_oil_pressure_process();
   ecu_battery_charge_process();
+  ecu_starter_process();
 
   ecu_drag_process();
 
 #ifndef SIMULATION
   ecu_ign_process();
 #endif
-
-  ecu_immo_process();
 }
 
 void ecu_loop(void)
