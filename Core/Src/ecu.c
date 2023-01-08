@@ -2829,6 +2829,7 @@ static void ecu_checkengine_loop(void)
   uint8_t running = csps_isrunning();
   uint8_t iserror = 0;
   uint8_t status_reset = gStatusReset;
+  GPIO_PinState ign_status = sens_get_ign(NULL);
 
   memset(gCheckBitmap, 0, sizeof(gCheckBitmap));
 
@@ -3008,7 +3009,7 @@ static void ecu_checkengine_loop(void)
     iserror = 0;
   } else {
 
-    if(!running || was_error) {
+    if(ign_status == GPIO_PIN_SET && (!running || was_error)) {
       out_set_checkengine(GPIO_PIN_SET);
     } else {
       out_set_checkengine(GPIO_PIN_RESET);
@@ -3323,6 +3324,10 @@ static void ecu_ign_process(void)
 #ifdef DEBUG
   //state = GPIO_PIN_SET;
 #endif
+
+  if(state == GPIO_PIN_RESET) {
+    out_set_checkengine(GPIO_PIN_RESET);
+  }
 
   if(state == GPIO_PIN_SET) {
     gIgnShutdownReady = 0;
