@@ -1360,7 +1360,6 @@ static void ecu_update(void)
     cycle_air_flow = 0;
     mass_air_flow = 0;
     injection_dutycycle = 0;
-    ignition_time = 0;
     effective_volume = 0;
     fuel_consumption_per_distance = 0;
     fuel_consumption_hourly = 0;
