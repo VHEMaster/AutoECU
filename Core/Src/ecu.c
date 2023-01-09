@@ -4347,7 +4347,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CriticalMemoryAcknowledgeID :
       PK_Copy(&PK_CriticalMemoryAcknowledge, msgBuf);
-      if(PK_TableMemoryAcknowledge.ErrorCode != 0)
+      if(PK_CriticalMemoryAcknowledge.ErrorCode != 0)
       {
 
       }
@@ -4355,7 +4355,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_CorrectionsMemoryAcknowledgeID :
       PK_Copy(&PK_CorrectionsMemoryAcknowledge, msgBuf);
-      if(PK_TableMemoryAcknowledge.ErrorCode != 0)
+      if(PK_CorrectionsMemoryAcknowledge.ErrorCode != 0)
       {
 
       }
