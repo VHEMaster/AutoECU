@@ -1341,7 +1341,7 @@ static void MX_UART5_Init(void)
    */
 
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 960000;
+  huart5.Init.BaudRate = 3375000;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
