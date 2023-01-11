@@ -741,8 +741,10 @@ static void ecu_update(void)
       gStatus.Sensors.Struct.Map = HAL_ERROR;
   }
 
-  if(gStatus.Sensors.Struct.Map && running && DelayDiff(now, params_map_accept_last) < 100000) {
-    pressure = gLocalParams.MapAcceptValue;
+  if(gStatus.Sensors.Struct.Map == HAL_OK && running) {
+    if(DelayDiff(now, params_map_accept_last) < 100000) {
+      pressure = gLocalParams.MapAcceptValue;
+    }
   } else {
     gLocalParams.MapAcceptValue = pressure;
     gLocalParams.MapAcceptLast = now;
@@ -1250,7 +1252,7 @@ static void ecu_update(void)
   if(Cutoff.FuelCutoff)
     injection_time = 0;
 
-  if(gStatus.OilPressure.is_error && rpm >= gEcuParams.oilPressureCutoffRPM) {
+  if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 500 && rpm >= gEcuParams.oilPressureCutoffRPM) {
     injection_time = 0;
   } else if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 10000) {
     injection_time = 0;
@@ -3781,14 +3783,15 @@ static void ecu_oil_pressure_process(void)
 {
   static GPIO_PinState prev = GPIO_PIN_RESET;
   static uint32_t pressure_last = 0;
-#ifdef SIMULATION
-  GPIO_PinState pressure = GPIO_PIN_SET;
-#else
-  GPIO_PinState pressure = sens_get_oil_pressure(NULL);
-#endif
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   uint8_t is_running = csps_isrunning();
+
+#ifdef SIMULATION
+  GPIO_PinState pressure = is_running ? GPIO_PIN_SET : GPIO_PIN_RESET;
+#else
+  GPIO_PinState pressure = sens_get_oil_pressure(NULL);
+#endif
 
   if(is_running) {
     if(!gStatus.OilPressure.is_running) {
@@ -3806,8 +3809,10 @@ static void ecu_oil_pressure_process(void)
             pressure_last = now;
           }
         } else {
-          prev = pressure;
-          pressure_last = now;
+          if(DelayDiff(now, pressure_last) > 100000) {
+            prev = pressure;
+            pressure_last = now;
+          }
         }
       } else {
         pressure_last = now;
@@ -3848,12 +3853,12 @@ static void ecu_battery_charge_process(void)
     } else {
       if(prev != charge) {
         if(charge) {
-          if(DelayDiff(now, charge_last) > 500000) {
+          if(DelayDiff(now, charge_last) > 300000) {
             prev = charge;
             charge_last = now;
           }
         } else {
-          if(DelayDiff(now, charge_last) > 5000) {
+          if(DelayDiff(now, charge_last) > 75000) {
             prev = charge;
             charge_last = now;
           }
@@ -3896,6 +3901,7 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gLocalParams, 0, sizeof(gLocalParams));
 
   gLocalParams.MapAcceptValue = 103000.0f;
+  gLocalParams.MapAcceptLast = 0;
   gEcuInitialized = 1;
 
 }
