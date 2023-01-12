@@ -24,6 +24,12 @@ static const float default_pressures[TABLE_PRESSURES_MAX] = {
     59600, 65800, 72000, 78200, 84400, 90600, 96800, 103000
 };
 
+
+static const float default_idle_rotates[TABLE_ROTATES_MAX] = {
+    525, 556, 588, 625, 667, 714, 769, 833,
+    909, 1000, 1111, 1250, 1429, 1667, 2000, 2500,
+};
+
 static const float default_rotates[TABLE_ROTATES_MAX] = {
     600, 740, 870, 1050, 1250, 1490, 1800, 2150,
     2560, 3040, 3590, 4310, 5100, 6060, 7190, 8500
@@ -365,8 +371,8 @@ static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
-    25.0f, 23.0f, 18.0f, 16.0f, 14.0f, 14.0f, 14.0f, 15.0f,
-    16.0f, 18.5f, 21.0f, 24.0f, 27.0f, 30.0f, 33.0f, 35.0f
+    14.0f, 16.0f, 18.0f, 21.0f, 24.0f, 27.0f, 28.0f, 27.0f,
+    21.0f, 13.0f, 10.0f, 9.0f, 10.0f, 12.0f, 14.0f, 17.0f
 };
 
 static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
@@ -537,6 +543,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->rotates_count = ITEMSOF(default_rotates);
   memcpy(table->rotates, default_rotates, sizeof(default_rotates));
+
+  table->idle_rotates_count = ITEMSOF(default_idle_rotates);
+  memcpy(table->idle_rotates, default_idle_rotates, sizeof(default_idle_rotates));
 
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));

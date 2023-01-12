@@ -139,6 +139,9 @@ typedef struct {
     int32_t rotates_count;
     float rotates[TABLE_ROTATES_MAX];
 
+    int32_t idle_rotates_count;
+    float idle_rotates[TABLE_ROTATES_MAX];
+
     int32_t throttles_count;
     float throttles[TABLE_THROTTLES_MAX];
 
@@ -247,7 +250,7 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[177];
+    int32_t Reserved[160];
 }sEcuTable;
 
 typedef struct {

@@ -415,15 +415,15 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle)
   sEcuTable *table = &gEcuTable[table_number];
   sCspsData csps = csps_data();
   float rpm = csps_getrpm(csps);
-  sMathInterpolateInput ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
+  sMathInterpolateInput ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
   if(isidle) {
-    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_p),
-        math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipRpm, table->idle_ign_to_rpm_pid_d));
-    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_p),
-        math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipRpm, table->idle_valve_to_massair_pid_d));
+    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_p),
+        math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_d));
+    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_p),
+        math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_d));
   } else {
     math_pid_set_koffs(&gPidIdleIgnition, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleAirFlow, 0, 0, 0);
@@ -473,6 +473,7 @@ static void ecu_update(void)
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
   sMathInterpolateInput ipRpm = {0};
+  sMathInterpolateInput ipIdleRpm = {0};
   sMathInterpolateInput ipMap = {0};
   sMathInterpolateInput ipEngineTemp = {0};
   sMathInterpolateInput ipColdStartTemp = {0};
@@ -819,6 +820,7 @@ static void ecu_update(void)
   }
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
+  ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
   pressure_from_throttle = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
@@ -983,7 +985,7 @@ static void ecu_update(void)
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
-  idle_wish_ignition_static = math_interpolate_1d(ipRpm, table->idle_wish_ignition_static);
+  idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
   idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
