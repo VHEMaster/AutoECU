@@ -123,6 +123,7 @@ static const float default_part_load_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTA
     { 14.0f, 14.0f, 14.2f, 14.2f, 14.3f, 14.3f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f, 14.4f },
     { 14.0f, 14.0f, 14.1f, 14.1f, 14.2f, 14.2f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f },
     { 14.0f, 14.0f, 14.1f, 14.1f, 14.2f, 14.2f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f },
+    { 14.0f, 14.0f, 14.1f, 14.1f, 14.2f, 14.2f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f, 14.3f },
 };
 
 static const float default_part_load_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
