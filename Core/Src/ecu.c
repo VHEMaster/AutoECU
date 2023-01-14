@@ -525,6 +525,7 @@ static void ecu_update(void)
   float ignition_angle_sw_lpf;
   static float ignition_angle_sw_state = 0;
   float ignition_angle;
+  float start_ignition_angle;
   float ignition_time;
   float injector_lag;
   float injector_lag_mult;
@@ -973,7 +974,7 @@ static void ecu_update(void)
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
-
+  start_ignition_angle = math_interpolate_1d(ipEngineTemp, table->start_ignition);
   ignition_angle_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.ignitions);
   ignition_angle_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.ignitions);
   ignition_angle_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_ign_lpf);
@@ -1028,7 +1029,9 @@ static void ecu_update(void)
 
   ignition_corr_final = ignition_correction;
 
-  if(idle_rpm_flag)
+  if(!running)
+    idle_wish_ignition = start_ignition_angle;
+  else if(idle_rpm_flag)
     idle_wish_ignition = idle_wish_ignition_table;
   else
     idle_wish_ignition = idle_wish_ignition_static;
@@ -1376,7 +1379,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    ignition_angle = math_interpolate_1d(ipEngineTemp, table->start_ignition);
+    ignition_angle = start_ignition_angle;
     if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     	if(!rotates && throttle >= 95.0f)
     		ventilation_flag = 1;
