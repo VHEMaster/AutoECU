@@ -428,51 +428,55 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
       case etrPC:
       case etrBT:
       {
-        sCount = (xDataLen > 10) ? xDataLen : 8;
-
-        if(hDest)
+        //This is NOT supposed to be like that, so drop
+        if(xChaDest != etrCTRL || xChaSrc != etrPC)
         {
+          sCount = (xDataLen > 10) ? xDataLen : 8;
 
-          uint8_t handled = 0;
-          if(!protIsSome(&hDest->xTxFifo))
+          if(hDest)
           {
-            taskENTER_CRITICAL();
-            if(!hDest->TxBusy)
-            {
-              hDest->TxBusy = 1;
-              handled = 1;
-              taskEXIT_CRITICAL();
 
+            uint8_t handled = 0;
+            if(!protIsSome(&hDest->xTxFifo))
+            {
+              taskENTER_CRITICAL();
+              if(!hDest->TxBusy)
+              {
+                hDest->TxBusy = 1;
+                handled = 1;
+                taskEXIT_CRITICAL();
+
+                for (aCount = 0; aCount < sCount; aCount++)
+                {
+                  protPull(xFifo, &hDest->BufTx[aCount]);
+                }
+
+                if(hDest->xUart) {
+                  if(hDest->xUart->hdmatx) {
+                    CacheClean(hDest->BufTx, sCount);
+                    HAL_UART_Transmit_DMA(hDest->xUart, hDest->BufTx, sCount);
+                  }
+                  else
+                    HAL_UART_Transmit_IT(hDest->xUart, hDest->BufTx, sCount);
+                } else {
+#ifdef VIRTUALCOMPORT
+                  CDC_Transmit(hDest->BufTx, sCount);
+#endif
+                }
+              }
+              else taskEXIT_CRITICAL();
+            }
+
+            if(!handled)
+            {
               for (aCount = 0; aCount < sCount; aCount++)
               {
-                protPull(xFifo, &hDest->BufTx[aCount]);
-              }
-
-              if(hDest->xUart) {
-                if(hDest->xUart->hdmatx) {
-                  CacheClean(hDest->BufTx, sCount);
-                  HAL_UART_Transmit_DMA(hDest->xUart, hDest->BufTx, sCount);
-                }
-                else
-                  HAL_UART_Transmit_IT(hDest->xUart, hDest->BufTx, sCount);
-              } else {
-#ifdef VIRTUALCOMPORT
-                CDC_Transmit(hDest->BufTx, sCount);
-#endif
+                protPull(xFifo, &data);
+                protPush(&hDest->xTxFifo, &data);
               }
             }
-            else taskEXIT_CRITICAL();
+            break;
           }
-
-          if(!handled)
-          {
-            for (aCount = 0; aCount < sCount; aCount++)
-            {
-              protPull(xFifo, &data);
-              protPush(&hDest->xTxFifo, &data);
-            }
-          }
-          break;
         }
       }
       /* no break */
