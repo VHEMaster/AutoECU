@@ -201,8 +201,8 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   static uint8_t dataindex = 0;
   static uint32_t t1 = 0;
   static uint32_t t2 = 0;
-  //static GPIO_PinState pin_prev = GPIO_PIN_RESET;
-  //GPIO_PinState pin_state;
+  static GPIO_PinState pin_prev = GPIO_PIN_RESET;
+  GPIO_PinState pin_state;
   static uint8_t found = 0;
 
   float rpm_koff = 1.0f / 10.0f;
@@ -217,14 +217,11 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
 
   cur = timestamp;
 
-  /* TODO: is this code really needed?
   pin_state = HAL_GPIO_ReadPin(TIM5_CH1_SENS_CSPS_GPIO_Port, TIM5_CH1_SENS_CSPS_Pin);
   if(pin_prev == pin_state) {
     return;
   }
-
   pin_prev = pin_state;
-  */
 
   csps_pulse_last = timestamp;
   for(i = 1; i < IRQ_SIZE; i++)
