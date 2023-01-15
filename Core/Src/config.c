@@ -473,6 +473,11 @@ static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILL
     { 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f,-4.0f,-6.0f,-8.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f },
 };
 
+static const float default_idle_pids_rpm_koffs[TABLE_ROTATES_MAX] = {
+    0.45f, 0.53f, 0.61f, 0.69f, 0.77f, 0.85f, 0.93f, 1.00f,
+    1.08f, 1.16f, 1.24f, 1.32f, 1.40f, 1.48f, 1.56f, 1.64f
+};
+
 static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_MAX] = {
     3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f,
     3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f, 3.000f
@@ -613,6 +618,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
   table->start_large_count = 12;
 
+  table->idle_pids_rpm_koffs_count = ITEMSOF(default_idle_pids_rpm_koffs);
+  memcpy(table->idle_pids_rpm_koffs, default_idle_pids_rpm_koffs, sizeof(default_idle_pids_rpm_koffs));
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
   memcpy(table->idle_valve_to_massair_pid_d, default_idle_valve_to_massair_pid_d, sizeof(default_idle_valve_to_massair_pid_d));

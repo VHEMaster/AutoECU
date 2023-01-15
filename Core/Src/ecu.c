@@ -409,21 +409,19 @@ static void ecu_update_current_table(void)
   gParameters.CurrentTable = table;
 }
 
-STATIC_INLINE void ecu_pid_update(uint8_t isidle)
+STATIC_INLINE void ecu_pid_update(uint8_t isidle, float idle_wish_to_rpm_relation)
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
-  sCspsData csps = csps_data();
-  float rpm = csps_getrpm(csps);
-  sMathInterpolateInput ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
+  sMathInterpolateInput ipIdleWishToRpmRelation = math_interpolate_input(idle_wish_to_rpm_relation, table->idle_pids_rpm_koffs, table->idle_pids_rpm_koffs_count);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
   if(isidle) {
-    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_p),
-        math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleRpm, table->idle_ign_to_rpm_pid_d));
-    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_p),
-        math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleRpm, table->idle_valve_to_massair_pid_d));
+    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_p),
+        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_d));
+    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p),
+        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d));
   } else {
     math_pid_set_koffs(&gPidIdleIgnition, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleAirFlow, 0, 0, 0);
@@ -440,7 +438,7 @@ static void ecu_pid_init(void)
   math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
-  ecu_pid_update(0);
+  ecu_pid_update(0, 0);
 }
 
 #ifdef SIMULATION
@@ -632,6 +630,7 @@ static void ecu_update(void)
   float start_filling_mult;
   float async_flow_per_cycle;
   float start_async_time;
+  float idle_wish_to_rpm_relation;
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
@@ -1003,6 +1002,8 @@ static void ecu_update(void)
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
 
+  idle_wish_to_rpm_relation = rpm / idle_wish_rpm;
+
   idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
   idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
   idle_reg_rpm_1 = idle_wish_rpm * (idle_rpm_pid_act_1 + 1.0f);
@@ -1271,7 +1272,7 @@ static void ecu_update(void)
 
   idle_wish_valve_pos = idle_table_valve_pos;
 
-  ecu_pid_update(idle_corr_flag);
+  ecu_pid_update(idle_corr_flag, idle_wish_to_rpm_relation);
 
   math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
@@ -1720,6 +1721,7 @@ static void ecu_update(void)
   gParameters.FuelConsumption = fuel_consumption_per_distance;
   gParameters.FuelHourly = fuel_consumption_hourly;
   gParameters.TspsRelativePosition = tsps_rel_pos;
+  gParameters.IdleWishToRpmRelation = idle_wish_to_rpm_relation;
 
   gParameters.LambdaValid = o2_valid > 0;
 
