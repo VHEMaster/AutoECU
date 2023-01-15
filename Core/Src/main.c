@@ -124,8 +124,10 @@ INLINE void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc)
 
 #ifdef SIMULATION
 void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased);
+void speed_emulate(uint32_t timestamp, float speedd);
 
 float gDebugRpm = 200;
+float gDebugSpeed = 60;
 uint8_t gPhased = 1;
 #endif
 
@@ -136,13 +138,14 @@ STATIC_INLINE void fast_loop(void)
 #endif
 
 #ifdef SIMULATION
-    csps_emulate(Delay_Tick, gDebugRpm, gPhased);
+  csps_emulate(Delay_Tick, gDebugRpm, gPhased);
+  speed_emulate(Delay_Tick, gDebugSpeed);
 #endif
 
-    adc_fast_loop();
-    flash_fast_loop();
-    Misc_Fast_Loop();
-    ecu_irq_fast_loop();
+  adc_fast_loop();
+  flash_fast_loop();
+  Misc_Fast_Loop();
+  ecu_irq_fast_loop();
 
 #ifdef DEBUG
   //For time measurement taken by the fast irq handler. No need to optimize anything here
@@ -230,7 +233,9 @@ INLINE void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   }
   else if (htim == &htim8) {
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
+#ifndef SIMULATION
       speed_exti(Delay_Tick);
+#endif
     } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
 #ifndef SIMULATION
       csps_tsps_exti(Delay_Tick);
@@ -1103,7 +1108,7 @@ static void MX_TIM8_Init(void)
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 7;
+  sConfigIC.ICFilter = 15;
   if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_2) != HAL_OK) {
     Error_Handler();
   }
