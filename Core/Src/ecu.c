@@ -1062,14 +1062,6 @@ static void ecu_update(void)
   ignition_angle += air_temp_ign_corr;
   ignition_angle += ignition_corr_final;
 
-  if(idle_flag && running) {
-    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
-      math_pid_reset(&gPidIdleIgnition);
-      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
-      idle_angle_correction = 0;
-    }
-  }
-
   fuel_mixture_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.fuel_mixtures);
   fuel_mixture_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.fuel_mixtures);
   fuel_mixture_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_mix_lpf);
@@ -1296,6 +1288,14 @@ static void ecu_update(void)
     ignition_angle = gForceParameters.IgnitionAngle;
   if(gForceParameters.Enable.IgnitionOctane)
     ignition_angle += gForceParameters.IgnitionOctane;
+
+  if(idle_flag && running) {
+    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
+      math_pid_reset(&gPidIdleIgnition);
+      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
+      idle_angle_correction = 0;
+    }
+  }
 
   if(gForceParameters.Enable.WishIdleValvePosition) {
     math_pid_reset(&gPidIdleAirFlow);
