@@ -34,19 +34,13 @@ void speed_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t 
 }
 
 #ifdef SIMULATION
-
-static float gDebugSpeedFiltered = 0;
-
 void speed_emulate(uint32_t timestamp, float speed)
 {
   static uint32_t time_last = 0;
   static float time_prev = 0;
   uint32_t diff = DelayDiff(timestamp, time_last);
-  float lpf = diff * 0.000003f;
 
-  gDebugSpeedFiltered = gDebugSpeedFiltered * (1.0f - lpf) + speed * lpf;
-
-  float time_needed = 1000000.0f / (gDebugSpeedFiltered / 3.6f * 6.0f);
+  float time_needed = 1000000.0f / (speed / 3.6f * 6.0f);
 
   if(speed == 0)
     time_prev = timestamp;
