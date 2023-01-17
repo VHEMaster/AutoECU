@@ -445,7 +445,7 @@ static void ecu_pid_init(void)
 float gDebugMap = 35000;
 float gDebugAirTemp = 20.0f;
 float gDebugEngineTemp = 20.0f;
-float gDebugThrottle = 0;
+float gDebugThrottle = 5;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
 #endif
@@ -2174,11 +2174,13 @@ ITCM_FUNC void ecu_process(void)
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_busy = 0;
-  static uint8_t knock_cylinder = 0;
+  static int8_t knock_cylinder = -1;
   static uint8_t inj_was_phased = 0;
   static uint8_t ign_was_phased = 0;
+  static uint8_t knock_was_phased = 0;
   float angle_injection[ECU_CYLINDERS_COUNT];
   float angle_ignition[ECU_CYLINDERS_COUNT];
+  float angle_knock[ECU_CYLINDERS_COUNT];
   static float ignition_saturate[ECU_CYLINDERS_COUNT];
   static float ignition_ignite[ECU_CYLINDERS_COUNT];
   static uint32_t ignition_saturate_time[ECU_CYLINDERS_COUNT];
@@ -2213,9 +2215,11 @@ ITCM_FUNC void ecu_process(void)
   float cy_injection[ECU_CYLINDERS_COUNT];
   float var, var2, knock;
   uint8_t injection_phase_by_end;
+  uint8_t phased_knock;
   uint8_t phased_ignition;
   uint8_t phased_injection;
   uint8_t cy_count_ignition;
+  uint8_t cy_count_knock;
   uint8_t cy_count_injection;
   uint8_t individual_coils;
   uint8_t single_coil;
@@ -2273,9 +2277,11 @@ ITCM_FUNC void ecu_process(void)
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
   phased_injection = use_tsps && is_phased;
-  phased_ignition = phased_injection && individual_coils && !single_coil;
+  phased_ignition = use_tsps && is_phased && individual_coils && !single_coil;
+  phased_knock = use_tsps && is_phased;
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
+  cy_count_knock = phased_knock ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   angle_ignite_param = gParameters.IgnitionAngle;
   injection_phase_by_end = table->is_fuel_phase_by_end;
   inj_phase_param = gParameters.InjectionPhase;
@@ -2347,12 +2353,10 @@ ITCM_FUNC void ecu_process(void)
     }
   } else {
     angles_ignition_per_turn = 360.0f;
-    knock_busy = 0;
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       saturated[ECU_CYLINDERS_COUNT - 1 - i] = 1;
       ignited[ECU_CYLINDERS_COUNT - 1 - i] = 1;
       ignition_saturate_time[ECU_CYLINDERS_COUNT - 1 - i] = 0;
-      knock_process[ECU_CYLINDERS_COUNT - 1 - i] = 0;
     }
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       var = angle_ignite;
@@ -2409,6 +2413,15 @@ ITCM_FUNC void ecu_process(void)
     }
   }
 
+  if(knock_was_phased != phased_knock) {
+    knock_was_phased = phased_knock;
+    knock_cylinder = -1;
+    knock_busy = 0;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      knock_process[i] = 0;
+    }
+  }
+
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
       angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
@@ -2416,6 +2429,15 @@ ITCM_FUNC void ecu_process(void)
   } else {
     angle_ignition[0] = csps_getangle14(csps);
     angle_ignition[1] = csps_getangle23from14(angle_ignition[0]);
+  }
+
+  if(phased_knock) {
+    for(int i = 0; i < cy_count_knock; i++) {
+      angle_knock[i] = csps_getphasedangle_cy(csps, i, angle);
+    }
+  } else {
+    angle_knock[0] = csps_getangle14(csps);
+    angle_knock[1] = csps_getangle23from14(angle_knock[0]);
   }
 
   if(phased_injection) {
@@ -2522,37 +2544,37 @@ ITCM_FUNC void ecu_process(void)
         }
 
         //Knock part
-        for(int i = 0; i < cy_count_ignition; i++)
-        {
-          if(knock_busy) {
-            if(knock_process[i]) {
-              if(angle_ignition[i] < gKnockDetectStartAngle || angle_ignition[i] >= gKnockDetectEndAngle) {
-                Knock_SetState(0);
-                knock_process[i] = 0;
-                knock_cylinder = i;
-                knock_busy = 0;
+        if(knock_busy && knock_process[knock_cylinder]) {
+          if(angle_knock[knock_cylinder] < gKnockDetectStartAngle || angle_knock[knock_cylinder] >= gKnockDetectEndAngle) {
+            Knock_SetState(0);
+            knock_process[knock_cylinder] = 0;
+            knock_busy = 0;
+          }
+        }
+        if(!knock_busy) {
+          for(int i = 0; i < cy_count_knock; i++) {
+            if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
+              if(knock_cylinder >= 0) {
+                knock = adc_get_voltage(AdcChKnock);
+                if(cy_count_knock == ECU_CYLINDERS_COUNT) {
+                  gStatus.Knock.Voltages[knock_cylinder] = knock;
+                  gStatus.Knock.Updated[knock_cylinder] = 1;
+                  gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                  gStatus.Knock.LastTime[knock_cylinder] = now;
+                } else if(cy_count_knock == ECU_CYLINDERS_COUNT_HALF) {
+                  gStatus.Knock.Voltages[knock_cylinder] = knock;
+                  gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
+                  gStatus.Knock.Updated[knock_cylinder] = 1;
+                  gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
+                  gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                  gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
+                  gStatus.Knock.LastTime[knock_cylinder] = now;
+                  gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
+                }
               }
-            }
-          } else {
-            if(angle_ignition[i] >= gKnockDetectStartAngle && angle_ignition[i] < gKnockDetectEndAngle) {
               knock_busy = 1;
-              knock = adc_get_voltage(AdcChKnock);
-              if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-                gStatus.Knock.Voltages[knock_cylinder] = knock;
-                gStatus.Knock.Updated[knock_cylinder] = 1;
-                gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-                gStatus.Knock.LastTime[knock_cylinder] = now;
-              } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-                gStatus.Knock.Voltages[knock_cylinder] = knock;
-                gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
-                gStatus.Knock.Updated[knock_cylinder] = 1;
-                gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
-                gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-                gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
-                gStatus.Knock.LastTime[knock_cylinder] = now;
-                gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
-              }
-              knock_process[i] = 1;
+              knock_cylinder = i;
+              knock_process[knock_cylinder] = 1;
               Knock_SetState(1);
             }
           }
