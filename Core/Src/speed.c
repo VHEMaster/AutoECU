@@ -92,8 +92,9 @@ void speed_exti(uint32_t timestamp)
 
 void speed_loop(void)
 {
+  uint32_t pulse_last = speed_pulse_last;
   uint32_t now = *speed_timebase;
-  if(speed_rotates && DelayDiff(now, speed_pulse_last) > 1000000) {
+  if(speed_rotates && DelayDiff(now, pulse_last) > 1000000) {
     for(int i = 0; i < IRQ_SIZE; i++) {
       speed_irq_data[i] = 0;
     }
