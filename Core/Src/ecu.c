@@ -2183,7 +2183,6 @@ ITCM_FUNC void ecu_process(void)
   float angle_injection[ECU_CYLINDERS_COUNT];
   float angle_ignition[ECU_CYLINDERS_COUNT];
   float angle_knock[ECU_CYLINDERS_COUNT];
-  float angle_pressure[ECU_CYLINDERS_COUNT_HALF];
   static float ignition_saturate[ECU_CYLINDERS_COUNT];
   static float ignition_ignite[ECU_CYLINDERS_COUNT];
   static uint32_t ignition_saturate_time[ECU_CYLINDERS_COUNT];
@@ -2236,6 +2235,7 @@ ITCM_FUNC void ecu_process(void)
   uint8_t shift_inj_act, shift_ign_act;
   uint8_t shiftEnabled = gEcuParams.shiftMode > 0;
   uint8_t is_phased = csps_isphased(csps);
+  uint8_t use_phased;
   uint8_t econ_flag = gParameters.IdleEconFlag;
   HAL_StatusTypeDef throttleStatus = HAL_OK;
   HAL_StatusTypeDef map_status = HAL_OK;
@@ -2246,6 +2246,9 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
   float inj_lag = gParameters.InjectionLag * 1000.0f;
+
+  float phased_angles[ECU_CYLINDERS_COUNT];
+  float non_phased_angles[ECU_CYLINDERS_COUNT_HALF];
 
   float knock_injection_correctives[ECU_CYLINDERS_COUNT];
   float knock_ignition_correctives[ECU_CYLINDERS_COUNT];
@@ -2282,9 +2285,10 @@ ITCM_FUNC void ecu_process(void)
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
-  phased_injection = use_tsps && is_phased;
-  phased_ignition = use_tsps && is_phased && individual_coils && !single_coil;
-  phased_knock = use_tsps && is_phased;
+  use_phased = use_tsps && is_phased;
+  phased_injection = use_phased;
+  phased_ignition = use_phased && individual_coils && !single_coil;
+  phased_knock = use_phased;
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_knock = phased_knock ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
@@ -2428,35 +2432,39 @@ ITCM_FUNC void ecu_process(void)
     }
   }
 
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    phased_angles[i] = csps_getphasedangle_cy(csps, i, angle);
+  }
+
+  non_phased_angles[0] = csps_getangle14(csps);
+  non_phased_angles[1] = csps_getangle23from14(non_phased_angles[0]);
+
   if(phased_ignition) {
     for(int i = 0; i < cy_count_ignition; i++) {
-      angle_ignition[i] = csps_getphasedangle_cy(csps, i, angle);
+      angle_ignition[i] = phased_angles[i];
     }
   } else {
-    angle_ignition[0] = csps_getangle14(csps);
-    angle_ignition[1] = csps_getangle23from14(angle_ignition[0]);
+    angle_ignition[0] = non_phased_angles[0];
+    angle_ignition[1] = non_phased_angles[1];
   }
 
   if(phased_knock) {
     for(int i = 0; i < cy_count_knock; i++) {
-      angle_knock[i] = csps_getphasedangle_cy(csps, i, angle);
+      angle_knock[i] = phased_angles[i];
     }
   } else {
-    angle_knock[0] = csps_getangle14(csps);
-    angle_knock[1] = csps_getangle23from14(angle_knock[0]);
+    angle_knock[0] = non_phased_angles[0];
+    angle_knock[1] = non_phased_angles[1];
   }
 
   if(phased_injection) {
     for(int i = 0; i < cy_count_injection; i++) {
-      angle_injection[i] = csps_getphasedangle_cy(csps, i, angle);
+      angle_injection[i] = phased_angles[i];
     }
   } else {
-    angle_injection[0] = csps_getangle14(csps);
-    angle_injection[1] = csps_getangle23from14(angle_injection[0]);
+    angle_injection[0] = non_phased_angles[0];
+    angle_injection[1] = non_phased_angles[1];
   }
-
-  angle_pressure[0] = csps_getangle14(csps);
-  angle_pressure[1] = csps_getangle23from14(angle_pressure[0]);
 
   if((found || ecu_async_injection_check() || async_inject_time || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
   {
@@ -2555,10 +2563,10 @@ ITCM_FUNC void ecu_process(void)
         //Pressure detection part
         for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++)
         {
-          if(angle_pressure[i] < pressure_measurement_angle)
-            anglesbeforepressure[i] = -angle_pressure[i] + pressure_measurement_angle;
+          if(non_phased_angles[i] < pressure_measurement_angle)
+            anglesbeforepressure[i] = -non_phased_angles[i] + pressure_measurement_angle;
           else
-            anglesbeforepressure[i] = 360.0f - angle_pressure[i] + pressure_measurement_angle;
+            anglesbeforepressure[i] = 360.0f - non_phased_angles[i] + pressure_measurement_angle;
 
           if(oldanglesbeforepressure[i] - anglesbeforepressure[i] > 0.0f && oldanglesbeforepressure[i] - anglesbeforepressure[i] > 180.0f)
             anglesbeforepressure[i] = oldanglesbeforepressure[i];
