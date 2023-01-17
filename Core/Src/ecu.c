@@ -2166,11 +2166,13 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t turns_count_last = 0;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+  static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
+  static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_busy = 0;
@@ -2181,13 +2183,17 @@ ITCM_FUNC void ecu_process(void)
   float angle_injection[ECU_CYLINDERS_COUNT];
   float angle_ignition[ECU_CYLINDERS_COUNT];
   float angle_knock[ECU_CYLINDERS_COUNT];
+  float angle_pressure[ECU_CYLINDERS_COUNT_HALF];
   static float ignition_saturate[ECU_CYLINDERS_COUNT];
   static float ignition_ignite[ECU_CYLINDERS_COUNT];
   static uint32_t ignition_saturate_time[ECU_CYLINDERS_COUNT];
   static uint32_t ignition_ignite_time[ECU_CYLINDERS_COUNT];
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
+  float anglesbeforepressure[ECU_CYLINDERS_COUNT_HALF];
   float pressure = 0;
+  float pressure_measurement_time = 20;
+  float pressure_measurement_angle = 90 + pressure_measurement_time;
 
   float throttle;
   float angle = csps_getphasedangle(csps);
@@ -2449,6 +2455,9 @@ ITCM_FUNC void ecu_process(void)
     angle_injection[1] = csps_getangle23from14(angle_injection[0]);
   }
 
+  angle_pressure[0] = csps_getangle14(csps);
+  angle_pressure[1] = csps_getangle23from14(angle_pressure[0]);
+
   if((found || ecu_async_injection_check() || async_inject_time || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
   {
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin << 16;
@@ -2541,6 +2550,38 @@ ITCM_FUNC void ecu_process(void)
 
         while(inj_phase_temp > angles_injection_per_turn * 0.5f) {
           inj_phase_temp -= angles_injection_per_turn;
+        }
+
+        //Pressure detection part
+        for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++)
+        {
+          if(angle_pressure[i] < pressure_measurement_angle)
+            anglesbeforepressure[i] = -angle_pressure[i] + pressure_measurement_angle;
+          else
+            anglesbeforepressure[i] = 360.0f - angle_pressure[i] + pressure_measurement_angle;
+
+          if(oldanglesbeforepressure[i] - anglesbeforepressure[i] > 0.0f && oldanglesbeforepressure[i] - anglesbeforepressure[i] > 180.0f)
+            anglesbeforepressure[i] = oldanglesbeforepressure[i];
+
+          if(anglesbeforepressure[i] - pressure_measurement_time < 0.0f)
+          {
+            if(!pressure_measurement[i])
+            {
+              pressure_measurement[i] = 1;
+
+              if(map_status == HAL_OK) {
+                gLocalParams.MapAcceptValue = pressure;
+                gLocalParams.MapAcceptLast = now;
+              }
+            }
+          }
+
+          if(oldanglesbeforepressure[i] - anglesbeforepressure[i] < -90.0f)
+          {
+            pressure_measurement[i] = 0;
+          }
+
+          oldanglesbeforepressure[i] = anglesbeforepressure[i];
         }
 
         //Knock part
@@ -2641,11 +2682,6 @@ ITCM_FUNC void ecu_process(void)
                 }
                 ignition_ignite[i] = time_pulse;
                 ignition_ignite_time[i] = now;
-
-                if(map_status == HAL_OK) {
-                  gLocalParams.MapAcceptValue = pressure;
-                  gLocalParams.MapAcceptLast = now;
-                }
               }
             }
           } else {
@@ -2706,6 +2742,12 @@ ITCM_FUNC void ecu_process(void)
       ignition_ready[i] = 0;
       knock_process[i] = 0;
       knock_busy = 0;
+    }
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
+      pressure_measurement[i] = 0;
+      oldanglesbeforepressure[i] = 0.0f;
+
     }
 
     Knock_SetState(0);
