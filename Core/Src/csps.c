@@ -136,13 +136,13 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
     HAL_GPIO_TogglePin(TIM5_CH1_SENS_CSPS_GPIO_Port, TIM5_CH1_SENS_CSPS_Pin);
     if(++step >= 116)
       step = 0;
-    if(step == 107) {
+    if(step == 3) {
       phase ^= 1;
       if(phase) {
         HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
       }
     }
-    if(step == 12 && phase) {
+    if(step == 24 && phase) {
       HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
       if(phased) {
         csps_tsps_exti(timestamp);
@@ -489,16 +489,16 @@ ITCM_FUNC INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, 
   uint8_t phased = csps_isphased(data);
   switch(cylinder) {
     case 0 :
-      angle += 0.0f;
-      break;
-    case 2 :
-      angle -= 180.0f;
-      break;
-    case 3 :
       angle -= 360.0f;
       break;
-    case 1 :
+    case 2 :
       angle -= 540.0f;
+      break;
+    case 3 :
+      angle -= 0.0f;
+      break;
+    case 1 :
+      angle -= 180.0f;
       break;
     default:
       angle = 0;
