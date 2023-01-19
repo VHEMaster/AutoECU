@@ -75,10 +75,10 @@ typedef struct {
   struct {
     union {
       struct {
-        eOutputDiagnosticStatus InjCy1 : 2;
-        eOutputDiagnosticStatus InjCy2 : 2;
-        eOutputDiagnosticStatus InjCy3 : 2;
         eOutputDiagnosticStatus InjCy4 : 2;
+        eOutputDiagnosticStatus InjCy3 : 2;
+        eOutputDiagnosticStatus InjCy2 : 2;
+        eOutputDiagnosticStatus InjCy1 : 2;
       }Data;
       uint8_t Byte;
     }Diagnostic;

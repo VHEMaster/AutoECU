@@ -84,10 +84,6 @@ void Error_Handler(void);
 #define KNOCK_INT_Pin GPIO_PIN_4
 #define KNOCK_INT_GPIO_Port GPIOA
 #define KNOCK_INT_EXTI_IRQn EXTI4_IRQn
-#define INJ_4_Pin GPIO_PIN_6
-#define INJ_4_GPIO_Port GPIOA
-#define INJ_3_Pin GPIO_PIN_7
-#define INJ_3_GPIO_Port GPIOA
 #define INJ_CH2_Pin GPIO_PIN_4
 #define INJ_CH2_GPIO_Port GPIOC
 #define INJ_CH1_Pin GPIO_PIN_5
@@ -162,12 +158,17 @@ void Error_Handler(void);
 #define SPI1_NSS_ADC_GPIO_Port GPIOB
 #define SW_NRST_Pin GPIO_PIN_7
 #define SW_NRST_GPIO_Port GPIOB
-#define INJ_1_Pin GPIO_PIN_8
-#define INJ_1_GPIO_Port GPIOB
-#define INJ_2_Pin GPIO_PIN_9
-#define INJ_2_GPIO_Port GPIOB
 #define KLINE_LO_Pin GPIO_PIN_3
 #define KLINE_LO_GPIO_Port GPIOD
+
+#define INJ_1_Pin GPIO_PIN_6
+#define INJ_1_GPIO_Port GPIOA
+#define INJ_2_Pin GPIO_PIN_7
+#define INJ_2_GPIO_Port GPIOA
+#define INJ_3_Pin GPIO_PIN_9
+#define INJ_3_GPIO_Port GPIOB
+#define INJ_4_Pin GPIO_PIN_8
+#define INJ_4_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
@@ -197,10 +198,10 @@ void Error_Handler(void);
 #define NVIC_PRIO_TIM8_SPEED_TSPS 5
 #define NVIC_PRIO_TIM9_O2PWM 1
 #define NVIC_PRIO_EXTI0_CSPS 2
-#define NVIC_PRIO_TIM10_INJ1 0
-#define NVIC_PRIO_TIM11_INJ2 0
-#define NVIC_PRIO_TIM14_INJ3 0
-#define NVIC_PRIO_TIM13_INJ4 0
+#define NVIC_PRIO_TIM13_INJ1 0
+#define NVIC_PRIO_TIM14_INJ2 0
+#define NVIC_PRIO_TIM11_INJ3 0
+#define NVIC_PRIO_TIM10_INJ4 0
 
 /* USER CODE END Private defines */
 

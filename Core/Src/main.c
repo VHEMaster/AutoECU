@@ -205,14 +205,14 @@ STATIC_INLINE void slow_loop(void)
 
 INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if(htim == &htim10) {
+  if(htim == &htim13) {
     injector_irq(InjectorCy1);
-  } else if(htim == &htim11) {
-    injector_irq(InjectorCy2);
-  } else if(htim == &htim13) {
-    injector_irq(InjectorCy4);
   } else if(htim == &htim14) {
+    injector_irq(InjectorCy2);
+  } else if(htim == &htim11) {
     injector_irq(InjectorCy3);
+  } else if(htim == &htim10) {
+    injector_irq(InjectorCy4);
   } else if (htim == &htim3) {
     fast_loop();
   } else if (htim == &htim4) {
@@ -459,10 +459,10 @@ int main(void)
   csps_init(&Delay_Tick, &htim2, TIM_CHANNEL_1);
   speed_init(&Delay_Tick, &htim1, TIM_CHANNEL_1);
 
-  injector_register(InjectorCy1, &htim10, INJ_1_GPIO_Port, INJ_1_Pin);
-  injector_register(InjectorCy2, &htim11, INJ_2_GPIO_Port, INJ_2_Pin);
-  injector_register(InjectorCy3, &htim14, INJ_3_GPIO_Port, INJ_3_Pin);
-  injector_register(InjectorCy4, &htim13, INJ_4_GPIO_Port, INJ_4_Pin);
+  injector_register(InjectorCy1, &htim13, INJ_1_GPIO_Port, INJ_1_Pin);
+  injector_register(InjectorCy2, &htim14, INJ_2_GPIO_Port, INJ_2_Pin);
+  injector_register(InjectorCy3, &htim11, INJ_3_GPIO_Port, INJ_3_Pin);
+  injector_register(InjectorCy4, &htim10, INJ_4_GPIO_Port, INJ_4_Pin);
 
   Misc_O2_Init(htim9.Init.Period, &o2_pwm_period);
 
