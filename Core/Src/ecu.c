@@ -44,7 +44,7 @@
 #include "math_fast.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
-//#define PRESSURE_ACCEPTION_FEATURE 1
+#define PRESSURE_ACCEPTION_FEATURE 0
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -163,7 +163,7 @@ union {
 
 struct {
     volatile uint32_t RequestFillLast;
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
     volatile float MapAcceptValue;
     volatile uint32_t MapAcceptLast;
 #endif
@@ -465,7 +465,7 @@ static void ecu_update(void)
   static float idle_valve_pos_correction = 0;
   static uint8_t is_cold_start = 1;
   static float cold_start_idle_temperature = 0.0f;
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
 #endif
   uint32_t table_number = gParameters.CurrentTable;
@@ -747,7 +747,7 @@ static void ecu_update(void)
       gStatus.Sensors.Struct.Map = HAL_ERROR;
   }
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   if(gStatus.Sensors.Struct.Map == HAL_OK && running) {
     if(DelayDiff(now, params_map_accept_last) < 100000) {
       pressure = gLocalParams.MapAcceptValue;
@@ -2195,7 +2195,7 @@ ITCM_FUNC void ecu_process(void)
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
   float anglesbeforepressure[ECU_CYLINDERS_COUNT_HALF];
@@ -2270,7 +2270,7 @@ ITCM_FUNC void ecu_process(void)
   memcpy(cy_corr_injection, table->cy_corr_injection, sizeof(cy_corr_injection));
   memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
 #ifndef SIMULATION
   map_status = sens_get_map(&pressure);
 #else
@@ -2572,7 +2572,7 @@ ITCM_FUNC void ecu_process(void)
           inj_phase_temp -= angles_injection_per_turn;
         }
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
         //Pressure detection part
         for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++)
         {
@@ -2767,7 +2767,7 @@ ITCM_FUNC void ecu_process(void)
     }
 
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       pressure_measurement[i] = 0;
       oldanglesbeforepressure[i] = 0.0f;
@@ -3997,7 +3997,7 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
 
-#ifdef PRESSURE_ACCEPTION_FEATURE
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   gLocalParams.MapAcceptValue = 103000.0f;
   gLocalParams.MapAcceptLast = 0;
 #endif
