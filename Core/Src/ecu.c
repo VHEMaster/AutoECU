@@ -175,8 +175,8 @@ struct {
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
 static const uint16_t gIgnPins[ECU_CYLINDERS_COUNT] = { IGN_1_Pin, IGN_2_Pin, IGN_3_Pin, IGN_4_Pin };
 
-static GPIO_TypeDef * const gInjPorts[ECU_CYLINDERS_COUNT] = { INJ_1_GPIO_Port, INJ_2_GPIO_Port, INJ_3_GPIO_Port, INJ_4_GPIO_Port };
-static const uint16_t gInjPins[ECU_CYLINDERS_COUNT] = { INJ_1_Pin, INJ_2_Pin, INJ_3_Pin, INJ_4_Pin };
+static GPIO_TypeDef * const gInjPorts[ECU_CYLINDERS_COUNT] = { INJ_4_GPIO_Port, INJ_3_GPIO_Port, INJ_2_GPIO_Port, INJ_1_GPIO_Port };
+static const uint16_t gInjPins[ECU_CYLINDERS_COUNT] = { INJ_4_Pin, INJ_3_Pin, INJ_2_Pin, INJ_1_Pin };
 
 static GPIO_TypeDef * const gInjChPorts[2] = { INJ_CH1_GPIO_Port, INJ_CH2_GPIO_Port };
 static const uint16_t gInjChPins[2] = { INJ_CH1_Pin, INJ_CH2_Pin};
@@ -3868,11 +3868,13 @@ static void ecu_oil_pressure_process(void)
 
 #ifdef SIMULATION
   GPIO_PinState pressure = is_running ? GPIO_PIN_SET : GPIO_PIN_RESET;
+  GPIO_PinState ignition = GPIO_PIN_SET;
 #else
   GPIO_PinState pressure = sens_get_oil_pressure(NULL);
+  GPIO_PinState ignition = sens_get_ign(NULL);
 #endif
 
-  if(is_running) {
+  if(is_running && ignition != GPIO_PIN_RESET) {
     if(!gStatus.OilPressure.is_running) {
       if(!gStatus.OilPressure.run_time)
         gStatus.OilPressure.run_time = now;
