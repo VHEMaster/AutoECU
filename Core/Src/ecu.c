@@ -743,7 +743,7 @@ static void ecu_update(void)
   }
 
   if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
-    if(pressure < 70000 && (idle_valve_position > 10 || throttle > 5.0f))
+    if(pressure < 70000 && (idle_valve_position > 10 || throttle > 2.0f))
       gStatus.Sensors.Struct.Map = HAL_ERROR;
   }
 
@@ -814,8 +814,8 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  throttle_idle_flag = throttle < 1.0f;
-  is_full_throttle = is_full_throttle_used && throttle > 95.0f;
+  throttle_idle_flag = throttle < 0.5f;
+  is_full_throttle = is_full_throttle_used && throttle > 92.0f;
   idle_flag = throttle_idle_flag && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
