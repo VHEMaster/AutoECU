@@ -44,7 +44,7 @@
 #include "math_fast.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
-#define PRESSURE_ACCEPTION_FEATURE  0
+#define PRESSURE_ACCEPTION_FEATURE  1
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
@@ -167,6 +167,7 @@ struct {
     volatile uint32_t RequestFillLast;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
     volatile float MapAcceptValue;
+    volatile float TpsAcceptValue;
     volatile uint32_t MapAcceptLast;
 #endif
     uint32_t RunningTime;
@@ -755,6 +756,7 @@ static void ecu_update(void)
       pressure = gLocalParams.MapAcceptValue;
     }
   } else {
+    gLocalParams.TpsAcceptValue = throttle;
     gLocalParams.MapAcceptValue = pressure;
     gLocalParams.MapAcceptLast = now;
   }
@@ -2208,6 +2210,8 @@ ITCM_FUNC void ecu_process(void)
 #endif
 
   float throttle;
+  float throttle_abs_diff;
+  float throttle_rel_diff;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
   float uspa_koff = 0.8f;
@@ -2250,7 +2254,7 @@ ITCM_FUNC void ecu_process(void)
   uint8_t is_phased = csps_isphased(csps);
   uint8_t use_phased;
   uint8_t econ_flag = gParameters.IdleEconFlag;
-  HAL_StatusTypeDef throttleStatus = HAL_OK;
+  HAL_StatusTypeDef throttle_status = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns();
@@ -2275,8 +2279,10 @@ ITCM_FUNC void ecu_process(void)
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
 #ifndef SIMULATION
   map_status = sens_get_map(&pressure);
+  throttle_status = sens_get_throttle_position(&throttle);
 #else
   pressure = gDebugMap;
+  throttle = gDebugThrottle;
 #endif
 #endif
 
@@ -2288,9 +2294,8 @@ ITCM_FUNC void ecu_process(void)
         clutch = clutch_pin;
       }
     }
-    throttleStatus = sens_get_throttle_position(&throttle);
   }
-  if(throttleStatus != HAL_OK)
+  if(throttle_status != HAL_OK)
     shiftEnabled = 0;
   if(!shiftEnabled)
     clutch = GPIO_PIN_RESET;
@@ -2576,6 +2581,20 @@ ITCM_FUNC void ecu_process(void)
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
         //Pressure detection part
+
+        if(map_status == HAL_OK && throttle_status == HAL_OK) {
+          throttle_abs_diff = fabsf(throttle - gLocalParams.TpsAcceptValue);
+          throttle_rel_diff = (1.0f + throttle) / (1.0f + gLocalParams.TpsAcceptValue);
+          if(throttle_rel_diff < 1.0f)
+            throttle_rel_diff = 1.0f / throttle_rel_diff;
+
+          if(throttle_abs_diff > 2.0f && throttle_rel_diff > 1.33f) {
+            gLocalParams.TpsAcceptValue = throttle;
+            gLocalParams.MapAcceptValue = pressure;
+            gLocalParams.MapAcceptLast = now;
+          }
+        }
+
         for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++)
         {
           if(non_phased_angles[i] < pressure_measurement_angle)
@@ -2593,6 +2612,7 @@ ITCM_FUNC void ecu_process(void)
               pressure_measurement[i] = 1;
 
               if(map_status == HAL_OK) {
+                gLocalParams.TpsAcceptValue = throttle;
                 gLocalParams.MapAcceptValue = pressure;
                 gLocalParams.MapAcceptLast = now;
               }
