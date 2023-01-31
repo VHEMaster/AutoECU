@@ -554,7 +554,7 @@ static int8_t O2_Loop(void)
       break;
     case 6 :
       if(!force && !is_engine_running) {
-        O2_SetHeaterVoltage(0.0f);
+        O2_SetHeaterVoltage(1.5f);
         O2Status.Valid = 0;
         state = 0;
         break;
@@ -575,13 +575,13 @@ static int8_t O2_Loop(void)
       break;
     case 7 :
       if(!force && !is_engine_running) {
-        O2_SetHeaterVoltage(0.0f);
+        O2_SetHeaterVoltage(1.5f);
         O2Status.Valid = 0;
         state = 0;
         break;
       }
       if(o2heater >= 13.0f) {
-        O2_SetHeaterVoltage(0);
+        O2_SetHeaterVoltage(1.5f);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         state++;
