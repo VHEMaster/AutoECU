@@ -44,7 +44,8 @@
 #include "math_fast.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
-#define PRESSURE_ACCEPTION_FEATURE 0
+#define PRESSURE_ACCEPTION_FEATURE  0
+#define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -2820,6 +2821,12 @@ static void ecu_fuelpump_process(void)
       active = 0;
       was_rotating = 0;
     }
+#if defined(FUEL_PUMP_ON_INJ_CH1_ONLY) && FUEL_PUMP_ON_INJ_CH1_ONLY == 1
+    if(gParameters.InjectorChannel != InjectorChannel1) {
+      active = 0;
+      was_rotating = 0;
+    }
+#endif
   }
 
   if(active) {
