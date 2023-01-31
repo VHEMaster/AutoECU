@@ -2837,6 +2837,7 @@ static void ecu_fan_process(void)
   uint8_t force_enabled = gForceParameters.Enable.FanRelay || gForceParameters.Enable.FanSwitch;
   GPIO_PinState force = sens_get_fan_force_switch(NULL);
   GPIO_PinState fan_pin_state = out_get_fan(NULL);
+  GPIO_PinState ign_pin_state = out_get_ign(NULL);
   GPIO_PinState switch_state = out_get_fan_switch(NULL);
   GPIO_PinState starter_state = GPIO_PIN_RESET;
 
@@ -2880,7 +2881,7 @@ static void ecu_fan_process(void)
   if(force_enabled) {
     out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
     out_fan_sw_state = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
-  } else if((!running && rotates) || !running_last || starter_state == GPIO_PIN_SET) {
+  } else if((!running && rotates && ign_pin_state) || !running_last || starter_state == GPIO_PIN_SET) {
     out_fan_state = GPIO_PIN_RESET;
     out_fan_sw_state = GPIO_PIN_RESET;
   } else if(status != HAL_OK || force == GPIO_PIN_SET) {
