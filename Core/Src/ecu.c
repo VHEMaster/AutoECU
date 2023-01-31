@@ -53,7 +53,8 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 
 #define ENRICHMENT_STATES_COUNT     (ECU_CYLINDERS_COUNT + 1)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
-#define FUEL_PUMP_TIMEOUT           (1500000)
+#define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
+#define FAN_TIMEOUT                 (3 * 1000 * 1000)
 
 typedef volatile struct {
     uint8_t savereq;
@@ -2853,7 +2854,7 @@ static void ecu_fan_process(void)
     running_last = !now ? 1 : now;
   }
 
-  if(running_last > 0 && DelayDiff(now, running_last) > 3000000) {
+  if(running_last > 0 && DelayDiff(now, running_last) > FAN_TIMEOUT) {
     running_last = 0;
   }
 
