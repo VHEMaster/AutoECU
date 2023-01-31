@@ -1443,6 +1443,11 @@ static void ecu_update(void)
           gStatus.Knock.Updated[i] = 0;
         }
       }
+      if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
+        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+          gStatus.Knock.Advances[i] = 1.0f;
+        }
+      }
     } else {
       knock_zone = 0.0f;
       gStatus.Knock.Advance = 0.0f;
