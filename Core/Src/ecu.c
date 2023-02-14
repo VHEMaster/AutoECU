@@ -1486,10 +1486,11 @@ static void ecu_update(void)
   if(adapt_diff >= period * 0.5) {
     adaptation_last = now;
     if(running) {
+      lpf_calculation = adapt_diff * 0.000001f;
+      if(lpf_calculation > 0.1f)
+        lpf_calculation = 0.1f;
+
       if(calibration && corr_math_interpolate_2d_set_func) {
-        lpf_calculation = adapt_diff * 0.000001f;
-        if(lpf_calculation > 0.1f)
-          lpf_calculation = 0.1f;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
           gEcuCorrections.long_term_correction = 0.0f;
@@ -1552,13 +1553,14 @@ static void ecu_update(void)
         }
       } else {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
-          lpf_calculation = adapt_diff * 0.000001f * 0.03333333f; //30 sec
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
-            if(!idle_flag && throttle > 5.0f) {
+            if(!idle_flag) {
+              lpf_calculation *= 0.0333f; //30 sec
               gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
             }
-            else if(idle_flag || throttle < 2.0f) {
+            else if(idle_flag) {
+              lpf_calculation *= 0.3333f; //3 sec
               gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
             }
           } else {
