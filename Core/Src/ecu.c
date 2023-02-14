@@ -631,6 +631,7 @@ static void ecu_update(void)
   float fan_air_corr;
   float wish_fault_rpm;
   float tsps_rel_pos = 0;
+  float tsps_desync_thr;
   float start_async_filling;
   float start_large_filling;
   float start_small_filling;
@@ -762,7 +763,10 @@ static void ecu_update(void)
   }
 #endif
 
-  tsps_rel_pos = csps_gettspsrelpos() - gEcuParams.tspsRelPos;
+  ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
+
+  tsps_rel_pos = csps_gettspsrelpos() - math_interpolate_1d(ipRpm, table->tsps_relative_pos);
+  tsps_desync_thr = fabsf(math_interpolate_1d(ipRpm, table->tsps_desync_thr));
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 0.0f;
@@ -806,7 +810,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Tsps = HAL_OK;
   }
 
-  if(running && use_tsps && phased && fabsf(tsps_rel_pos) >= gEcuParams.tspsDesyncThr) {
+  if(running && use_tsps && phased && fabsf(tsps_rel_pos) >= tsps_desync_thr) {
     gStatus.TspsSyncStatus = HAL_ERROR;
   } else {
     gStatus.TspsSyncStatus = HAL_OK;
@@ -829,8 +833,6 @@ static void ecu_update(void)
   } else {
     wish_fault_rpm = 0.0f;
   }
-
-  ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
   ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 

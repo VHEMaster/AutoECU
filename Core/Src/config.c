@@ -518,6 +518,16 @@ static const float default_idle_rpm_pid_act_2[TABLE_TEMPERATURES_MAX] = {
     0.47f, 0.37f, 0.32f, 0.32f, 0.32f, 0.32f, 0.32f, 0.32f
 };
 
+static const float default_tsps_relative_pos[TABLE_ROTATES_MAX] = {
+    -111.0f, -111.0f, -111.0f, -111.0f, -111.4f, -111.8f, -112.2f, -112.6f,
+    -113.0f, -113.4f, -113.8f, -114.2f, -114.6f, -114.9f, -115.2f, -115.5f
+};
+
+static const float default_tsps_desync_thr[TABLE_ROTATES_MAX] = {
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -655,6 +665,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_gain, default_knock_gain, sizeof(default_knock_gain));
   memcpy(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(default_knock_filter_frequency));
 
+  memcpy(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(default_tsps_relative_pos));
+  memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
+
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
     table->cy_corr_ignition[i] = 0;
@@ -701,9 +714,6 @@ void config_default_params(sEcuParams *table)
   table->shiftRpmTill = 2500;
   table->shiftAngle = 3.0f;
   table->shiftMixture = 12.1f;
-
-  table->tspsRelPos = -45.0f;
-  table->tspsDesyncThr = 3.0f;
 
   table->useShortTermCorr = 0;
   table->useLongTermCorr = 0;

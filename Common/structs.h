@@ -252,7 +252,10 @@ typedef struct {
     float cy_corr_injection[ECU_CYLINDERS_COUNT];
     float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-    int32_t Reserved[143];
+    float tsps_relative_pos[TABLE_ROTATES_MAX];
+    float tsps_desync_thr[TABLE_ROTATES_MAX];
+
+    int32_t Reserved[111];
 }sEcuTable;
 
 typedef struct {
@@ -330,8 +333,8 @@ typedef struct {
     float shiftAngle;
     float shiftMixture;
 
-    float tspsRelPos;
-    float tspsDesyncThr;
+    float res1;
+    float res2;
 
     int32_t useShortTermCorr;
     int32_t useLongTermCorr;
