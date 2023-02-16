@@ -263,7 +263,7 @@ static const float default_ignition_time[TABLE_VOLTAGES_MAX] = {
 };
 
 static const float default_injector_lag[TABLE_VOLTAGES_MAX] = {
-    3.00f, 2.56f, 1.92f, 1.48f, 1.04f, 0.72f, 0.50f, 0.10f
+    3.00f, 1.86f, 1.08f, 0.77f, 0.46f, 0.29f, 0.11f, 0.03f
 };
 
 static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
@@ -537,8 +537,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->inj_channel = InjectorChannel1;
 
   //Bosch 0280156095 - 315 cc/min
+  //Bosch 0280155746 - 200 cc/min
   //BMW 03762FA - 180 cc/min
-  table->injector_performance = 180.0f;
+  table->injector_performance = 200.0f;
 
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 0;
