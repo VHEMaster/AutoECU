@@ -2189,7 +2189,7 @@ ITCM_FUNC void ecu_process(void)
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
-  static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
+  //static uint8_t ignition_ready[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t injection[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ign_prepare[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t knock_process[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
@@ -2211,6 +2211,8 @@ ITCM_FUNC void ecu_process(void)
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
+  static float pressure_filtered = 0;
+  static uint32_t pressure_count = 0;
   float anglesbeforepressure[ECU_CYLINDERS_COUNT_HALF];
   float pressure = 0;
   float pressure_measurement_time = 20;
@@ -2289,6 +2291,13 @@ ITCM_FUNC void ecu_process(void)
 #ifndef SIMULATION
   map_status = sens_get_map(&pressure);
   throttle_status = sens_get_throttle_position(&throttle);
+  if (found) {
+    pressure_filtered += pressure;
+    pressure_count++;
+  } else {
+    pressure_filtered = pressure;
+    pressure_count = 1;
+  }
 #else
   pressure = gDebugMap;
   throttle = gDebugThrottle;
@@ -2447,7 +2456,7 @@ ITCM_FUNC void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
-      ignition_ready[i] = 0;
+      //ignition_ready[i] = 0;
     }
   }
 
@@ -2621,9 +2630,15 @@ ITCM_FUNC void ecu_process(void)
               pressure_measurement[i] = 1;
 
               if(map_status == HAL_OK) {
+                if(!pressure_count) {
+                  pressure_filtered = pressure;
+                  pressure_count = 1;
+                }
                 gLocalParams.TpsAcceptValue = throttle;
-                gLocalParams.MapAcceptValue = pressure;
+                gLocalParams.MapAcceptValue = pressure_filtered / (float)pressure_count;
                 gLocalParams.MapAcceptLast = now;
+                pressure_filtered = 0;
+                pressure_count = 0;
               }
             }
           }
@@ -2689,12 +2704,12 @@ ITCM_FUNC void ecu_process(void)
           {
             if(!saturated[i] && !ignited[i] && (ignition_ignite_time[i] == 0 || DelayDiff(now, ignition_ignite_time[i]) >= ignition_ignite[i]))
             {
-              if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
-                ignition_ready[i] = 1;
-              } else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
-                ignition_ready[i] = 1;
-                ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-              }
+              //if(cy_count_ignition == ECU_CYLINDERS_COUNT) {
+              //  ignition_ready[i] = 1;
+              //} else if(cy_count_ignition == ECU_CYLINDERS_COUNT_HALF) {
+              //  ignition_ready[i] = 1;
+              //  ignition_ready[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+              //}
               ignition_ignite_time[i] = 0;
               ignition_ignite[i] = 0;
               saturated[i] = 1;
@@ -2792,7 +2807,7 @@ ITCM_FUNC void ecu_process(void)
       ignited[i] = 1;
       injection[i] = 0;
       injected[i] = 0;
-      ignition_ready[i] = 0;
+      //ignition_ready[i] = 0;
       knock_process[i] = 0;
       knock_busy = 0;
     }
