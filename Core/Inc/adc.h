@@ -45,6 +45,7 @@ HAL_StatusTypeDef adc_fast_loop(void);
 HAL_StatusTypeDef adc_slow_loop(void);
 float adc_get_voltage(eAdcChannel channel);
 float adc_get_voltage_unfiltered(eAdcChannel channel);
+float adc_get_voltage_urgent(eAdcChannel channel);
 HAL_StatusTypeDef adc_get_status(void);
 void adc_set_events(AdcChannelEvent startEvent, AdcChannelEvent doneEvent);
 

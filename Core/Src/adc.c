@@ -539,6 +539,22 @@ INLINE float adc_get_voltage_unfiltered(eAdcChannel channel)
   return 0.f;
 }
 
+INLINE float adc_get_voltage_urgent(eAdcChannel channel)
+{
+  uint32_t data = 0;
+  if(channel < ADC_CHANNELS + MCU_CHANNELS) {
+    if(ChFilter[channel]) {
+      for(int j = 0; j < ADC_BUFFER_SIZE; j++)
+        data += AdcBuffer[channel][j];
+      data /= ADC_BUFFER_SIZE;
+    } else {
+      data = AdcBuffer[channel][0];
+    }
+    return ADC_Convert(channel, data) * ChDivider[channel];
+  }
+  return 0.f;
+}
+
 HAL_StatusTypeDef adc_get_status(void)
 {
   return adcStatus | adcTimeoutStatus;

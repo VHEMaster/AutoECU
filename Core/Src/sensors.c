@@ -214,7 +214,7 @@ INLINE HAL_StatusTypeDef sens_get_adc_status(void)
   return adc_get_status();
 }
 
-HAL_StatusTypeDef sens_get_map(float *output)
+static HAL_StatusTypeDef sens_get_map_internal(float *output, float voltage, float power_voltage)
 {
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
@@ -222,8 +222,6 @@ HAL_StatusTypeDef sens_get_map(float *output)
   static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 103000.0f;
   float result = result_old;
-  float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
-  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
 
   status = getMapPressureByVoltages(voltage, power_voltage, &result);
 
@@ -245,6 +243,22 @@ HAL_StatusTypeDef sens_get_map(float *output)
 
 
   return status_old;
+}
+
+HAL_StatusTypeDef sens_get_map(float *output)
+{
+  float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+
+  return sens_get_map_internal(output, voltage, power_voltage);
+}
+
+HAL_StatusTypeDef sens_get_map_urgent(float *output)
+{
+  float voltage = adc_get_voltage_urgent(AdcChManifoldAbsolutePressure);
+  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
+
+  return sens_get_map_internal(output, voltage, power_voltage);
 }
 
 HAL_StatusTypeDef sens_get_map_unfiltered(float *output)

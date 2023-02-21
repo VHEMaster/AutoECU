@@ -2289,7 +2289,7 @@ ITCM_FUNC void ecu_process(void)
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
 #ifndef SIMULATION
-  map_status = sens_get_map(&pressure);
+  map_status = sens_get_map_urgent(&pressure);
   throttle_status = sens_get_throttle_position(&throttle);
   if (found) {
     pressure_filtered += pressure;
