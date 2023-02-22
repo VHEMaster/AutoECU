@@ -1000,6 +1000,7 @@ static void ecu_update(void)
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
   idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
   idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
+  idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
@@ -1269,13 +1270,12 @@ static void ecu_update(void)
     injection_time = 0;
   }
 
-  idle_valve_pos_adaptation = 0;
-  idle_valve_pos_correction = 0;
+  math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
+  math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
   if(running) {
     idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
-    idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
     math_pid_set_clamp(&gPidIdleAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
@@ -1286,9 +1286,6 @@ static void ecu_update(void)
   idle_wish_valve_pos = idle_table_valve_pos;
 
   ecu_pid_update(idle_corr_flag, idle_wish_to_rpm_relation);
-
-  math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
-  math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
   if(!idle_corr_flag) {
     idle_valve_pos_correction = 0;
