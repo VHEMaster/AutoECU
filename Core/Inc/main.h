@@ -170,6 +170,15 @@ void Error_Handler(void);
 #define INJ_4_Pin GPIO_PIN_8
 #define INJ_4_GPIO_Port GPIOB
 
+#define MCU_RSVD_1_Pin GPIO_PIN_7
+#define MCU_RSVD_1_GPIO_Port GPIOE
+#define MCU_RSVD_2_Pin GPIO_PIN_8
+#define MCU_RSVD_2_GPIO_Port GPIOE
+#define MCU_RSVD_3_Pin GPIO_PIN_10
+#define MCU_RSVD_3_GPIO_Port GPIOE
+#define MCU_RSVD_4_Pin GPIO_PIN_5
+#define MCU_RSVD_4_GPIO_Port GPIOD
+
 /* USER CODE BEGIN Private defines */
 
 #define NVIC_PRIO_ADC1 6

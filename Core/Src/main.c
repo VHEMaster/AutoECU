@@ -1648,6 +1648,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = INJ_4_Pin;
   HAL_GPIO_Init(INJ_4_GPIO_Port, &GPIO_InitStruct);
 
+#ifdef DEBUG
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Pin = MCU_RSVD_1_Pin;
+  HAL_GPIO_Init(MCU_RSVD_1_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = MCU_RSVD_2_Pin;
+  HAL_GPIO_Init(MCU_RSVD_2_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = MCU_RSVD_3_Pin;
+  HAL_GPIO_Init(MCU_RSVD_3_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = MCU_RSVD_4_Pin;
+  HAL_GPIO_Init(MCU_RSVD_4_GPIO_Port, &GPIO_InitStruct);
+#endif
+
 #ifdef CSPS_EXTI
   /*Configure GPIO pin : TIM5_CH1_SENS_CSPS_Pin */
   GPIO_InitStruct.Pin = TIM5_CH1_SENS_CSPS_Pin;
