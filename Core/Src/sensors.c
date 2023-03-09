@@ -269,35 +269,10 @@ HAL_StatusTypeDef sens_get_map_urgent(float *output)
 
 HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
 {
-  HAL_StatusTypeDef status = HAL_OK;
-  uint32_t now = Delay_Tick;
-  static uint32_t last_ok = 0;
-  static HAL_StatusTypeDef status_old = HAL_OK;
-  static float result_old = 103000.0f;
-  float result = result_old;
   float voltage = adc_get_voltage_unfiltered(AdcChManifoldAbsolutePressure);
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
 
-  status = getMapPressureByVoltages(voltage, power_voltage, output);
-
-  if(status == HAL_OK) {
-    status_old = HAL_OK;
-    last_ok = now;
-    result_old = result;
-    *output = result;
-  } else if(status_old == HAL_OK) {
-    *output = result_old;
-    status_old = HAL_OK;
-    if(DelayDiff(now, last_ok) > SENS_ERROR_DELAY) {
-      status_old = HAL_ERROR;
-    }
-  } else {
-    status_old = HAL_ERROR;
-    *output = result;
-  }
-
-
-  return status_old;
+  return sens_get_map_internal(output, voltage, power_voltage);
 }
 
 HAL_StatusTypeDef sens_get_air_temperature(float *output)
