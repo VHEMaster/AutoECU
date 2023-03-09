@@ -3209,7 +3209,7 @@ static void ecu_drag_process(void)
                 Drag.Completed = 1;
                 Drag.TimeLast = 0;
               }
-              else if(speed < Drag.FromSpeed - 3.0f)
+              else if(speed < Drag.FromSpeed - 5.0f)
               {
                 Drag.Started = 0;
                 Drag.Status = 4;
@@ -3228,7 +3228,7 @@ static void ecu_drag_process(void)
                 Drag.Completed = 1;
                 Drag.TimeLast = 0;
               }
-              else if(speed > Drag.FromSpeed + 3.0f)
+              else if(speed > Drag.FromSpeed + 5.0f)
               {
                 Drag.Started = 0;
                 Drag.Status = 4;
@@ -3252,7 +3252,7 @@ static void ecu_drag_process(void)
       {
         if(Drag.FromSpeed < Drag.ToSpeed)
         {
-          if(speed >= Drag.FromSpeed)
+          if(speed > Drag.FromSpeed)
           {
             if(Drag.TimeLast != 0)
             {
