@@ -143,6 +143,32 @@ INLINE HAL_StatusTypeDef sens_get_o2_labmda(const sO2Status *p_status, float *ou
     return HAL_ERROR;
 
   *output = p_status->Lambda;
+
+#ifdef DEBUG
+    if(*output > 1.09f) {
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_SET);
+    } else if(*output < 0.9f) {
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_RESET);
+    }
+#endif
+    /*
+#ifdef DEBUG
+    if(*output > 1.09f) {
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_SET);
+    } else if(*output > 1.05f) {
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_SET);
+    } else if(*output < 0.9f) {
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_RESET);
+    } else if(*output < 0.95f) {
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(MCU_RSVD_4_GPIO_Port, MCU_RSVD_4_Pin, GPIO_PIN_RESET);
+    }
+#endif
+  */
+
   if(p_status->Available) {
     if(valid)
       *valid = p_status->Valid && p_status->Working;
