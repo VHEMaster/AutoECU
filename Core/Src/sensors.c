@@ -230,6 +230,12 @@ static HAL_StatusTypeDef sens_get_map_internal(float *output, float voltage, flo
     last_ok = now;
     result_old = result;
     *output = result;
+#ifdef DEBUG
+    if(result > 80000)
+      HAL_GPIO_WritePin(MCU_RSVD_1_GPIO_Port, MCU_RSVD_1_Pin, GPIO_PIN_SET);
+    else if(result < 60000)
+      HAL_GPIO_WritePin(MCU_RSVD_1_GPIO_Port, MCU_RSVD_1_Pin, GPIO_PIN_RESET);
+#endif
   } else if(status_old == HAL_OK) {
     *output = result_old;
     status_old = HAL_OK;

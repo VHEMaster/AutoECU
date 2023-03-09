@@ -4061,6 +4061,13 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
     return;
 
   ecu_process();
+
+#ifdef DEBUG
+    if(gLocalParams.MapAcceptValue > 80000)
+      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
+    else if(gLocalParams.MapAcceptValue < 60000)
+      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
+#endif
 }
 
 ITCM_FUNC void ecu_irq_slow_loop(void)
