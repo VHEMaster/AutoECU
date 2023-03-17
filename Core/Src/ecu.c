@@ -647,6 +647,8 @@ static void ecu_update(void)
   uint8_t enrichment_sync_enabled;
 
   static uint8_t idle_rpm_flag = 0;
+  float idle_rpm_flag_koff = 0;
+  static float idle_rpm_flag_value = 0;
   static uint8_t was_rotating = 0;
   static uint8_t was_found = 0;
   static uint8_t was_start_async = 1;
@@ -1045,12 +1047,15 @@ static void ecu_update(void)
 
   ignition_corr_final = ignition_correction;
 
+  idle_rpm_flag_koff = diff * 0.000001f * 0.25f; // 0.25 sec
+  if(idle_rpm_flag_koff > 0.90f)
+    idle_rpm_flag_koff = 0.90f;
+  idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
+
   if(!running)
     idle_wish_ignition = start_ignition_angle;
-  else if(idle_rpm_flag)
-    idle_wish_ignition = idle_wish_ignition_table;
   else
-    idle_wish_ignition = idle_wish_ignition_static;
+    idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_wish_ignition_table);
 
   if(idle_flag && running) {
     ignition_angle = idle_wish_ignition;
