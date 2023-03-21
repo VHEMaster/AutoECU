@@ -255,7 +255,9 @@ typedef struct {
     float tsps_relative_pos[TABLE_ROTATES_MAX];
     float tsps_desync_thr[TABLE_ROTATES_MAX];
 
-    int32_t Reserved[111];
+    float idle_ignition_time_by_tps[TABLE_THROTTLES_MAX];
+
+    int32_t Reserved[95];
 }sEcuTable;
 
 typedef struct {

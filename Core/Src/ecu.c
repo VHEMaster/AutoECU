@@ -641,6 +641,8 @@ static void ecu_update(void)
   float async_flow_per_cycle;
   float start_async_time;
   float idle_wish_to_rpm_relation;
+  float idle_ignition_time_by_tps;
+  float idle_ignition_time_by_tps_lpf;
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
@@ -649,6 +651,7 @@ static void ecu_update(void)
   static uint8_t idle_rpm_flag = 0;
   float idle_rpm_flag_koff = 0;
   static float idle_rpm_flag_value = 0;
+  static float idle_ignition_time_by_tps_value = 0;
   static uint8_t was_rotating = 0;
   static uint8_t was_found = 0;
   static uint8_t was_start_async = 1;
@@ -993,7 +996,9 @@ static void ecu_update(void)
   ignition_angle_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.ignitions);
   ignition_angle_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.ignitions);
   ignition_angle_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_ign_lpf);
+  ignition_angle_sw_lpf = CLAMP(ignition_angle_sw_lpf, 0.0f, 1.0f);
   ignition_angle_sw_state = (float)is_full_throttle * ignition_angle_sw_lpf + ignition_angle_sw_state * (1.0f - ignition_angle_sw_lpf);
+  idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
 
   ignition_angle = ignition_angle_full * ignition_angle_sw_state + ignition_angle_part * (1.0f - ignition_angle_sw_state);
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
@@ -1051,14 +1056,18 @@ static void ecu_update(void)
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
-  if(!running)
+  idle_ignition_time_by_tps_lpf = diff * 0.000001f * idle_ignition_time_by_tps;
+  idle_ignition_time_by_tps_lpf = CLAMP(idle_ignition_time_by_tps_lpf, 0.0f, 1.0f);
+
+  if(!running) {
     idle_wish_ignition = start_ignition_angle;
-  else
+    idle_ignition_time_by_tps_value = 0;
+  } else {
     idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_wish_ignition_table);
+    idle_ignition_time_by_tps_value = idle_flag * idle_ignition_time_by_tps_lpf + idle_ignition_time_by_tps_value * (1.0f - idle_ignition_time_by_tps_lpf);
+  }
 
-  if(idle_flag && running) {
-    ignition_angle = idle_wish_ignition;
-
+  if(idle_flag) {
     if(out_get_fan(NULL) != GPIO_PIN_RESET) {
       if(out_get_fan_switch(NULL) != GPIO_PIN_RESET) {
         fan_ign_corr = table->idle_ign_fan_high_corr;
@@ -1078,6 +1087,8 @@ static void ecu_update(void)
 
     }
   }
+
+  ignition_angle = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_angle * (1.0f - idle_ignition_time_by_tps_value);
 
   ignition_angle += air_temp_ign_corr;
   ignition_angle += ignition_corr_final;

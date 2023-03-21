@@ -43,7 +43,6 @@ static const float default_throttles[TABLE_THROTTLES_MAX] = {
 static const float default_fillings[TABLE_FILLING_MAX] = {
     33, 65, 98, 130, 163, 195, 228, 260,
     293, 325, 358, 390, 423, 455, 488, 520,
-
 };
 
 static const float default_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
@@ -528,6 +527,11 @@ static const float default_tsps_desync_thr[TABLE_ROTATES_MAX] = {
     3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
+static const float default_idle_ignition_time_by_tps[TABLE_THROTTLES_MAX] = {
+    0.50f, 0.50f, 0.38f, 0.25f, 0.12f, 0.05f, 0.00f, 0.00f,
+    0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -668,6 +672,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(default_tsps_relative_pos));
   memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
+  memcpy(table->idle_ignition_time_by_tps, default_idle_ignition_time_by_tps, sizeof(default_idle_ignition_time_by_tps));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
