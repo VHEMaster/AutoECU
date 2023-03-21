@@ -1048,8 +1048,7 @@ static void ecu_update(void)
   ignition_corr_final = ignition_correction;
 
   idle_rpm_flag_koff = diff * 0.000001f * 0.25f; // 0.25 sec
-  if(idle_rpm_flag_koff > 0.90f)
-    idle_rpm_flag_koff = 0.90f;
+  idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
   if(!running)
