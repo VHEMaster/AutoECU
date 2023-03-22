@@ -743,13 +743,13 @@ static void ecu_update(void)
 
   if(found != was_found) {
     was_found = found;
+    if(found) {
+      was_start_async = 0;
+    }
   }
 
   if(rotates != was_rotating) {
     was_rotating = rotates;
-    if(rotates) {
-      was_start_async = 0;
-    }
   }
 
   if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
@@ -1208,7 +1208,7 @@ static void ecu_update(void)
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
   start_async_time += injector_lag_mult;
-  if(rotates && !was_start_async) {
+  if(found && !was_start_async) {
     ecu_async_injection_push(start_async_time);
     was_start_async = 1;
   }
