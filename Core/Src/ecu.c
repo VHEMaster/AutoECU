@@ -1063,7 +1063,7 @@ static void ecu_update(void)
     idle_wish_ignition = start_ignition_angle;
     idle_ignition_time_by_tps_value = 0;
   } else {
-    idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_wish_ignition_table);
+    idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_rpm_flag_value);
     idle_ignition_time_by_tps_value = idle_flag * idle_ignition_time_by_tps_lpf + idle_ignition_time_by_tps_value * (1.0f - idle_ignition_time_by_tps_lpf);
   }
 
