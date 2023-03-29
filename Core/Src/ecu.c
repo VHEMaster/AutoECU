@@ -1424,10 +1424,16 @@ static void ecu_update(void)
   }
 
   if(injection_dutycycle > 0.90f) {
-    gStatus.InjectionUnderflow = HAL_ERROR;
+    if(!gStatus.InjectionUnderflow.is_error) {
+      gStatus.InjectionUnderflow.error_time = 0;
+    } else {
+      gStatus.InjectionUnderflow.error_time += HAL_DelayDiff(hal_now, gStatus.InjectionUnderflow.error_last);
+    }
+    gStatus.InjectionUnderflow.is_error = 1;
   } else {
-    gStatus.InjectionUnderflow = HAL_OK;
+    gStatus.InjectionUnderflow.is_error = 0;
   }
+  gStatus.InjectionUnderflow.error_last = hal_now;
 
   if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK &&
       !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
@@ -1609,22 +1615,27 @@ static void ecu_update(void)
     km_driven = 0;
   }
 
-  if((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 55.0f) || (rpm < idle_reg_rpm_1 && engine_temp > 80.0f)) &&
-      running && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    float map_tps_relation = pressure / pressure_from_throttle;
-    if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
-      if(gStatus.MapTpsRelation.is_error) {
-        gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
+  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    if((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 55.0f) || (rpm < idle_reg_rpm_2 && rpm > idle_reg_rpm_1 && engine_temp > 80.0f))) {
+      float map_tps_relation = pressure / pressure_from_throttle;
+      if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
+        if(gStatus.MapTpsRelation.is_error) {
+          gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
+        } else {
+          gStatus.MapTpsRelation.error_time = 0;
+        }
+        gStatus.MapTpsRelation.is_error = 1;
       } else {
-        gStatus.MapTpsRelation.error_time = 0;
+        gStatus.MapTpsRelation.is_error = 0;
       }
-      gStatus.MapTpsRelation.is_error = 1;
     } else {
-      gStatus.MapTpsRelation.is_error = 0;
+      gStatus.MapTpsRelation.error_time = 0;
     }
   } else {
+    gStatus.MapTpsRelation.is_error = 0;
     gStatus.MapTpsRelation.error_time = 0;
   }
+
   gStatus.MapTpsRelation.error_last = hal_now;
 
   min = 0.93f;
@@ -3074,7 +3085,7 @@ static void ecu_checkengine_loop(void)
 
   CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
   CHECK_STATUS(iserror, CheckIdleValveDriverFailure, gStatus.IdleValvePosition != HAL_OK);
-  CHECK_STATUS(iserror, CheckInjectionUnderflow, gStatus.InjectionUnderflow != HAL_OK);
+  CHECK_STATUS(iserror, CheckInjectionUnderflow, gStatus.InjectionUnderflow.is_error && gStatus.InjectionUnderflow.error_time > 1000);
   CHECK_STATUS(iserror, CheckAdcFailure, gStatus.AdcStatus != HAL_OK);
 
   if(gEcuParams.useLambdaSensor) {

@@ -511,7 +511,6 @@ typedef struct {
     sOutputDiagnostic OutputDiagnostic;
     HAL_StatusTypeDef IdleValvePosition;
     HAL_StatusTypeDef O2Status;
-    HAL_StatusTypeDef InjectionUnderflow;
     HAL_StatusTypeDef AdcStatus;
     HAL_StatusTypeDef TspsSyncStatus;
     HAL_StatusTypeDef CanInitStatus;
@@ -540,6 +539,11 @@ typedef struct {
         float Advance;
         uint8_t Updated[ECU_CYLINDERS_COUNT];
     }Knock;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }InjectionUnderflow;
     struct {
         uint8_t is_error;
         uint32_t error_time;
