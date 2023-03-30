@@ -459,6 +459,7 @@ float gDebugPowerVoltage = 14.4f;
 
 static void ecu_update(void)
 {
+  static uint32_t hal_last = 0;
   static uint32_t adaptation_last = 0;
   static uint32_t phased_last = 0;
   static uint32_t running_time_last = 0;
@@ -479,6 +480,7 @@ static void ecu_update(void)
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
+  uint32_t hal_diff = HAL_DelayDiff(hal_now, hal_last);
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipIdleRpm = {0};
   sMathInterpolateInput ipMap = {0};
@@ -643,6 +645,8 @@ static void ecu_update(void)
   float idle_wish_to_rpm_relation;
   float idle_ignition_time_by_tps;
   float idle_ignition_time_by_tps_lpf;
+  uint32_t idle_econ_delay;
+  static uint32_t idle_econ_time = 0;
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
@@ -672,6 +676,7 @@ static void ecu_update(void)
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
 
+  hal_last = hal_now;
   if(!now)
     now++;
 
@@ -999,6 +1004,7 @@ static void ecu_update(void)
   ignition_angle_sw_lpf = CLAMP(ignition_angle_sw_lpf, 0.0f, 1.0f);
   ignition_angle_sw_state = (float)is_full_throttle * ignition_angle_sw_lpf + ignition_angle_sw_state * (1.0f - ignition_angle_sw_lpf);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
+  idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay) * 1000;
 
   ignition_angle = ignition_angle_full * ignition_angle_sw_state + ignition_angle_part * (1.0f - ignition_angle_sw_state);
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
@@ -1049,6 +1055,9 @@ static void ecu_update(void)
 
   idle_corr_flag = idle_flag && idle_rpm_flag;
   econ_flag = idle_flag && !idle_rpm_flag;
+  if(econ_flag)
+    idle_econ_time += hal_diff;
+  else idle_econ_time = 0;
 
   ignition_corr_final = ignition_correction;
 
@@ -1184,7 +1193,7 @@ static void ecu_update(void)
 
   start_large_count = table->start_large_count;
   injection_start_mult = math_interpolate_1d(ipThr, table->start_tps_corrs);
-  econ_flag = econ_flag && gEcuParams.isEconEnabled;
+  econ_flag = econ_flag && gEcuParams.isEconEnabled && idle_econ_delay > idle_econ_time;
 
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
