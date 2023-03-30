@@ -568,21 +568,21 @@ static int8_t O2_Loop(void)
           (engine_temperature > 30.0f && diff > 26000000) ||
           (engine_temperature > 20.0f && diff > 28000000) ||
           (engine_temperature > 10.0f && diff > 30000000)) {
-        o2heater = 8.5f;
+        o2heater = 5.0f; // 8.5 by Datasheet
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
         state++;
       }
       break;
     case 7 :
-      if(o2heater >= 13.0f) {
+      if(o2heater >= 11.0f) { // 13.0 by Datasheet
         O2_SetHeaterVoltage(1.5f);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         state++;
       }
       if(DelayDiff(now, calibrate_timestamp) > 100000) {
-        o2heater += 0.4f * 0.1f;
+        o2heater += 0.3f * 0.1f; // 0.4f by Datasheet
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
       }
@@ -1060,7 +1060,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
 
   math_pid_init(&o2_pid);
   math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
-  math_pid_set_clamp(&o2_pid, 0.0f, 12.0f);
+  math_pid_set_clamp(&o2_pid, 0.0f, 11.0f);
 
   while(!O2_GetDevice(&device)) {};
 
