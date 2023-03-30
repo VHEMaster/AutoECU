@@ -86,6 +86,8 @@ typedef enum {
   CheckLambdaDIAHGDShortToBat,
   CheckLambdaDIAHGDOpenCirtuit,
   CheckLambdaDIAHGDShortToGND,
+  CheckLambdaTemperatureFailure,
+  CheckLambdaHeaterFailure,
   CheckKnockDetonationFound,
   CheckKnockLowNoiseLevel,
   CheckTspsDesynchronized,

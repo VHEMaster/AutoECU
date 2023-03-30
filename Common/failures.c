@@ -90,6 +90,8 @@ const char * const gCheckDataErrorString[] = {
     "Lambda: DIAHGD ShortToBat",
     "Lambda: DIAHGD OpenCircuit",
     "Lambda: DIAHGD ShortToGnd",
+    "Lambda: Temperature failure",
+    "Lambda: Heater failure",
 
     "Knock: Detonation Found",
     "Knock: Low Noise Level",

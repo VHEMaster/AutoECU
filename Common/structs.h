@@ -513,6 +513,8 @@ typedef struct {
     sOutputDiagnostic OutputDiagnostic;
     HAL_StatusTypeDef IdleValvePosition;
     HAL_StatusTypeDef O2Status;
+    HAL_StatusTypeDef O2TemperatureStatus;
+    HAL_StatusTypeDef O2HeaterStatus;
     HAL_StatusTypeDef AdcStatus;
     HAL_StatusTypeDef TspsSyncStatus;
     HAL_StatusTypeDef CanInitStatus;
@@ -520,6 +522,7 @@ typedef struct {
     HAL_StatusTypeDef KlineProtocolStatus;
     HAL_StatusTypeDef KlineLoopbackStatus;
     sO2Diagnostic O2Diagnostic;
+
     struct {
         eKnockStatus GeneralStatus;
         uint32_t DetonationLast;

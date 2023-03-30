@@ -29,6 +29,8 @@ typedef struct {
     eO2AmplificationFactor AmplificationFactor;
     uint8_t Available;
     uint8_t Working;
+    HAL_StatusTypeDef TemperatureStatus;
+    HAL_StatusTypeDef HeaterStatus;
     union {
         uint8_t Byte;
         sO2Diagnostic Fields;

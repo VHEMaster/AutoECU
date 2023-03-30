@@ -3112,6 +3112,9 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckLambdaDIAHGDShortToBat, gStatus.O2Diagnostic.DIAHGD == O2DiagShortToBat);
     CHECK_STATUS(iserror, CheckLambdaDIAHGDOpenCirtuit, gStatus.O2Diagnostic.DIAHGD == O2DiagNoPower);
     CHECK_STATUS(iserror, CheckLambdaDIAHGDShortToGND, gStatus.O2Diagnostic.DIAHGD == O2DiagShortToGnd);
+    CHECK_STATUS(iserror, CheckLambdaTemperatureFailure, gStatus.O2TemperatureStatus != HAL_OK);
+    CHECK_STATUS(iserror, CheckLambdaHeaterFailure, gStatus.O2HeaterStatus != HAL_OK);
+    CHECK_STATUS(iserror, CheckLambdaDIAHGDShortToGND, gStatus.O2Diagnostic.DIAHGD == O2DiagShortToGnd);
     CHECK_STATUS(iserror, CheckEngineLeanMixture, gStatus.LeanMixture.is_error && gStatus.LeanMixture.error_time > 5000);
     CHECK_STATUS(iserror, CheckEngineRichMixture, gStatus.RichMixture.is_error && gStatus.RichMixture.error_time > 5000);
     CHECK_STATUS(iserror, CheckEngineLeanIdleMixture, gStatus.LeanIdleMixture.is_error && gStatus.LeanIdleMixture.error_time > 5000);
@@ -3444,6 +3447,8 @@ static void ecu_diagnostic_loop(void)
 
   if(sens_get_o2_diagnostic(&o2_status, &o2_diagnostic) == HAL_OK) {
     gStatus.O2Status = HAL_OK;
+    gStatus.O2TemperatureStatus = o2_status.TemperatureStatus;
+    gStatus.O2HeaterStatus = o2_status.HeaterStatus;
     gStatus.O2Diagnostic = o2_diagnostic;
   } else {
     gStatus.O2Status = HAL_ERROR;

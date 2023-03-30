@@ -25,6 +25,9 @@
 #define O2_PID_I  -2.0f
 #define O2_PID_D  -0.01f
 
+#define O2_TEMP_THRESHOLD     600.0f
+#define O2_TEMP_TIMEOUT_MS    10000
+
 #define O2_IDENT_DEVICE_CJ125 0x60
 #define O2_IDENT_MASK_DEVICE 0xF8
 #define O2_IDENT_MASK_VERSION 0x07
@@ -422,6 +425,7 @@ static int8_t O2_Loop(void)
   static uint8_t state = 0;
   static uint32_t last_spi_check = 0;
   static uint32_t calibrate_timestamp = 0;
+  static uint32_t temperature_wait_timestamp = 0;
   static float o2heater = 0.0f;
   static uint8_t device,diag;
   static eO2AmplificationFactor factor = 0;
@@ -451,7 +455,9 @@ static int8_t O2_Loop(void)
     }
   }
 
-  if(O2InitState != HAL_OK) {
+  if(O2InitState != HAL_OK || O2Status.TemperatureStatus != HAL_OK || O2Status.HeaterStatus != HAL_OK) {
+    o2heater = 0.0f;
+    O2_SetHeaterVoltage(o2heater);
     return retvalue;
   }
 
@@ -513,6 +519,14 @@ static int8_t O2_Loop(void)
           state++;
         }
         else {
+          state = 0;
+        }
+
+        if(O2Status.Diag.Fields.DIAHGD != O2DiagOK) {
+          O2Status.HeaterStatus = HAL_ERROR;
+          O2Status.Valid = 0;
+          o2heater = 0.0f;
+          O2_SetHeaterVoltage(o2heater);
           state = 0;
         }
       }
@@ -597,8 +611,24 @@ static int8_t O2_Loop(void)
       }
       break;
     case 9 :
-      O2Status.Valid = 1;
-      state = 0;
+      temperature_wait_timestamp = now;
+      state = 10;
+      /* no break */
+    case 10 :
+      if(O2Status.Temperature > O2_TEMP_THRESHOLD) {
+        O2Status.Valid = 1;
+        O2Status.TemperatureStatus = HAL_OK;
+        temperature_wait_timestamp = now;
+        state = 0;
+      } else {
+        if(DelayDiff(now, temperature_wait_timestamp) > O2_TEMP_TIMEOUT_MS * 1000) {
+          O2Status.TemperatureStatus = HAL_ERROR;
+          O2Status.Valid = 0;
+          o2heater = 0.0f;
+          O2_SetHeaterVoltage(o2heater);
+          state = 0;
+        }
+      }
       break;
     default:
       state = 0;
@@ -1053,10 +1083,12 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2PwmDuty = pwm_duty;
 
   O2Status.Available = 1;
-  O2Status.Lambda = 1;
+  O2Status.Lambda = 1.0f;
   O2Status.Valid = 0;
   O2Status.Working = 0;
   O2Status.AmplificationFactor = O2AmplificationFactor8;
+  O2Status.TemperatureStatus = HAL_OK;
+  O2Status.HeaterStatus = HAL_OK;
 
   math_pid_init(&o2_pid);
   math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
