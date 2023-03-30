@@ -576,7 +576,7 @@ static int8_t O2_Loop(void)
       O2_SetHeaterVoltage(1.5f);
       sens_get_engine_temperature(&engine_temperature);
       diff = DelayDiff(now, calibrate_timestamp);
-      if(diff > 40000000 ||
+      if(diff > 32000000 ||
           (engine_temperature > 75.0f && diff > 1500000) ||
           (engine_temperature > 50.0f && diff > 2000000) ||
           (engine_temperature > 30.0f && diff > 26000000) ||
