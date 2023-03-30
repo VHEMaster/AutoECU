@@ -476,6 +476,7 @@ static void ecu_update(void)
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
+  uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
@@ -1522,7 +1523,7 @@ static void ecu_update(void)
 
       if(calibration && corr_math_interpolate_2d_set_func) {
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !(idle_calibration && idle_flag)) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;

@@ -702,6 +702,7 @@ void config_default_params(sEcuParams *table)
   table->useTSPS = 1;
   table->useKnockSensor = 1;
   table->performAdaptation = 0;
+  table->performIdleAdaptation = 0;
   table->isSingleCoil = 0;
   table->isIndividualCoils = 0;
   table->isEconEnabled = 0;
