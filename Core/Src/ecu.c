@@ -1520,7 +1520,7 @@ static void ecu_update(void)
           short_term_correction_pid = 0.0f;
 
           filling_diff = (fuel_ratio_diff) - 1.0f;
-          if(gStatus.Sensors.Struct.Map == HAL_OK) {
+          if(gStatus.Sensors.Struct.Map == HAL_OK && !econ_flag) {
             fill_correction_map += filling_diff * lpf_calculation;
             corr_math_interpolate_2d_set_func(ipRpm, ipMap, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_map, fill_correction_map, -1.0f, 1.0f);
 
@@ -1573,7 +1573,7 @@ static void ecu_update(void)
           corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
         }
       } else {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !econ_flag) {
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
             if(!idle_flag) {
