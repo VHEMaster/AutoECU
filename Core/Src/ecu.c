@@ -494,9 +494,6 @@ static void ecu_update(void)
 
   sMathInterpolateInput ipFilling = {0};
 
-  sMathInterpolateInput ipEnrichmentMap = {0};
-  sMathInterpolateInput ipEnrichmentThr = {0};
-
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
 
@@ -563,12 +560,6 @@ static void ecu_update(void)
   uint32_t halfturns_performed = 0;
   float running_time = 0;
   static float injection_phase = 100;
-  static float enrichment_map_states[ENRICHMENT_STATES_COUNT] = {0};
-  static float enrichment_thr_states[ENRICHMENT_STATES_COUNT] = {0};
-  static float enrichment_status_map = 0.0f;
-  static float enrichment_status_thr = 0.0f;
-  static float enrichment_map_accept = 0.0f;
-  static float enrichment_thr_accept = 0.0f;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
   float injection_phase_start;
@@ -578,19 +569,6 @@ static void ecu_update(void)
   float injection_phase_sw_lpf;
   static float injection_phase_sw_state = 0;
   float injection_phase_lpf;
-  float enrichment_map_diff;
-  float enrichment_thr_diff;
-  float enrichment_map_value;
-  float enrichment_thr_value;
-  float enrichment_by_map_hpf;
-  float enrichment_by_thr_hpf;
-  float enrichment_temp_mult;
-  static float enrichment_prev = 0.0f;
-  static float enrichment = 0.0f;
-  static float enrichment_status = 0.0f;
-  float enrichment_async;
-  float enrichment_async_time;
-  float enrichment_proportion;
   float fuel_amount_per_cycle;
 
   float warmup_mixture;
@@ -651,8 +629,6 @@ static void ecu_update(void)
   static float idle_econ_time = 0;
 
   uint8_t econ_flag;
-  uint8_t enrichment_async_enabled;
-  uint8_t enrichment_sync_enabled;
 
   static uint8_t idle_rpm_flag = 0;
   float idle_rpm_flag_koff = 0;
@@ -701,7 +677,6 @@ static void ecu_update(void)
   phased = csps_isphased(csps);
   uspa = csps_getuspa(csps);
   period = csps_getperiod(csps);
-  enrichment_proportion = table->enrichment_proportion_map_vs_thr;
   fuel_pressure = table->fuel_pressure;
   is_full_throttle_used = table->is_full_thr_used;
 
@@ -805,14 +780,6 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
 
-  if(use_tsps && phased) {
-    enrichment_async_enabled = table->enrichment_ph_async_enabled;
-    enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
-  } else  {
-    enrichment_async_enabled = table->enrichment_pp_async_enabled;
-    enrichment_sync_enabled = table->enrichment_pp_sync_enabled;
-  }
-
   if(running && use_tsps && !phased) {
     if(DelayDiff(now, phased_last) > 500000) {
       gStatus.Sensors.Struct.Tsps = HAL_ERROR;
@@ -899,103 +866,6 @@ static void ecu_update(void)
   start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
   start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
   start_filling_time = math_interpolate_1d(ipColdStartTemp, table->start_filling_time);
-  enrichment_temp_mult = math_interpolate_1d(ipEngineTemp, table->enrichment_temp_mult);
-
-  if(!rotates || !running)
-  {
-    for(int i = 0; i < ENRICHMENT_STATES_COUNT; i++)
-    {
-      enrichment_map_states[i] = pressure;
-      enrichment_thr_states[i] = throttle;
-    }
-  }
-
-
-  for(int ht = 0; ht < halfturns_performed; ht++) {
-    for(int i = ENRICHMENT_STATES_COUNT - 2; i >= 0; i--) {
-      enrichment_map_states[i + 1] = enrichment_map_states[i];
-      enrichment_thr_states[i + 1] = enrichment_thr_states[i];
-    }
-    enrichment_map_states[0] = pressure;
-    enrichment_thr_states[0] = throttle;
-
-    if(running) {
-
-      if(gStatus.Sensors.Struct.Map == HAL_OK) {
-        min = enrichment_map_states[ENRICHMENT_STATES_COUNT - 1];
-        max = enrichment_map_states[0];
-        enrichment_by_map_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_map_hpf);
-        enrichment_by_map_hpf = CLAMP(enrichment_by_map_hpf, 0.0f, 1.0f);
-
-        enrichment_map_diff = max - min;
-        ipEnrichmentMap = math_interpolate_input(fabsf(enrichment_map_diff), table->pressures, table->pressures_count);
-        enrichment_map_value = math_interpolate_1d(ipEnrichmentMap, table->enrichment_by_map_sens);
-
-        enrichment_status_map *= 1.0f - enrichment_by_map_hpf;
-        enrichment_map_accept *= 1.0f - enrichment_by_map_hpf;
-
-        if(enrichment_map_diff > 0) {
-          if(enrichment_map_value > enrichment_status_map) {
-            enrichment_map_accept = enrichment_map_diff;
-            enrichment_status_map = enrichment_map_value;
-
-            gLocalParams.EnrichmentMapAccept = enrichment_map_accept;
-          }
-        } else {
-          if(-enrichment_map_diff > enrichment_map_accept || enrichment_map_value > enrichment_status_map) {
-            enrichment_status_map = 0;
-            enrichment_map_accept = 0;
-          }
-        }
-      } else {
-        enrichment_status_map = 0.0f;
-      }
-
-      if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-        min = enrichment_thr_states[ENRICHMENT_STATES_COUNT - 1];
-        max = enrichment_thr_states[0];
-        enrichment_by_thr_hpf = math_interpolate_1d(ipRpm, table->enrichment_by_thr_hpf);
-        enrichment_by_thr_hpf = CLAMP(enrichment_by_thr_hpf, 0.0f, 1.0f);
-
-        enrichment_thr_diff = max - min;
-        ipEnrichmentThr = math_interpolate_input(fabsf(enrichment_thr_diff), table->throttles, table->throttles_count);
-        enrichment_thr_value = math_interpolate_1d(ipEnrichmentThr, table->enrichment_by_thr_sens);
-
-        enrichment_status_thr *= 1.0f - enrichment_by_thr_hpf;
-        enrichment_thr_accept *= 1.0f - enrichment_by_thr_hpf;
-
-        if(enrichment_thr_diff > 0) {
-          if(enrichment_thr_value > enrichment_status_thr) {
-            enrichment_thr_accept = enrichment_thr_diff;
-            enrichment_status_thr = enrichment_thr_value;
-
-            gLocalParams.EnrichmentThrAccept = enrichment_thr_accept;
-          }
-        } else {
-          if(-enrichment_thr_diff > enrichment_thr_accept || enrichment_thr_value > enrichment_status_thr) {
-            enrichment_status_thr = 0;
-            enrichment_thr_accept = 0;
-          }
-        }
-      } else {
-        enrichment_status_thr = 0.0f;
-      }
-
-    } else {
-      enrichment_status_map = 0.0f;
-      enrichment_status_thr = 0.0f;
-    }
-
-    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK && gStatus.Sensors.Struct.Map == HAL_OK) {
-      enrichment = enrichment_status_map * (enrichment_proportion) + enrichment_status_thr * (1.0f - enrichment_proportion);
-    } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-      enrichment = enrichment_status_thr;
-    } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
-      enrichment = enrichment_status_map;
-    } else enrichment = 0;
-
-    enrichment *= enrichment_temp_mult + 1.0f;
-  }
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
@@ -1257,23 +1127,6 @@ static void ecu_update(void)
     injection_time = min_injection_time;
   }
 
-  enrichment_async = 0.0f;
-  if(enrichment > enrichment_prev) {
-    if(enrichment_async_enabled) {
-      enrichment_async = enrichment - enrichment_prev;
-      if(enrichment_async > 0.005f) {
-        enrichment_async_time = injection_time;
-        enrichment_async_time *= enrichment_async;
-        enrichment_async_time += injector_lag_mult;
-        ecu_async_injection_push(enrichment_async_time);
-      }
-    }
-  }
-  enrichment_prev = enrichment;
-
-  if(enrichment_sync_enabled)
-    injection_time *= enrichment + 1.0f;
-
   if(injection_time > 100.0f)
     injection_time += injector_lag_mult;
   else injection_time = 0;
@@ -1381,14 +1234,11 @@ static void ecu_update(void)
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
   if(gStatus.Knock.StatusDetonate < gStatus.Knock.Detonate)
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
-  if(enrichment_status < enrichment)
-    enrichment_status = enrichment;
 
   if(gLocalParams.RequestFillLast == 0 || DelayDiff(now, gLocalParams.RequestFillLast) > 500000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
-    enrichment_status = enrichment;
     gLocalParams.RequestFillLast = now;
   }
 
@@ -1767,7 +1617,7 @@ static void ecu_update(void)
   gParameters.InjectionPhaseDuration = injection_phase_duration;
   gParameters.InjectionPulse = injection_time;
   gParameters.InjectionDutyCycle = injection_dutycycle;
-  gParameters.InjectionEnrichment = enrichment;
+  gParameters.InjectionEnrichment = 0; // TODO
   gParameters.InjectionLag = injector_lag;
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
@@ -1801,7 +1651,7 @@ static void ecu_update(void)
 
   strcpy(gParameters.CurrentTableName, table->name);
 
-  gDiagWorkingMode.Bits.is_enrichment = enrichment > 0.02f;
+  gDiagWorkingMode.Bits.is_enrichment = 0; // TODO
   gDiagWorkingMode.Bits.is_idle = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_lock_last = 0;
