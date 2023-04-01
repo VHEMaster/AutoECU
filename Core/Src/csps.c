@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 
+#define CSPS_DATA_COUNT 116
 #define ANGLE_INITIAL (-114.0f)
 #define IRQ_SIZE 5
 #define DATA_SIZE 16
@@ -14,7 +15,7 @@ static volatile float CspsAngleInitial = ANGLE_INITIAL;
 static const float CspsAngleInitial = ANGLE_INITIAL;
 #endif
 
-static const float csps_cors[116] = {
+static const float csps_cors[CSPS_DATA_COUNT] = {
     2.68668088f, 0.719637128f, 1.132915204f, 0.93333743f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
     1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
     1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
@@ -33,12 +34,16 @@ static const float csps_cors[116] = {
 };
 
 #ifdef CSPS_DYNAMIC_CORR
-static float cpsp_dynamic_corr[116] = {0.0f};
+static float cpsp_dynamic_corr[CSPS_DATA_COUNT] = {0.0f};
 #endif
+
+static float csps_periods_data[CSPS_DATA_COUNT];
+static uint32_t csps_periods_counter = 1;
 
 static sCspsData csps_data_empty = {0};
 static volatile uint32_t csps_pulse_last = 0;
 static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
+static volatile uint8_t csps_ftime = 1;
 static volatile uint8_t csps_found = 0;
 static volatile uint8_t csps_rotates = 0;
 static volatile uint8_t csps_running = 0;
@@ -164,6 +169,9 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
   csps_cors_sum = (120.0f / tval) * 3.0f;
   csps_cors_avg = tval / 120.0f;
 
+  for(int i = 0; i < CSPS_DATA_COUNT; i++)
+    csps_periods_data[i] = 1000000.0f;
+
   csps_data_empty.AngleCur14 = 0;
   csps_data_empty.AngleCur23 = 0;
   csps_data_empty.AnglePrev14 = 0;
@@ -214,6 +222,8 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   float average = 0;
   float diff = 0;
   float adder = 0;
+  float period_prev = 1000000.0f;
+  static float period = 1000000.0f;
 
   cur = timestamp;
 
@@ -350,10 +360,27 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
 
     diff = (float)DelayDiff(cur, prev) / csps_cors[t1] * csps_cors_avg;
 
+    period_prev = csps_periods_data[csps_periods_counter];
+    csps_periods_data[csps_periods_counter] = diff * 120.0f;
+
+    if(csps_ftime) {
+      period = 0;
+      for(int i = 0; i < CSPS_DATA_COUNT; i++) {
+        period += csps_periods_data[i];
+      }
+      csps_ftime = 0;
+    } else {
+      period -= period_prev;
+      period += csps_periods_data[csps_periods_counter];
+    }
+
+    if(++csps_periods_counter >= CSPS_DATA_COUNT)
+      csps_periods_counter = 0;
+
+    csps_period = period / CSPS_DATA_COUNT;
+
     if(csps_period > 1000000.0f)
       csps_period = 1000000.0f;
-
-    csps_period = csps_period * (1.0f - rpm_koff) + (diff * 120.0f) * rpm_koff;
     csps_rpm = 60000000.0f / csps_period;
 
     csps_uspa = diff * 0.33333333f;
@@ -630,6 +657,10 @@ void csps_loop(void)
   {
     for(int i = 0; i < IRQ_SIZE; i++)
       cspc_irq_data[i] = 0;
+    for(int i = 0; i < CSPS_DATA_COUNT; i++)
+      csps_periods_data[i] = 1000000.0f;
+
+    csps_ftime = 1;
     csps_found = 0;
     csps_rpm = 0;
     csps_rotates = 0;
