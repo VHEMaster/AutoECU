@@ -216,27 +216,6 @@ static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
     0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f,
 };
 
-static const float default_enrichment_by_map_sens[TABLE_PRESSURES_MAX] = {
-	0.150f, 0.300f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
-	0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
-
-};
-
-static const float default_enrichment_by_map_hpf[TABLE_ROTATES_MAX] = {
-    0.400f, 0.400f, 0.400f, 0.370f, 0.340f, 0.310f, 0.290f, 0.270f,
-    0.260f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f,
-};
-
-static const float default_enrichment_by_thr_sens[TABLE_THROTTLES_MAX] = {
-    0.000f, 0.200f, 0.500f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f,
-    0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f,
-};
-
-static const float default_enrichment_by_thr_hpf[TABLE_ROTATES_MAX] = {
-    0.400f, 0.400f, 0.400f, 0.370f, 0.340f, 0.310f, 0.290f, 0.270f,
-    0.260f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f, 0.250f,
-};
-
 static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
     0.50f, 0.45f, 0.40f, 0.35f, 0.30f, 0.25f, 0.20f, 0.15f,
     0.10f, 0.05f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
@@ -575,14 +554,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));
 
-  table->enrichment_proportion_map_vs_thr = 0.9f;
   memcpy(table->fill_by_map, default_filling_by_map, sizeof(default_filling_by_map));
   memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
 
-  memcpy(table->enrichment_by_map_sens, default_enrichment_by_map_sens, sizeof(default_enrichment_by_map_sens));
-  memcpy(table->enrichment_by_map_hpf, default_enrichment_by_map_hpf, sizeof(default_enrichment_by_map_hpf));
-  memcpy(table->enrichment_by_thr_sens, default_enrichment_by_thr_sens, sizeof(default_enrichment_by_thr_sens));
-  memcpy(table->enrichment_by_thr_hpf, default_enrichment_by_thr_hpf, sizeof(default_enrichment_by_thr_hpf));
   memcpy(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(default_enrichment_temp_mult));
 
   table->fillings_count = ITEMSOF(default_fillings);

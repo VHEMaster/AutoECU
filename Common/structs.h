@@ -145,13 +145,13 @@ typedef struct {
     int32_t throttles_count;
     float throttles[TABLE_THROTTLES_MAX];
 
-    float enrichment_proportion_map_vs_thr;
+    float reserved1;
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
-    float enrichment_by_map_sens[TABLE_PRESSURES_MAX];
-    float enrichment_by_map_hpf[TABLE_ROTATES_MAX];
-    float enrichment_by_thr_sens[TABLE_THROTTLES_MAX];
-    float enrichment_by_thr_hpf[TABLE_ROTATES_MAX];
+    float reserved2[TABLE_PRESSURES_MAX];
+    float reserved3[TABLE_ROTATES_MAX];
+    float reserved4[TABLE_THROTTLES_MAX];
+    float reserved5[TABLE_ROTATES_MAX];
     float enrichment_temp_mult[TABLE_TEMPERATURES_MAX];
 
     int32_t fillings_count;
