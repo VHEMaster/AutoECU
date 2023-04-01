@@ -528,7 +528,12 @@ static const float default_idle_ignition_time_by_tps[TABLE_THROTTLES_MAX] = {
 
 static const float default_idle_econ_delay[TABLE_TEMPERATURES_MAX] = {
     30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 20.0f,
-    10.0f, 3.0f, 1.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
+    10.0f, 3.0f, 1.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
+};
+
+static const float default_start_econ_delay[TABLE_TEMPERATURES_MAX] = {
+    5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 4.8f, 4.5f,
+    4.0f, 3.5f, 3.2f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
 void config_default_table(sEcuTable *table, uint8_t number)
@@ -673,6 +678,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
   memcpy(table->idle_ignition_time_by_tps, default_idle_ignition_time_by_tps, sizeof(default_idle_ignition_time_by_tps));
   memcpy(table->idle_econ_delay, default_idle_econ_delay, sizeof(default_idle_econ_delay));
+  memcpy(table->start_econ_delay, default_start_econ_delay, sizeof(default_start_econ_delay));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;

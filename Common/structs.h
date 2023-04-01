@@ -257,8 +257,9 @@ typedef struct {
 
     float idle_ignition_time_by_tps[TABLE_THROTTLES_MAX];
     float idle_econ_delay[TABLE_TEMPERATURES_MAX];
+    float start_econ_delay[TABLE_TEMPERATURES_MAX];
 
-    int32_t Reserved[79];
+    int32_t Reserved[63];
 }sEcuTable;
 
 typedef struct {

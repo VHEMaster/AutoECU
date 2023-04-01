@@ -647,6 +647,7 @@ static void ecu_update(void)
   float idle_ignition_time_by_tps;
   float idle_ignition_time_by_tps_lpf;
   uint32_t idle_econ_delay;
+  uint32_t start_econ_delay;
   static uint32_t idle_econ_time = 0;
 
   uint8_t econ_flag;
@@ -1005,7 +1006,8 @@ static void ecu_update(void)
   ignition_angle_sw_lpf = CLAMP(ignition_angle_sw_lpf, 0.0f, 1.0f);
   ignition_angle_sw_state = (float)is_full_throttle * ignition_angle_sw_lpf + ignition_angle_sw_state * (1.0f - ignition_angle_sw_lpf);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
-  idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay) * 1000;
+  idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay) * 1000.0f;
+  start_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay) * 1000.0f;
 
   ignition_angle = ignition_angle_full * ignition_angle_sw_state + ignition_angle_part * (1.0f - ignition_angle_sw_state);
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
@@ -1194,7 +1196,7 @@ static void ecu_update(void)
 
   start_large_count = table->start_large_count;
   injection_start_mult = math_interpolate_1d(ipThr, table->start_tps_corrs);
-  econ_flag = econ_flag && gEcuParams.isEconEnabled && idle_econ_delay > idle_econ_time;
+  econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_delay > idle_econ_time) && (start_econ_delay > (running_time * 0.001f));
 
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
