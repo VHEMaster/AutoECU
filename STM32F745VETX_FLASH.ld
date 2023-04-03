@@ -164,6 +164,22 @@ SECTIONS
 
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);
+  .dma_data :
+  {
+    . = ALIGN(4);
+    /* This is used by the startup in order to initialize the .data section */
+    _sdma_data = .;         /* define a global symbol at data start */
+    __dma_data_start__ = _sdma_data;
+    *(.dma_data)
+    *(.dma_data*)
+
+    . = ALIGN(4);
+    _edma_data = .;         /* define a global symbol at data end */
+    __dma_data_end__ = _edma_data;
+  } >RAM_DMA AT> FLASH
+
+  /* Uninitialized data section into "RAM" Ram type memory */
+  . = ALIGN(4);
   .dma_bss :
   {
     . = ALIGN(4);
