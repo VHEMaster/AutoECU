@@ -57,7 +57,7 @@ void speed_emulate(uint32_t timestamp, float speed)
 void speed_exti(uint32_t timestamp)
 {
   int i;
-  const float accel_koff = 0.1f;
+  const float accel_koff = 0.01f;
   float acceleration;
   float average = 0;
   //float pwm_speed;
