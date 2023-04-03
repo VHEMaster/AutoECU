@@ -10,7 +10,7 @@
 
 #include "main.h"
 
-void speed_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel);
+void speed_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel);
 void speed_loop(void);
 void speed_exti(uint32_t timestamp);
 
