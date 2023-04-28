@@ -174,7 +174,6 @@ struct {
     uint32_t RunningTime;
     uint32_t LastRunned;
 
-    float EnrichmentTempMult;
     uint8_t PhasedInjection;
 }gLocalParams;
 
@@ -469,7 +468,6 @@ static void ecu_update(void)
   static float idle_valve_pos_correction = 0;
   static uint8_t is_cold_start = 1;
   static float cold_start_idle_temperature = 0.0f;
-  static float injection_time_prev = 0.0f;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
 #endif
@@ -570,8 +568,6 @@ static void ecu_update(void)
   static float injection_phase_sw_state = 0;
   float injection_phase_lpf;
   float enrichment_temp_mult;
-  float enrichment_async;
-  float enrichment_async_time;
   float fuel_amount_per_cycle;
 
   float warmup_mixture;
@@ -633,6 +629,7 @@ static void ecu_update(void)
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
+  uint8_t enrichment_sync_enabled;
 
   static uint8_t idle_rpm_flag = 0;
   float idle_rpm_flag_koff = 0;
@@ -786,8 +783,10 @@ static void ecu_update(void)
 
   if(use_tsps && phased) {
     enrichment_async_enabled = table->enrichment_ph_async_enabled;
+    enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
   } else  {
     enrichment_async_enabled = table->enrichment_pp_async_enabled;
+    enrichment_sync_enabled = table->enrichment_pp_sync_enabled;
   }
 
   if(running && use_tsps && !phased) {
@@ -1138,24 +1137,9 @@ static void ecu_update(void)
     injection_time = min_injection_time;
   }
 
-  enrichment_async = 0.0f;
-  if(injection_time > injection_time_prev) {
-    if(enrichment_async_enabled) {
-      enrichment_async = injection_time - injection_time_prev;
-      if(running) {
-        enrichment_async_time = enrichment_async;
-        enrichment_async_time *= 1.0f + enrichment_temp_mult;
-        enrichment_async_time += injector_lag_mult;
-        ecu_async_injection_push(enrichment_async_time);
-      }
-    }
-  }
-  injection_time_prev = injection_time;
   if(injection_time > 100.0f)
     injection_time += injector_lag_mult;
   else injection_time = 0;
-
-  gLocalParams.EnrichmentTempMult = enrichment_temp_mult;
 
   if(gForceParameters.Enable.InjectionPulse) {
     injection_time = gForceParameters.InjectionPulse;
@@ -2090,7 +2074,6 @@ ITCM_FUNC void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   uint8_t found = csps_isfound();
-  uint8_t running = csps_isrunning();
   sCspsData csps = csps_data();
   uint32_t now = Delay_Tick;
   static uint32_t last = 0;
@@ -2125,7 +2108,6 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t ignition_ignite_time[ECU_CYLINDERS_COUNT];
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
-  float cy_injection_enrichment[ECU_CYLINDERS_COUNT];
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
@@ -2165,9 +2147,7 @@ ITCM_FUNC void ecu_process(void)
   float inj_angle;
   static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
   float cy_injection[ECU_CYLINDERS_COUNT];
-  static float cy_injection_prev[ECU_CYLINDERS_COUNT];
   float var, var2, knock;
-  uint8_t enrichment_sync_enabled;
   uint8_t injection_phase_by_end;
   uint8_t phased_knock;
   uint8_t phased_ignition;
@@ -2194,7 +2174,6 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
   float inj_lag = gParameters.InjectionLag * 1000.0f;
-  float enrichment_temp_mult = gLocalParams.EnrichmentTempMult;
 
   float phased_angles[ECU_CYLINDERS_COUNT];
   float non_phased_angles[ECU_CYLINDERS_COUNT_HALF];
@@ -2257,12 +2236,6 @@ ITCM_FUNC void ecu_process(void)
   inj_pulse = gParameters.InjectionPulse;
 
   gLocalParams.PhasedInjection = phased_injection;
-
-  if(use_tsps && phased_injection) {
-    enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
-  } else  {
-    enrichment_sync_enabled = table->enrichment_pp_sync_enabled;
-  }
 
   if(found != was_found) {
     was_found = found;
@@ -2705,17 +2678,7 @@ ITCM_FUNC void ecu_process(void)
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
               if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-
-                cy_injection_enrichment[i] = 0;
-                if(running && enrichment_sync_enabled) {
-                  if(cy_injection[i] > cy_injection_prev[i]) {
-                    cy_injection_enrichment[i] = cy_injection[i] - cy_injection_prev[i];
-                    cy_injection_enrichment[i] *= 1.0f + enrichment_temp_mult;
-                  }
-                  cy_injection_prev[i] = cy_injection[i];
-                }
-
-                ecu_inject(cy_count_injection, i, cy_injection[i] + cy_injection_enrichment[i]);
+                ecu_inject(cy_count_injection, i, cy_injection[i]);
               }
             }
           }
