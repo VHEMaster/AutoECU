@@ -145,13 +145,23 @@ typedef struct {
     int32_t throttles_count;
     float throttles[TABLE_THROTTLES_MAX];
 
-    float reserved1;
     float fill_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
-    float reserved2[TABLE_PRESSURES_MAX];
-    float reserved3[TABLE_ROTATES_MAX];
-    float reserved4[TABLE_THROTTLES_MAX];
-    float reserved5[TABLE_ROTATES_MAX];
+
+    int32_t enrichment_load_type;
+    float enrichment_load_dead_band;
+    float enrichment_accel_dead_band;
+    float enrichment_ign_corr_decay_time;
+    float enrichment_detect_duration;
+
+    int32_t enrichment_rate_start_load_count;
+    int32_t enrichment_rate_load_derivative_count;
+    float enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS_MAX];
+    float enrichment_rate_load_derivative[TABLE_ENRICHMENT_PERCENTS_MAX];
+    float enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX];
+    float enrichment_sync_amount[TABLE_ROTATES_MAX];
+    float enrichment_async_amount[TABLE_ROTATES_MAX];
+    float enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHMENT_PERCENTS_MAX];
     float enrichment_temp_mult[TABLE_TEMPERATURES_MAX];
 
     int32_t fillings_count;
@@ -259,7 +269,7 @@ typedef struct {
     float idle_econ_delay[TABLE_TEMPERATURES_MAX];
     float start_econ_delay[TABLE_TEMPERATURES_MAX];
 
-    int32_t Reserved[63];
+    int32_t reserved[905];
 }sEcuTable;
 
 typedef struct {
