@@ -216,9 +216,58 @@ static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
     0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f, 0.100f,
 };
 
+static const float default_enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS_MAX] = {
+    0.0f, 5.0f, 10.0f, 15.0f, 25.0f, 40.0f, 60.0f, 80.0f
+};
+
+static const float default_enrichment_rate_load_derivative[TABLE_ENRICHMENT_PERCENTS_MAX] = {
+    0.0f, 25.0f, 50.0f, 100.0f, 200.0f, 300.0f, 500.0f, 1000.0f
+};
+
+static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+    { 0.00f, 0.25f, 0.50f, 0.70f, 0.80f, 0.85f, 0.95f, 1.00f },
+    { 0.00f, 0.20f, 0.45f, 0.60f, 0.70f, 0.75f, 0.80f, 0.90f },
+    { 0.00f, 0.15f, 0.35f, 0.45f, 0.50f, 0.55f, 0.60f, 0.75f },
+    { 0.00f, 0.13f, 0.28f, 0.38f, 0.43f, 0.48f, 0.53f, 0.65f },
+    { 0.00f, 0.10f, 0.15f, 0.25f, 0.30f, 0.35f, 0.40f, 0.45f },
+    { 0.00f, 0.05f, 0.09f, 0.15f, 0.18f, 0.21f, 0.24f, 0.27f },
+    { 0.00f, 0.01f, 0.03f, 0.05f, 0.06f, 0.07f, 0.08f, 0.09f },
+    { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f }
+};
+
+static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
+    0.20f, 0.25f, 0.32f, 0.43f, 0.53f, 0.65f, 0.89f, 1.11f,
+    1.27f, 1.46f, 1.54f, 1.60f, 1.60f, 1.60f, 1.60f, 1.60f
+};
+
+static const float default_enrichment_async_amount[TABLE_ROTATES_MAX] = {
+    1.70f, 1.70f, 1.65f, 1.58f, 1.50f, 1.40f, 1.34f, 1.27f,
+    1.19f, 1.10f, 1.04f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f
+};
+
+static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+    { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f },
+    { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f },
+    { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f },
+    { -4.0f, -3.9f, -3.7f, -3.5f, -3.3f, -2.9f, -2.4f, -2.0f },
+    { -3.8f, -3.7f, -3.5f, -3.4f, -3.2f, -2.8f, -2.3f, -1.9f },
+    { -3.5f, -3.5f, -3.2f, -3.1f, -3.0f, -2.6f, -2.2f, -1.8f },
+    { -3.2f, -3.2f, -2.9f, -2.9f, -2.8f, -2.5f, -2.0f, -1.7f },
+    { -2.9f, -2.9f, -2.6f, -2.6f, -2.5f, -2.3f, -1.9f, -1.6f },
+    { -2.4f, -2.4f, -2.3f, -2.2f, -2.2f, -2.0f, -1.8f, -1.5f },
+    { -2.0f, -2.0f, -1.9f, -1.8f, -1.8f, -1.7f, -1.6f, -1.4f },
+    { -1.4f, -1.4f, -1.4f, -1.4f, -1.4f, -1.4f, -1.4f, -1.3f },
+    { -0.7f, -0.8f, -0.7f, -0.8f, -0.8f, -1.0f, -1.1f, -1.1f },
+    {  0.0f, -0.1f, -0.1f, -0.2f, -0.3f, -0.5f, -0.8f, -1.0f },
+    {  0.0f, -0.1f, -0.1f, -0.2f, -0.3f, -0.5f, -0.8f, -1.0f },
+    {  0.0f, -0.1f, -0.1f, -0.2f, -0.3f, -0.5f, -0.8f, -1.0f },
+    {  0.0f, -0.1f, -0.1f, -0.2f, -0.3f, -0.5f, -0.8f, -1.0f }
+};
+
+
 static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
-    0.50f, 0.45f, 0.40f, 0.35f, 0.30f, 0.25f, 0.20f, 0.15f,
-    0.10f, 0.05f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f
+    2.5f, 2.2f, 2.0f, 1.7f, 1.5f, 1.1f, 0.8f, 0.4f,
+    0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 };
 
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
@@ -539,6 +588,12 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->fuel_mass_per_cc = 0.75f;
   table->fuel_afr = 14.7f;
 
+  table->enrichment_load_type = 0;
+  table->enrichment_load_dead_band = 200.0f;
+  table->enrichment_accel_dead_band = 50.0f;
+  table->enrichment_detect_duration = 50.0f;
+  table->enrichment_ign_corr_decay_time = 300.0f;
+
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
 
@@ -557,6 +612,15 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->fill_by_map, default_filling_by_map, sizeof(default_filling_by_map));
   memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
 
+  table->enrichment_rate_start_load_count = 8;
+  memcpy(table->enrichment_rate_start_load, default_enrichment_rate_start_load, sizeof(default_enrichment_rate_start_load));
+  table->enrichment_rate_load_derivative_count = 8;
+  memcpy(table->enrichment_rate_load_derivative, default_enrichment_rate_load_derivative, sizeof(default_enrichment_rate_load_derivative));
+
+  memcpy(table->enrichment_rate, default_enrichment_rate, sizeof(default_enrichment_rate));
+  memcpy(table->enrichment_sync_amount, default_enrichment_sync_amount, sizeof(default_enrichment_sync_amount));
+  memcpy(table->enrichment_async_amount, default_enrichment_async_amount, sizeof(default_enrichment_async_amount));
+  memcpy(table->enrichment_ign_corr, default_enrichment_ign_corr, sizeof(default_enrichment_ign_corr));
   memcpy(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(default_enrichment_temp_mult));
 
   table->fillings_count = ITEMSOF(default_fillings);
