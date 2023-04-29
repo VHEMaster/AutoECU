@@ -591,7 +591,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_load_type = 0;
   table->enrichment_load_dead_band = 100.0f;
   table->enrichment_accel_dead_band = 500.0f;
-  table->enrichment_detect_duration = 50.0f;
+  table->enrichment_detect_duration = 10.0f;
   table->enrichment_ign_corr_decay_time = 300.0f;
 
   table->voltages_count = ITEMSOF(default_voltages);
