@@ -612,9 +612,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->fill_by_map, default_filling_by_map, sizeof(default_filling_by_map));
   memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
 
-  table->enrichment_rate_start_load_count = 8;
+  table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
   memcpy(table->enrichment_rate_start_load, default_enrichment_rate_start_load, sizeof(default_enrichment_rate_start_load));
-  table->enrichment_rate_load_derivative_count = 8;
+  table->enrichment_rate_load_derivative_count = ITEMSOF(default_enrichment_rate_load_derivative);
   memcpy(table->enrichment_rate_load_derivative, default_enrichment_rate_load_derivative, sizeof(default_enrichment_rate_load_derivative));
 
   memcpy(table->enrichment_rate, default_enrichment_rate, sizeof(default_enrichment_rate));
