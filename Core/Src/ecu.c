@@ -539,11 +539,13 @@ static void ecu_update(void)
   float cycle_air_flow_injection_startup;
   float mass_air_flow;
   float injection_time;
+
   float enrichment_result;
   float enrichment_rate;
-  float enrichment_amount_sync;
-  float enrichment_amount_async;
+  static float enrichment_amount_sync = 0;
+  static float enrichment_amount_async = 0;
   float enrichment_async_time;
+
   float min_injection_time;
   float injection_phase_duration;
   float injection_start_mult;
@@ -1152,9 +1154,6 @@ static void ecu_update(void)
   enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f; //TODO: implement it's usage
   enrichment_detect_duration = table->enrichment_detect_duration * 1000.0f;
 
-  enrichment_amount_sync = 0;
-  enrichment_amount_async = 0;
-
   if(running) {
     if(enrichment_detect_duration < 50)
       enrichment_detect_duration = period * 0.20f;
@@ -1165,6 +1164,7 @@ static void ecu_update(void)
 
     if(DelayDiff(now, enrichment_detect_prev) >= enrichment_detect_duration) {
       enrichment_detect_prev += enrichment_detect_duration;
+      enrichment_detect_prev &= DelayMask;
       enrichment_load_value /= (float)enrichment_load_value_count;
       enrichment_lpf = (float)enrichment_detect_duration * 0.000001f;
 
@@ -1193,15 +1193,16 @@ static void ecu_update(void)
 
       if(enrichment_sync_enabled) {
         enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
-        enrichment_amount_sync *= enrichment_rate + 1.0f;
+        enrichment_amount_sync *= enrichment_rate;
       }
 
       if(enrichment_async_enabled) {
         enrichment_amount_async = math_interpolate_1d(ipRpm, table->enrichment_async_amount);
-        enrichment_amount_async *= enrichment_rate + 1.0f;
+        enrichment_amount_async *= enrichment_rate;
       }
 
       enrichment_load_value_prev = enrichment_load_value;
+      enrichment_load_value_count = 0;
 
       if(enrichment_load_value > enrichment_load_value_start)
         enrichment_load_value_start = enrichment_load_value_start * (1.0f - enrichment_lpf) + enrichment_load_value * enrichment_lpf;
@@ -1211,6 +1212,8 @@ static void ecu_update(void)
     enrichment_detect_prev = now;
     enrichment_load_value_count = 0;
     enrichment_load_value = 0;
+    enrichment_amount_sync = 0;
+    enrichment_amount_async = 0;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
