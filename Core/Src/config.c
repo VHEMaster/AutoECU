@@ -48,14 +48,14 @@ static const float default_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.700f, 0.800f, 0.903f, 0.978f, 0.804f, 0.837f, 0.846f, 0.800f, 0.780f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.597f, 0.571f, 0.666f, 0.785f, 0.884f, 0.680f, 0.709f, 0.564f, 0.462f, 0.500f, 0.500f, },
     { 0.600f, 0.599f, 0.598f, 0.593f, 0.584f, 0.565f, 0.536f, 0.572f, 0.635f, 0.566f, 0.651f, 0.665f, 0.519f, 0.478f, 0.500f, 0.500f, },
-    { 0.600f, 0.600f, 0.600f, 0.500f, 0.482f, 0.558f, 0.562f, 0.629f, 0.567f, 0.544f, 0.761f, 0.858f, 0.549f, 0.488f, 0.500f, 0.500f, },
-    { 0.600f, 0.600f, 0.615f, 0.456f, 0.445f, 0.533f, 0.554f, 0.674f, 0.625f, 0.623f, 0.759f, 0.772f, 0.669f, 0.501f, 0.510f, 0.500f, },
-    { 0.612f, 0.612f, 0.631f, 0.495f, 0.527f, 0.652f, 0.549f, 0.709f, 0.658f, 0.646f, 0.782f, 0.828f, 0.690f, 0.576f, 0.550f, 0.520f, },
-    { 0.629f, 0.632f, 0.597f, 0.423f, 0.570f, 0.628f, 0.596f, 0.695f, 0.674f, 0.671f, 0.791f, 0.792f, 0.755f, 0.627f, 0.590f, 0.560f, },
-    { 0.603f, 0.636f, 0.499f, 0.573f, 0.659f, 0.647f, 0.619f, 0.739f, 0.707f, 0.691f, 0.800f, 0.881f, 0.837f, 0.693f, 0.650f, 0.590f, },
-    { 0.596f, 0.552f, 0.467f, 0.550f, 0.637f, 0.679f, 0.711f, 0.787f, 0.728f, 0.703f, 0.793f, 0.913f, 0.853f, 0.718f, 0.700f, 0.650f, },
-    { 0.583f, 0.546f, 0.545f, 0.650f, 0.594f, 0.726f, 0.662f, 0.766f, 0.742f, 0.724f, 0.835f, 0.945f, 0.880f, 0.740f, 0.710f, 0.680f, },
-    { 0.584f, 0.557f, 0.666f, 0.603f, 0.602f, 0.753f, 0.668f, 0.759f, 0.797f, 0.745f, 0.848f, 0.954f, 0.901f, 0.756f, 0.720f, 0.700f, },
+    { 0.600f, 0.600f, 0.600f, 0.550f, 0.550f, 0.558f, 0.562f, 0.629f, 0.567f, 0.544f, 0.761f, 0.858f, 0.549f, 0.488f, 0.500f, 0.500f, },
+    { 0.600f, 0.600f, 0.615f, 0.550f, 0.550f, 0.533f, 0.554f, 0.674f, 0.625f, 0.623f, 0.759f, 0.772f, 0.669f, 0.501f, 0.510f, 0.500f, },
+    { 0.612f, 0.612f, 0.631f, 0.550f, 0.527f, 0.652f, 0.549f, 0.709f, 0.658f, 0.646f, 0.782f, 0.828f, 0.690f, 0.576f, 0.550f, 0.520f, },
+    { 0.629f, 0.600f, 0.597f, 0.550f, 0.570f, 0.628f, 0.596f, 0.695f, 0.674f, 0.671f, 0.791f, 0.792f, 0.755f, 0.627f, 0.590f, 0.560f, },
+    { 0.603f, 0.600f, 0.560f, 0.580f, 0.659f, 0.647f, 0.619f, 0.739f, 0.707f, 0.691f, 0.800f, 0.881f, 0.837f, 0.693f, 0.650f, 0.590f, },
+    { 0.596f, 0.600f, 0.560f, 0.570f, 0.637f, 0.679f, 0.711f, 0.787f, 0.728f, 0.703f, 0.793f, 0.913f, 0.853f, 0.718f, 0.700f, 0.650f, },
+    { 0.583f, 0.600f, 0.600f, 0.650f, 0.594f, 0.726f, 0.662f, 0.766f, 0.742f, 0.724f, 0.835f, 0.945f, 0.880f, 0.740f, 0.710f, 0.680f, },
+    { 0.584f, 0.600f, 0.666f, 0.603f, 0.602f, 0.753f, 0.668f, 0.759f, 0.797f, 0.745f, 0.848f, 0.954f, 0.901f, 0.756f, 0.720f, 0.700f, },
     { 0.570f, 0.668f, 0.680f, 0.558f, 0.853f, 0.822f, 0.672f, 0.806f, 0.810f, 0.763f, 0.856f, 0.971f, 0.899f, 0.758f, 0.730f, 0.710f, },
     { 0.462f, 0.654f, 0.544f, 0.810f, 0.780f, 0.775f, 0.696f, 0.769f, 0.881f, 0.764f, 0.880f, 1.068f, 0.933f, 0.776f, 0.782f, 0.750f, },
     { 0.500f, 0.781f, 0.847f, 0.742f, 0.763f, 0.728f, 0.697f, 0.821f, 0.912f, 0.794f, 0.885f, 0.947f, 1.017f, 0.937f, 0.849f, 0.790f, },
@@ -236,13 +236,13 @@ static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_
 };
 
 static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
-    0.20f, 0.25f, 0.32f, 0.43f, 0.53f, 0.65f, 0.89f, 1.11f,
-    1.27f, 1.46f, 1.54f, 1.60f, 1.60f, 1.60f, 1.60f, 1.60f
+    0.13f, 0.15f, 0.17f, 0.21f, 0.26f, 0.30f, 0.34f, 0.37f,
+    0.41f, 0.45f, 0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f,
 };
 
 static const float default_enrichment_async_amount[TABLE_ROTATES_MAX] = {
-    1.70f, 1.70f, 1.65f, 1.58f, 1.50f, 1.40f, 1.34f, 1.27f,
-    1.19f, 1.10f, 1.04f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f
+    0.13f, 0.15f, 0.17f, 0.21f, 0.26f, 0.30f, 0.34f, 0.37f,
+    0.41f, 0.45f, 0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f,
 };
 
 static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
@@ -364,41 +364,41 @@ static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
-    1700, 1700, 1700, 1700, 1650, 1600, 1500, 1100,
+    1700, 1700, 1700, 1700, 1350, 1300, 1200, 1100,
     1100, 1100, 1100, 1100, 1100, 1250, 1350, 1450,
 };
 
 static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTATES_MAX] = {
-    { 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, },
-    { 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, },
-    { 62, 80, 90, 90, 90, 90, 90, 80, 80, 80, 80, 55, 55, 55, 55, 55, },
-    { 74, 90, 90, 90, 90, 90, 90, 90, 80, 80, 80, 50, 50, 50, 50, 50, },
-    { 66, 46, 51, 57, 80, 40, 40, 40, 47, 47, 47, 47, 47, 47, 47, 47, },
+    { 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 60, 60, 60, 60, 60, 60, },
+    { 90, 90, 90, 90, 90, 160, 90, 90, 90, 90, 60, 60, 60, 60, 60, 60, },
+    { 90, 90, 90, 90, 90, 90, 90, 80, 80, 80, 80, 55, 55, 55, 55, 55, },
+    { 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 57, 55, 50, 50, 50, },
+    { 66, 46, 51, 57, 57, 40, 40, 40, 47, 47, 47, 47, 47, 47, 47, 47, },
     { 42, 42, 42, 42, 44, 43, 43, 42, 42, 42, 42, 42, 42, 42, 42, 42, },
-    { 40, 40, 40, 38, 59, 29, 28, 28, 40, 40, 40, 40, 40, 40, 40, 40, },
+    { 40, 40, 40, 38, 45, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, },
     { 43, 43, 40, 40, 51, 51, 39, 39, 40, 40, 43, 43, 43, 43, 43, 43, },
-    { 45, 40, 40, 40, 40, 41, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, },
-    { 69, 42, 40, 40, 40, 40, 34, 40, 40, 40, 40, 40, 40, 40, 40, 35, },
-    { 54, 40, 51, 43, 43, 33, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, },
-    { 39, 40, 39, 38, 39, 35, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, },
-    { 49, 40, 35, 35, 35, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, },
-    { 47, 47, 47, 47, 47, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, },
-    { 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 30, 30, 30, },
-    { 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 30, },
+    { 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, },
+    { 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, },
+    { 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, },
+    { 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, },
+    { 30, 30, 30, 30, 30, 30, 30, 35, 30, 30, 30, 30, 30, 30, 30, 30, },
+    { 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, },
+    { 35, 35, 35, 35, 35, 35, 35, 35, 40, 40, 40, 40, 30, 30, 30, 30, },
+    { 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 30, 30, },
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
-    35.0f, 35.0f, 35.0f, 35.0f, 33.0f, 31.0f, 24.0f, 18.0f,
+    35.0f, 35.0f, 35.0f, 35.0f, 23.0f, 22.0f, 19.5f, 18.0f,
     17.0f, 17.0f, 17.0f, 16.0f, 16.0f, 17.0f, 18.5f, 19.0f,
 };
 
 static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
     14.0f, 16.0f, 18.0f, 21.0f, 25.0f, 25.7f, 23.0f, 19.0f,
-    16.0f, 15.0f, 14.0f, 13.0f, 13.5f, 15.6f, 18.0f, 21.0f,
+    16.0f, 13.0f, 10.0f, 11.0f, 12.0f, 13.0f, 15.0f, 18.0f,
 };
 
 static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
-    35.0f, 35.0f, 35.0f, 35.0f, 34.0f, 32.0f, 30.0f, 19.0f,
+    35.0f, 35.0f, 35.0f, 35.0f, 24.0f, 23.0f, 22.0f, 19.0f,
     17.0f, 14.0f, 10.0f, 10.0f, 10.0f, 15.0f, 18.0f, 19.0f,
 };
 
@@ -476,22 +476,22 @@ static const float default_air_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILL
 };
 
 static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX] = {
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-1.0f,-2.0f,-2.0f,-2.0f,-2.0f,-3.0f,-3.0f,-3.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-3.0f,-4.0f,-5.0f,-6.0f,-6.0f,-6.0f,-7.0f,-7.0f,-7.0f,-7.0f },
-    { 0.0f, 0.0f, 0.0f, 0.0f,-1.0f,-2.0f,-4.0f,-6.0f,-8.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f,-9.0f },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, -1.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.5f, -2.0f, -2.0f, -2.0f, -2.0f, -2.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, -2.0f, -2.0f, -3.0f, -3.0f, -4.0f, -5.0f, -5.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, -3.0f, -4.0f, -5.0f, -6.0f, -6.0f, -6.0f, -7.0f, -7.0f, -7.0f, -7.0f, },
+    { 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, -2.0f, -4.0f, -6.0f, -8.0f, -9.0f, -9.0f, -9.0f, -9.0f, -9.0f, -9.0f, -9.0f, },
 };
 
 static const float default_idle_pids_rpm_koffs[TABLE_ROTATES_MAX] = {
@@ -505,12 +505,12 @@ static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_idle_valve_to_massair_pid_i[TABLE_ROTATES_MAX] = {
-    5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f,
-    5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f
+    5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 4.600f, 4.000f,
+    3.600f, 2.000f, 1.200f, 0.800f, 0.700f, 0.700f, 0.700f, 0.700f,
 };
 
 static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_MAX] = {
-    0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f,
+    0.0020f, 0.0020f, 0.0080f, 0.0130f, 0.0200f, 0.0150f, 0.0050f, 0.0020f,
     0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f, 0.0020f,
 };
 
@@ -520,23 +520,23 @@ static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_idle_ign_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
-    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f,
-    0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f, 0.0200f
+    0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f,
+    0.018f, 0.014f, 0.008f, 0.004f, 0.002f, 0.002f, 0.002f, 0.002f,
 };
 
 static const float default_idle_ign_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
-    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0050f, 0.0050f, 0.0030f,
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
 };
 
 static const float default_idle_rpm_pid_act_1[TABLE_TEMPERATURES_MAX] = {
     0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
-    0.380f, 0.300f, 0.280f, 0.280f, 0.280f, 0.280f, 0.280f, 0.280f,
+    0.380f, 0.340f, 0.320f, 0.310f, 0.310f, 0.310f, 0.310f, 0.310f,
 };
 
 static const float default_idle_rpm_pid_act_2[TABLE_TEMPERATURES_MAX] = {
     0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.550f,
-    0.470f, 0.370f, 0.340f, 0.340f, 0.340f, 0.340f, 0.340f, 0.340f,
+    0.470f, 0.420f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
 };
 
 static const float default_tsps_relative_pos[TABLE_ROTATES_MAX] = {
@@ -578,19 +578,19 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->injector_performance = 200.0f;
 
   table->is_fuel_phase_by_end = 1;
-  table->is_fuel_pressure_const = 0;
+  table->is_fuel_pressure_const = 1;
   table->is_full_thr_used = 0;
-  table->enrichment_ph_sync_enabled = 0;
+  table->enrichment_ph_sync_enabled = 1;
   table->enrichment_ph_async_enabled = 0;
   table->enrichment_pp_sync_enabled = 1;
-  table->enrichment_pp_async_enabled = 1;
+  table->enrichment_pp_async_enabled = 0;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
   table->fuel_afr = 14.7f;
 
   table->enrichment_load_type = 0;
-  table->enrichment_load_dead_band = 200.0f;
-  table->enrichment_accel_dead_band = 50.0f;
+  table->enrichment_load_dead_band = 100.0f;
+  table->enrichment_accel_dead_band = 500.0f;
   table->enrichment_detect_duration = 50.0f;
   table->enrichment_ign_corr_decay_time = 300.0f;
 
@@ -697,8 +697,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->idle_ign_fan_low_corr = 3.0f;
   table->idle_ign_fan_high_corr = 5.0f;
-  table->idle_air_fan_low_corr = 1.0f;
-  table->idle_air_fan_high_corr = 2.0f;
+  table->idle_air_fan_low_corr = 0.5f;
+  table->idle_air_fan_high_corr = 1.0f;
 
   table->idle_speeds_shift_count = ITEMSOF(default_idle_rpm_shift_speeds);
   memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));
@@ -734,13 +734,13 @@ void config_default_params(sEcuParams *table)
   table->switchPos0Table = 0;
   table->switchPos2Table = 0;
 
-  table->cutoffRPM = 5500;
+  table->cutoffRPM = 70000;
   table->cutoffMode = 5;
-  table->cutoffAngle = 3.0f;
-  table->cutoffMixture = 12.1f;
+  table->cutoffAngle = 10.0f;
+  table->cutoffMixture = 12.6f;
   table->oilPressureCutoffRPM = 2000;
-  table->speedInputCorrection = 1.0f;
-  table->speedOutputCorrection = 1.0f;
+  table->speedInputCorrection = 0.91f;
+  table->speedOutputCorrection = 0.89f;
 
   table->useLambdaSensor = 1;
   table->useTSPS = 1;
@@ -751,11 +751,11 @@ void config_default_params(sEcuParams *table)
   table->isIndividualCoils = 0;
   table->isEconEnabled = 0;
 
-  table->fanHighTemperature = 96;
-  table->fanMidTemperature = 93;
-  table->fanLowTemperature = 90;
+  table->fanHighTemperature = 102;
+  table->fanMidTemperature = 99;
+  table->fanLowTemperature = 96;
 
-  table->isBluetoothEnabled = 1;
+  table->isBluetoothEnabled = 0;
   table->bluetoothPin = 1902;
   strcpy(table->bluetoothName, "BT_ECU");
 
