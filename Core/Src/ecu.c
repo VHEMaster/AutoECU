@@ -174,6 +174,9 @@ struct {
     uint32_t RunningTime;
     uint32_t LastRunned;
 
+    float EnrichmentStartLoad;
+    float EnrichmentLoadDerivative;
+
     uint8_t PhasedInjection;
 }gLocalParams;
 
@@ -447,10 +450,10 @@ static void ecu_pid_init(void)
 }
 
 #ifdef SIMULATION
-float gDebugMap = 35000;
-float gDebugAirTemp = 20.0f;
-float gDebugEngineTemp = 20.0f;
-float gDebugThrottle = 5;
+float gDebugMap = 50000;
+float gDebugAirTemp = 30.0f;
+float gDebugEngineTemp = 90.0f;
+float gDebugThrottle = 0;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
 #endif
@@ -592,7 +595,7 @@ static void ecu_update(void)
   static float enrichment_time_pass = 0;
   float enrichment_load_diff;
   float enrichment_load_derivative;
-  uint32_t enrichment_load_value_count = 0;
+  static uint32_t enrichment_load_value_count = 0;
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
 
@@ -1201,12 +1204,13 @@ static void ecu_update(void)
         enrichment_amount_async *= enrichment_rate;
       }
 
-      enrichment_load_value_prev = enrichment_load_value;
-      enrichment_load_value_count = 0;
-
       if(enrichment_load_value > enrichment_load_value_start)
         enrichment_load_value_start = enrichment_load_value_start * (1.0f - enrichment_lpf) + enrichment_load_value * enrichment_lpf;
       else enrichment_load_value_start = enrichment_load_value;
+
+      enrichment_load_value_prev = enrichment_load_value;
+      enrichment_load_value_count = 0;
+      enrichment_load_value = 0;
     }
   } else {
     enrichment_detect_prev = now;
@@ -1215,6 +1219,9 @@ static void ecu_update(void)
     enrichment_amount_sync = 0;
     enrichment_amount_async = 0;
   }
+
+  gLocalParams.EnrichmentStartLoad = enrichment_load_value_start;
+  gLocalParams.EnrichmentLoadDerivative = enrichment_load_derivative_final;
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
@@ -4089,6 +4096,11 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
     else if(gLocalParams.MapAcceptValue < 60000)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
+
+    if(gParameters.ThrottlePosition > 40)
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
+    else if(gParameters.ThrottlePosition < 5)
+      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
 #endif
 }
 
