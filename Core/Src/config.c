@@ -364,7 +364,7 @@ static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
-    1700, 1700, 1700, 1700, 1350, 1300, 1200, 1150,
+    1600, 1570, 1500, 1430, 1350, 1300, 1200, 1150,
     1100, 1100, 1100, 1100, 1100, 1250, 1350, 1450,
 };
 
@@ -388,7 +388,7 @@ static const float default_idle_valve_to_rpm[TABLE_TEMPERATURES_MAX][TABLE_ROTAT
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
-    35.0f, 35.0f, 35.0f, 30.0f, 23.0f, 22.0f, 19.5f, 18.0f,
+    27.0f, 26.0f, 25.0f, 24.0f, 23.0f, 22.0f, 19.5f, 18.0f,
     17.0f, 17.0f, 17.0f, 16.0f, 16.0f, 16.0f, 17.0f, 18.0f,
 };
 
@@ -398,7 +398,7 @@ static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
-    35.0f, 35.0f, 35.0f, 35.0f, 22.0f, 21.0f, 20.0f, 19.0f,
+    26.0f, 25.0f, 24.0f, 23.0f, 22.0f, 21.0f, 20.0f, 19.0f,
     17.0f, 14.0f, 10.0f, 10.0f, 10.0f, 15.0f, 18.0f, 19.0f,
 };
 
