@@ -53,7 +53,7 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
 
-#define ENRICHMENT_STATES_COUNT     (ECU_CYLINDERS_COUNT + 1)
+#define ENRICHMENT_LOAD_STATES_COUNT     (64)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
 #define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
@@ -203,6 +203,7 @@ static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 static sProFIFO fifoAsyncInjection = {0};
 static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
+static float enrichmentLoadStates[ENRICHMENT_LOAD_STATES_COUNT] = {0};
 
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
@@ -481,6 +482,7 @@ static void ecu_update(void)
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
+  float diff_sec = diff * 0.000001f;
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipIdleRpm = {0};
   sMathInterpolateInput ipMap = {0};
@@ -585,17 +587,19 @@ static void ecu_update(void)
   float enrichment_load_dead_band;
   float enrichment_accel_dead_band;
   int32_t enrichment_ign_corr_decay_time;
-  int32_t enrichment_detect_duration;
+  float enrichment_detect_duration;
 
-  static float enrichment_load_value_start = 0;
-  static float enrichment_load_value_prev = 0;
-  static float enrichment_load_value = 0;
+  float enrichment_load_value_start = 0;
+  static float enrichment_load_value_start_accept = 0;
+  float enrichment_load_value = 0;
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
   float enrichment_load_diff;
   float enrichment_load_derivative;
-  static uint32_t enrichment_load_value_count = 0;
+  uint32_t enrichment_load_values_count = 0;
+  uint32_t enrichment_load_values_divider = 0;
+  static uint32_t enrichment_load_values_counter = 0;
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
 
@@ -967,16 +971,16 @@ static void ecu_update(void)
   idle_corr_flag = idle_flag && idle_rpm_flag;
   econ_flag = idle_flag && !idle_rpm_flag;
   if(econ_flag)
-    idle_econ_time += diff * 0.000001f;
+    idle_econ_time += diff_sec;
   else idle_econ_time = 0;
 
   ignition_corr_final = ignition_correction;
 
-  idle_rpm_flag_koff = diff * 0.000001f * 0.25f; // 0.25 sec
+  idle_rpm_flag_koff = diff_sec * 0.25f; // 0.25 sec
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
-  idle_ignition_time_by_tps_lpf = diff * 0.000001f * idle_ignition_time_by_tps;
+  idle_ignition_time_by_tps_lpf = diff_sec * idle_ignition_time_by_tps;
   idle_ignition_time_by_tps_lpf = CLAMP(idle_ignition_time_by_tps_lpf, 0.0f, 1.0f);
 
   if(!running) {
@@ -1155,73 +1159,79 @@ static void ecu_update(void)
   enrichment_load_dead_band = table->enrichment_load_dead_band;
   enrichment_accel_dead_band = table->enrichment_accel_dead_band;
   enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f; //TODO: implement it's usage
-  enrichment_detect_duration = table->enrichment_detect_duration * 1000.0f;
+  enrichment_detect_duration = table->enrichment_detect_duration;
 
-  if(running) {
-    if(enrichment_detect_duration < 50)
-      enrichment_detect_duration = period * 0.20f;
-
-    if(enrichment_load_type == 0) enrichment_load_value += throttle;
-    else enrichment_load_value += pressure;
-    enrichment_load_value_count++;
-
-    if(DelayDiff(now, enrichment_detect_prev) >= enrichment_detect_duration) {
-      enrichment_detect_prev += enrichment_detect_duration;
-      enrichment_detect_prev &= DelayMask;
-      enrichment_load_value /= (float)enrichment_load_value_count;
-      enrichment_lpf = (float)enrichment_detect_duration * 0.000001f;
-
-      enrichment_load_diff = enrichment_load_value - enrichment_load_value_prev;
-      enrichment_load_derivative = enrichment_load_diff / enrichment_lpf;
-
-      if(enrichment_load_derivative >= enrichment_load_dead_band || (enrichment_triggered && enrichment_load_derivative >= enrichment_load_derivative_final)) {
-        enrichment_load_derivative_accept = enrichment_load_derivative;
-        enrichment_load_derivative_final = enrichment_load_derivative;
-        enrichment_time_pass = 0;
-        enrichment_triggered = 1;
-      } else if(enrichment_triggered) {
-        enrichment_time_pass += enrichment_lpf;
-        enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * (enrichment_time_pass * enrichment_time_pass);
-        if(enrichment_load_derivative_final <= 0) {
-          enrichment_load_derivative_final = 0;
-          enrichment_triggered = 0;
-        }
-      }
-
-      ipEnrLoadStart = math_interpolate_input(enrichment_load_value_start, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
-      ipEnrLoadDeriv = math_interpolate_input(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
-
-      enrichment_rate = math_interpolate_2d(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
-      enrichment_rate *= enrichment_temp_mult + 1.0f;
-
-      if(enrichment_sync_enabled) {
-        enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
-        enrichment_amount_sync *= enrichment_rate;
-      }
-
-      if(enrichment_async_enabled) {
-        enrichment_amount_async = math_interpolate_1d(ipRpm, table->enrichment_async_amount);
-        enrichment_amount_async *= enrichment_rate;
-      }
-
-      if(enrichment_load_value > enrichment_load_value_start)
-        enrichment_load_value_start = enrichment_load_value_start * (1.0f - enrichment_lpf) + enrichment_load_value * enrichment_lpf;
-      else enrichment_load_value_start = enrichment_load_value;
-
-      enrichment_load_value_prev = enrichment_load_value;
-      enrichment_load_value_count = 0;
-      enrichment_load_value = 0;
-    }
-  } else {
-    enrichment_detect_prev = now;
-    enrichment_load_value_count = 0;
-    enrichment_load_value = 0;
-    enrichment_amount_sync = 0;
-    enrichment_amount_async = 0;
+  enrichment_load_values_divider = 1;
+  enrichment_load_values_count = enrichment_detect_duration;
+  while(enrichment_load_values_count > ENRICHMENT_LOAD_STATES_COUNT) {
+    enrichment_load_values_count /= 2;
+    enrichment_load_values_divider *= 2;
   }
 
-  gLocalParams.EnrichmentStartLoad = enrichment_load_value_start;
-  gLocalParams.EnrichmentLoadDerivative = enrichment_load_derivative_final;
+  enrichment_detect_duration *= 1000.0f;
+
+  if(enrichment_load_type == 0 && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) enrichment_load_value = throttle;
+  else if(enrichment_load_type == 1 && gStatus.Sensors.Struct.Map == HAL_OK) enrichment_load_value = pressure;
+  else enrichment_load_type = -1;
+
+  if(running && enrichment_load_values_count > 2 && enrichment_load_type >= 0) {
+
+    if(++enrichment_load_values_counter >= enrichment_load_values_divider) {
+      for(int i = enrichment_load_values_count - 2; i >= 0; i--) {
+        enrichmentLoadStates[i + 1] = enrichmentLoadStates[i];
+      }
+      enrichmentLoadStates[0] = enrichment_load_value;
+      enrichment_load_values_counter = 0;
+    }
+
+    min = enrichmentLoadStates[enrichment_load_values_count - 1];
+    max = enrichmentLoadStates[0];
+
+    enrichment_load_value_start = min;
+    enrichment_load_diff = max - min;
+
+    enrichment_lpf = diff / enrichment_detect_duration;
+    enrichment_load_derivative = enrichment_load_diff / enrichment_lpf;
+
+    if((!enrichment_triggered && enrichment_load_derivative >= enrichment_load_dead_band) ||
+        (enrichment_triggered && (enrichment_load_derivative > enrichment_load_derivative_accept))) {
+      enrichment_load_derivative_accept = enrichment_load_derivative;
+      enrichment_load_derivative_final = enrichment_load_derivative;
+      enrichment_load_value_start_accept = enrichment_load_value_start;
+      enrichment_time_pass = 0;
+      enrichment_triggered = 1;
+    } else if(enrichment_triggered) {
+      enrichment_time_pass += diff_sec;
+      enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
+      if(enrichment_load_derivative_final <= 0) {
+        enrichment_load_derivative_final = 0;
+        enrichment_triggered = 0;
+      }
+    }
+
+    ipEnrLoadStart = math_interpolate_input(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
+    ipEnrLoadDeriv = math_interpolate_input(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
+
+    enrichment_rate = math_interpolate_2d(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
+    enrichment_rate *= enrichment_temp_mult + 1.0f;
+
+    if(enrichment_sync_enabled) {
+      enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
+      enrichment_amount_sync *= enrichment_rate;
+    }
+
+    if(enrichment_async_enabled) {
+      enrichment_amount_async = math_interpolate_1d(ipRpm, table->enrichment_async_amount);
+      enrichment_amount_async *= enrichment_rate;
+    }
+  } else {
+    enrichment_amount_sync = 0;
+    enrichment_amount_async = 0;
+    enrichment_load_values_counter = 0;
+  }
+
+  gLocalParams.EnrichmentStartLoad = enrichment_load_value_start_accept;
+  gLocalParams.EnrichmentLoadDerivative = enrichment_load_derivative_accept;
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
