@@ -44,7 +44,7 @@
 #include "math_fast.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
-#define PRESSURE_ACCEPTION_FEATURE  1
+#define PRESSURE_ACCEPTION_FEATURE  0
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 
@@ -545,12 +545,6 @@ static void ecu_update(void)
   float mass_air_flow;
   float injection_time;
 
-  float enrichment_result;
-  float enrichment_rate;
-  static float enrichment_amount_sync = 0;
-  static float enrichment_amount_async = 0;
-  float enrichment_async_time;
-
   float min_injection_time;
   float injection_phase_duration;
   float injection_start_mult;
@@ -579,8 +573,14 @@ static void ecu_update(void)
   float injection_phase_sw_lpf;
   static float injection_phase_sw_state = 0;
   float injection_phase_lpf;
-  float enrichment_temp_mult;
   float fuel_amount_per_cycle;
+
+  float enrichment_temp_mult;
+  float enrichment_result;
+  float enrichment_rate;
+  static float enrichment_amount_sync = 0;
+  static float enrichment_amount_async = 0;
+  float enrichment_async_time;
 
   static uint32_t enrichment_detect_prev = 0;
   int32_t enrichment_load_type;
@@ -4102,9 +4102,13 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
   ecu_process();
 
 #ifdef DEBUG
-    if(gLocalParams.MapAcceptValue > 80000)
+  float pressure = gParameters.ManifoldAirPressure;
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
+  pressure = gLocalParams.MapAcceptValue;
+#endif
+    if(pressure > 80000)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
-    else if(gLocalParams.MapAcceptValue < 60000)
+    else if(pressure < 60000)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
 
     if(gParameters.ThrottlePosition > 40)
