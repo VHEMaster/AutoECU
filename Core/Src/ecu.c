@@ -174,9 +174,6 @@ struct {
     uint32_t RunningTime;
     uint32_t LastRunned;
 
-    float EnrichmentStartLoad;
-    float EnrichmentLoadDerivative;
-
     uint8_t PhasedInjection;
 }gLocalParams;
 
@@ -2315,7 +2312,10 @@ ITCM_FUNC void ecu_process(void)
 #ifndef SIMULATION
   throttle_status = sens_get_throttle_position(&throttle);
 #else
+
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   pressure = gDebugMap;
+#endif
   throttle = gDebugThrottle;
 #endif
 

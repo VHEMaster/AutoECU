@@ -221,7 +221,7 @@ static const float default_enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS_
 };
 
 static const float default_enrichment_rate_load_derivative[TABLE_ENRICHMENT_PERCENTS_MAX] = {
-    0.0f, 25.0f, 50.0f, 100.0f, 200.0f, 300.0f, 500.0f, 1000.0f
+    0, 200, 400, 800, 1600, 2400, 4000, 8000,
 };
 
 static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
