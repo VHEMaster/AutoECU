@@ -1230,9 +1230,6 @@ static void ecu_update(void)
     enrichment_load_values_counter = 0;
   }
 
-  gLocalParams.EnrichmentStartLoad = enrichment_load_value_start_accept;
-  gLocalParams.EnrichmentLoadDerivative = enrichment_load_derivative_accept;
-
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
   if(running && enrichment_async_enabled) {
@@ -1756,6 +1753,11 @@ static void ecu_update(void)
   gParameters.InjectionLag = injector_lag;
   gParameters.IgnitionPulse = ignition_time;
   gParameters.IdleSpeedShift = idle_rpm_shift;
+
+  gParameters.EnrichmentSyncAmount = enrichment_amount_sync;
+  gParameters.EnrichmentAsyncAmount = enrichment_amount_async;
+  gParameters.EnrichmentStartLoad = enrichment_load_value_start_accept;
+  gParameters.EnrichmentLoadDerivative = enrichment_load_derivative_accept;
 
   gParameters.DrivenKilometers = gEcuCriticalBackup.km_driven + km_driven;
   gParameters.FuelConsumed = gEcuCriticalBackup.fuel_consumed + fuel_consumed;

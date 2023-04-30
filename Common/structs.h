@@ -425,6 +425,11 @@ typedef struct {
     float IgnitionPulse;
     float IdleSpeedShift;
 
+    float EnrichmentSyncAmount;
+    float EnrichmentAsyncAmount;
+    float EnrichmentStartLoad;
+    float EnrichmentLoadDerivative;
+
     float DrivenKilometers;
     float FuelConsumed;
     float FuelConsumption;
