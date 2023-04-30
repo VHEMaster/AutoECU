@@ -582,7 +582,6 @@ static void ecu_update(void)
   static float enrichment_amount_async = 0;
   float enrichment_async_time;
 
-  static uint32_t enrichment_detect_prev = 0;
   int32_t enrichment_load_type;
   float enrichment_load_dead_band;
   float enrichment_accel_dead_band;
@@ -2237,20 +2236,18 @@ ITCM_FUNC void ecu_process(void)
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
+  HAL_StatusTypeDef map_status = HAL_OK;
+  float pressure = 0;
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
   static float pressure_filtered = 0;
   static uint32_t pressure_count = 0;
   float anglesbeforepressure[ECU_CYLINDERS_COUNT_HALF];
-  float pressure = 0;
   float pressure_measurement_time = 20;
   float pressure_measurement_angle = 90 + pressure_measurement_time;
-  HAL_StatusTypeDef map_status = HAL_OK;
 #endif
 
   float throttle;
-  float throttle_abs_diff;
-  float throttle_rel_diff;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
   float uspa_koff = 0.8f;
@@ -2315,10 +2312,15 @@ ITCM_FUNC void ecu_process(void)
   memcpy(cy_corr_injection, table->cy_corr_injection, sizeof(cy_corr_injection));
   memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
 #ifndef SIMULATION
-  map_status = sens_get_map_urgent(&pressure);
   throttle_status = sens_get_throttle_position(&throttle);
+#else
+  pressure = gDebugMap;
+  throttle = gDebugThrottle;
+#endif
+
+#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
+  map_status = sens_get_map_urgent(&pressure);
   if (found) {
     pressure_filtered += pressure;
     pressure_count++;
@@ -2326,10 +2328,6 @@ ITCM_FUNC void ecu_process(void)
     pressure_filtered = pressure;
     pressure_count = 1;
   }
-#else
-  pressure = gDebugMap;
-  throttle = gDebugThrottle;
-#endif
 #endif
 
   if(shiftEnabled) {
