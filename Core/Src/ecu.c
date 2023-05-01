@@ -514,6 +514,7 @@ static void ecu_update(void)
   float idle_valve_position;
   float uspa;
   float period;
+  float period_half;
   float cold_start_idle_mult;
   float cold_start_idle_time;
   float cold_start_idle_corr;
@@ -587,8 +588,10 @@ static void ecu_update(void)
   int32_t enrichment_load_type;
   float enrichment_load_dead_band;
   float enrichment_accel_dead_band;
-  int32_t enrichment_ign_corr_decay_time;
+  float enrichment_ign_corr_decay_time;
   float enrichment_detect_duration;
+  float enrichment_async_pulses_divider;
+  float enrichment_async_period;
 
   float enrichment_load_value_start = 0;
   static float enrichment_load_value_start_accept = 0;
@@ -596,6 +599,7 @@ static void ecu_update(void)
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
+  static float enrichment_async_last = 0;
   float enrichment_load_diff;
   float enrichment_load_derivative;
   uint32_t enrichment_load_values_count = 0;
@@ -712,6 +716,7 @@ static void ecu_update(void)
   phased = csps_isphased(csps);
   uspa = csps_getuspa(csps);
   period = csps_getperiod(csps);
+  period_half = period * 0.5f;
   fuel_pressure = table->fuel_pressure;
   is_full_throttle_used = table->is_full_thr_used;
 
@@ -1162,6 +1167,8 @@ static void ecu_update(void)
   enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f;
   enrichment_detect_duration = table->enrichment_detect_duration;
   enrichment_injection_phase_decay_time = table->enrichment_injection_phase_decay_time * 1000.0f;
+  enrichment_async_pulses_divider = table->enrichment_async_pulses_divider;
+  enrichment_async_pulses_divider = MAX(enrichment_async_pulses_divider, 1);
 
   enrichment_load_values_divider = 1;
   enrichment_load_values_count = enrichment_detect_duration;
@@ -1213,6 +1220,7 @@ static void ecu_update(void)
       enrichment_phase_state = 1;
       enrichment_ignition_state = 1;
       enrichment_triggered_async = 1;
+      enrichment_async_last = now;
     } else if(enrichment_triggered) {
       enrichment_time_pass += diff_sec;
       enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
@@ -1247,20 +1255,24 @@ static void ecu_update(void)
     enrichment_ignition_state = 0;
     enrichment_ign_corr = 0;
     enrichment_triggered_async = 0;
+    enrichment_async_last = now;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
   if(running && enrichment_async_enabled) {
-    if(enrichment_amount_async >= 0.001f && (halfturns_performed || enrichment_triggered_async)) {
-      enrichment_triggered_async = 0;
-      enrichment_async_time = injection_time;
-      enrichment_async_time *= enrichment_amount_async;
-      enrichment_async_time /= ECU_CYLINDERS_COUNT;
-      if(halfturns_performed)
-        enrichment_async_time *= halfturns_performed;
-      enrichment_async_time += injector_lag_mult;
-      ecu_async_injection_push(enrichment_async_time);
+    enrichment_async_period = period_half / enrichment_async_pulses_divider;
+    if(enrichment_amount_async >= 0.001f) {
+      while(DelayDiff(now, enrichment_async_last) >= enrichment_async_period || enrichment_triggered_async) {
+        enrichment_async_last += enrichment_async_period;
+        enrichment_triggered_async = 0;
+        enrichment_async_time = injection_time;
+        enrichment_async_time *= enrichment_amount_async;
+        enrichment_async_time /= ECU_CYLINDERS_COUNT;
+        enrichment_async_time /= enrichment_async_pulses_divider;
+        enrichment_async_time += injector_lag_mult;
+        ecu_async_injection_push(enrichment_async_time);
+      }
     }
   }
 
@@ -1529,7 +1541,7 @@ static void ecu_update(void)
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
 
-  if(adapt_diff >= period * 0.5) {
+  if(adapt_diff >= period_half) {
     adaptation_last = now;
     if(running) {
       lpf_calculation = adapt_diff * 0.000001f;
