@@ -603,6 +603,7 @@ static void ecu_update(void)
   static uint32_t enrichment_load_values_counter = 0;
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
+  static uint8_t enrichment_triggered_async = 0;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -1194,12 +1195,13 @@ static void ecu_update(void)
     enrichment_lpf = diff / enrichment_detect_duration;
     enrichment_load_derivative = enrichment_load_diff / enrichment_lpf;
 
-    if(enrichment_phase_state > 0) {
+    if(enrichment_phase_state > 0)
       enrichment_phase_state -= diff / enrichment_injection_phase_decay_time;
-    }
-    if(enrichment_ignition_state > 0) {
+    else enrichment_phase_state = 0;
+
+    if(enrichment_ignition_state > 0)
       enrichment_ignition_state -= diff / enrichment_ign_corr_decay_time;
-    }
+    else enrichment_ignition_state = 0;
 
     if((!enrichment_triggered && enrichment_load_derivative >= enrichment_load_dead_band) ||
         (enrichment_triggered && (enrichment_load_derivative > enrichment_load_derivative_accept))) {
@@ -1210,6 +1212,7 @@ static void ecu_update(void)
       enrichment_triggered = 1;
       enrichment_phase_state = 1;
       enrichment_ignition_state = 1;
+      enrichment_triggered_async = 1;
     } else if(enrichment_triggered) {
       enrichment_time_pass += diff_sec;
       enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
@@ -1243,16 +1246,19 @@ static void ecu_update(void)
     enrichment_phase_state = 0;
     enrichment_ignition_state = 0;
     enrichment_ign_corr = 0;
+    enrichment_triggered_async = 0;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
   if(running && enrichment_async_enabled) {
-    if(enrichment_amount_async >= 0.005f && halfturns_performed) {
+    if(enrichment_amount_async >= 0.001f && (halfturns_performed || enrichment_triggered_async)) {
+      enrichment_triggered_async = 0;
       enrichment_async_time = injection_time;
       enrichment_async_time *= enrichment_amount_async;
       enrichment_async_time /= ECU_CYLINDERS_COUNT;
-      enrichment_async_time *= halfturns_performed;
+      if(halfturns_performed)
+        enrichment_async_time *= halfturns_performed;
       enrichment_async_time += injector_lag_mult;
       ecu_async_injection_push(enrichment_async_time);
     }
