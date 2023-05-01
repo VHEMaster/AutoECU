@@ -236,8 +236,8 @@ static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_
 };
 
 static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
-    0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f,
-    0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f, 0.60f
+    0.30f, 0.30f, 0.30f, 0.32f, 0.35f, 0.39f, 0.43f, 0.48f,
+    0.51f, 0.53f, 0.55f, 0.58f, 0.65f, 0.76f, 0.80f, 0.80f,
 };
 
 static const float default_enrichment_async_amount[TABLE_ROTATES_MAX] = {
