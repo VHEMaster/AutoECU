@@ -269,7 +269,9 @@ typedef struct {
     float idle_econ_delay[TABLE_TEMPERATURES_MAX];
     float start_econ_delay[TABLE_TEMPERATURES_MAX];
 
-    int32_t reserved[905];
+    float enrichment_injection_phase_decay_time;
+    float enrichment_injection_phase[TABLE_ROTATES_MAX];
+    int32_t reserved[888];
 }sEcuTable;
 
 typedef struct {

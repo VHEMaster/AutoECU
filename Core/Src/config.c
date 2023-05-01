@@ -270,6 +270,11 @@ static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
     0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 };
 
+static const float default_enrichment_injection_phase[TABLE_ROTATES_MAX] = {
+    450.0f, 445.0f, 440.0f, 435.0f, 430.0f, 425.0f, 420.0f, 415.0f,
+    410.0f, 405.0f, 400.0f, 395.0f, 390.0f, 385.0f, 380.0f, 375.0f,
+};
+
 static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
     4.0f, 1.7f, 1.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
@@ -593,6 +598,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_accel_dead_band = 100000.0f;
   table->enrichment_detect_duration = 100.0f;
   table->enrichment_ign_corr_decay_time = 300.0f;
+  table->enrichment_injection_phase_decay_time = 300.0f;
 
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
@@ -622,6 +628,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_async_amount, default_enrichment_async_amount, sizeof(default_enrichment_async_amount));
   memcpy(table->enrichment_ign_corr, default_enrichment_ign_corr, sizeof(default_enrichment_ign_corr));
   memcpy(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(default_enrichment_temp_mult));
+  memcpy(table->enrichment_injection_phase, default_enrichment_injection_phase, sizeof(default_enrichment_injection_phase));
 
   table->fillings_count = ITEMSOF(default_fillings);
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));
