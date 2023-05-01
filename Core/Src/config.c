@@ -599,6 +599,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_detect_duration = 100.0f;
   table->enrichment_ign_corr_decay_time = 300.0f;
   table->enrichment_injection_phase_decay_time = 300.0f;
+  table->enrichment_async_pulses_divider = 8;
 
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
