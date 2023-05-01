@@ -573,8 +573,10 @@ static void ecu_update(void)
   float fuel_amount_per_cycle;
 
   static float enrichment_phase_state = 0;
+  static float enrichment_ignition_state = 0;
   float enrichment_injection_phase_decay_time;
   float enrichment_injection_phase;
+  float enrichment_ign_corr;
   float enrichment_temp_mult;
   float enrichment_result;
   float enrichment_rate;
@@ -1156,7 +1158,7 @@ static void ecu_update(void)
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
   enrichment_accel_dead_band = table->enrichment_accel_dead_band;
-  enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f; //TODO: implement it's usage
+  enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f;
   enrichment_detect_duration = table->enrichment_detect_duration;
   enrichment_injection_phase_decay_time = table->enrichment_injection_phase_decay_time * 1000.0f;
 
@@ -1195,6 +1197,9 @@ static void ecu_update(void)
     if(enrichment_phase_state > 0) {
       enrichment_phase_state -= diff / enrichment_injection_phase_decay_time;
     }
+    if(enrichment_ignition_state > 0) {
+      enrichment_ignition_state -= diff / enrichment_ign_corr_decay_time;
+    }
 
     if((!enrichment_triggered && enrichment_load_derivative >= enrichment_load_dead_band) ||
         (enrichment_triggered && (enrichment_load_derivative > enrichment_load_derivative_accept))) {
@@ -1204,6 +1209,7 @@ static void ecu_update(void)
       enrichment_time_pass = 0;
       enrichment_triggered = 1;
       enrichment_phase_state = 1;
+      enrichment_ignition_state = 1;
     } else if(enrichment_triggered) {
       enrichment_time_pass += diff_sec;
       enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
@@ -1219,6 +1225,8 @@ static void ecu_update(void)
     enrichment_rate = math_interpolate_2d(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
     enrichment_rate *= enrichment_temp_mult + 1.0f;
 
+    enrichment_ign_corr = math_interpolate_2d(ipEnrLoadStart, ipRpm, TABLE_ROTATES_MAX, table->enrichment_ign_corr);
+
     if(enrichment_sync_enabled) {
       enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
       enrichment_amount_sync *= enrichment_rate;
@@ -1233,6 +1241,8 @@ static void ecu_update(void)
     enrichment_amount_async = 0;
     enrichment_load_values_counter = 0;
     enrichment_phase_state = 0;
+    enrichment_ignition_state = 0;
+    enrichment_ign_corr = 0;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
@@ -1250,6 +1260,9 @@ static void ecu_update(void)
 
   if(enrichment_phase_state > 0.001f) {
     injection_phase = injection_phase * (1.0f - enrichment_phase_state) + enrichment_injection_phase * enrichment_phase_state;
+  }
+  if(enrichment_ignition_state > 0.001f) {
+    ignition_angle += enrichment_ign_corr * enrichment_ignition_state;
   }
 
   if(gForceParameters.Enable.InjectionPhase)
