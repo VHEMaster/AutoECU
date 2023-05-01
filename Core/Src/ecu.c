@@ -1606,7 +1606,9 @@ static void ecu_update(void)
   }
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    if((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 55.0f) || (rpm < idle_reg_rpm_2 && rpm > idle_reg_rpm_1 && engine_temp > 80.0f))) {
+    if(running &&
+        ((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 55.0f) ||
+            (rpm < idle_reg_rpm_2 && rpm > idle_reg_rpm_1 && engine_temp > 80.0f)))) {
       float map_tps_relation = pressure / pressure_from_throttle;
       if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
         if(gStatus.MapTpsRelation.is_error) {
