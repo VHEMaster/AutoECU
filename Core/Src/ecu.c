@@ -1276,7 +1276,7 @@ static void ecu_update(void)
     }
   }
 
-  if(enrichment_phase_state > 0.001f) {
+  if(enrichment_phase_state > 0.001f && enrichment_injection_phase > injection_phase) {
     injection_phase = injection_phase * (1.0f - enrichment_phase_state) + enrichment_injection_phase * enrichment_phase_state;
   }
   if(enrichment_ignition_state > 0.001f) {
