@@ -40,8 +40,13 @@
 #define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
 #define ITEMSOF(ARRAY) (sizeof((ARRAY)) / sizeof((ARRAY)[0]))
 #define CLAMP(val,min,max) ((val) < (min) ? (min) : (val) > (max) ? (max) : (val))
+
+#ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
 
 #define STATIC_INLINE __attribute__((always_inline)) static inline
 #define INLINE __attribute__((always_inline)) inline
