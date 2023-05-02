@@ -577,6 +577,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->inj_channel = InjectorChannel1;
 
+  //Bosch 0280155968 - 420 cc/min
   //Bosch 0280156095 - 315 cc/min
   //Bosch 0280155746 - 200 cc/min
   //BMW 03762FA - 180 cc/min
