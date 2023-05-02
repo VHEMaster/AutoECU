@@ -241,8 +241,8 @@ static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_enrichment_async_amount[TABLE_ROTATES_MAX] = {
-    0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f,
-    0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f
+    0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f,
+    0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f, 0.30f,
 };
 
 static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
@@ -595,12 +595,12 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->fuel_afr = 14.7f;
 
   table->enrichment_load_type = 0;
-  table->enrichment_load_dead_band = 20.0f;
+  table->enrichment_load_dead_band = 500.0f;
   table->enrichment_accel_dead_band = 100000.0f;
   table->enrichment_detect_duration = 100.0f;
   table->enrichment_ign_corr_decay_time = 300.0f;
   table->enrichment_injection_phase_decay_time = 300.0f;
-  table->enrichment_async_pulses_divider = 8;
+  table->enrichment_async_pulses_divider = 4;
 
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));

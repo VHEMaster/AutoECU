@@ -599,7 +599,7 @@ static void ecu_update(void)
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
-  static float enrichment_async_last = 0;
+  static uint32_t enrichment_async_last = 0;
   float enrichment_load_diff;
   float enrichment_load_derivative;
   uint32_t enrichment_load_values_count = 0;
@@ -1263,10 +1263,18 @@ static void ecu_update(void)
   if(running && enrichment_async_enabled) {
     enrichment_async_period = period_half / enrichment_async_pulses_divider;
     if(enrichment_amount_async >= 0.001f) {
+      enrichment_async_time = 0;
       while(DelayDiff(now, enrichment_async_last) >= enrichment_async_period || enrichment_triggered_async) {
-        enrichment_async_last += enrichment_async_period;
-        enrichment_triggered_async = 0;
-        enrichment_async_time = injection_time;
+        if(enrichment_triggered_async) {
+          enrichment_async_last = now;
+          enrichment_triggered_async = 0;
+        } else {
+          enrichment_async_last += enrichment_async_period;
+          enrichment_async_last &= DelayMask;
+        }
+        enrichment_async_time += injection_time;
+      }
+      if(enrichment_async_time > 0) {
         enrichment_async_time *= enrichment_amount_async;
         enrichment_async_time /= ECU_CYLINDERS_COUNT;
         enrichment_async_time /= enrichment_async_pulses_divider;
