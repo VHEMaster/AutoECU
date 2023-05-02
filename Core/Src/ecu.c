@@ -1264,15 +1264,13 @@ static void ecu_update(void)
     enrichment_async_period = period_half / enrichment_async_pulses_divider;
     if(enrichment_amount_async >= 0.001f) {
       enrichment_async_time = 0;
-      while(DelayDiff(now, enrichment_async_last) >= enrichment_async_period || enrichment_triggered_async) {
-        if(enrichment_triggered_async) {
-          enrichment_async_last = now;
-          enrichment_triggered_async = 0;
-        } else {
-          enrichment_async_last += enrichment_async_period;
-          enrichment_async_last &= DelayMask;
+      if(DelayDiff(now, enrichment_async_last) >= enrichment_async_period || enrichment_triggered_async) {
+        enrichment_async_time = injection_time;
+        if(!enrichment_triggered_async) {
+          enrichment_async_time *= ((float)DelayDiff(now, enrichment_async_last) / (float)enrichment_async_period);
         }
-        enrichment_async_time += injection_time;
+        enrichment_triggered_async = 0;
+        enrichment_async_last = now;
       }
       if(enrichment_async_time > 0) {
         enrichment_async_time *= enrichment_amount_async;
