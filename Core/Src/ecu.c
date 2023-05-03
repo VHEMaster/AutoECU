@@ -1197,7 +1197,7 @@ static void ecu_update(void)
     enrichment_lpf = diff / enrichment_detect_duration;
     enrichment_load_derivative = enrichment_load_diff / enrichment_lpf;
 
-    if(enrichment_ignition_state > 0)
+    if(enrichment_ignition_state > 0 && enrichment_ign_corr_decay_time >= 1000.0f)
       enrichment_ignition_state -= diff / enrichment_ign_corr_decay_time;
     else enrichment_ignition_state = 0;
 
@@ -1208,7 +1208,7 @@ static void ecu_update(void)
       enrichment_load_value_start_accept = enrichment_load_value_start;
       enrichment_time_pass = 0;
       enrichment_triggered = 1;
-      enrichment_ignition_state = 1;
+      enrichment_ignition_state = 1.0f;
       enrichment_triggered_async = 1;
       enrichment_async_last = now;
     } else if(enrichment_triggered) {
