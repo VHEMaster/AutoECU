@@ -73,6 +73,18 @@ INLINE sMathInterpolateInput math_interpolate_input(float value, const float *ta
   return result;
 }
 
+INLINE sMathInterpolateInput math_interpolate_input_limit(float value, const float *table, uint32_t size)
+{
+  sMathInterpolateInput result = math_interpolate_input(value, table, size);
+
+  if(result.mult > 1.0f)
+    result.mult = 1.0f;
+  else if(result.mult < 0.0f)
+    result.mult = 0.0f;
+
+  return result;
+}
+
 INLINE float math_interpolate_1d(sMathInterpolateInput input, const float *table)
 {
   float result;

@@ -21,6 +21,7 @@ typedef struct {
 void math_interpolate_test(void);
 
 sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size);
+sMathInterpolateInput math_interpolate_input_limit(float value, const float *table, uint32_t size);
 float math_interpolate_1d(sMathInterpolateInput input, const float *table);
 float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[y_size]);
