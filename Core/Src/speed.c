@@ -87,7 +87,7 @@ void speed_exti(uint32_t timestamp)
     average += DelayDiff(gSpeedCtx.irq_data[i], gSpeedCtx.irq_data[i - 1]);
   average /= (float)(IRQ_SIZE - 1);
 
-  gSpeedCtx.speed = 1000000.0f / (average / 3.6f * 6.0f);
+  gSpeedCtx.speed = 600000.0f / average; // 1000000.0f / (average / 3.6f * 6.0f)
   gSpeedCtx.speed *= gSpeedCtx.input_corrective;
 
   htim->Instance->PSC = average * 0.1f / gSpeedCtx.output_corrective;

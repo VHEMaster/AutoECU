@@ -213,7 +213,6 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   GPIO_PinState pin_state;
   static uint8_t found = 0;
 
-  float rpm_koff = 1.0f / 10.0f;
   float angle_initial = CspsAngleInitial;
 
   uint32_t i, cur, prev;
@@ -355,9 +354,6 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
 
     adder_prev = adder;
 
-    if(csps_rpm < 200.0f)
-      rpm_koff = 1.0f / 3.0f;
-
     diff = (float)DelayDiff(cur, prev) / csps_cors[t1] * csps_cors_avg;
 
     period_prev = csps_periods_data[csps_periods_counter];
@@ -442,21 +438,7 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   if(t2 >= 2)
     t2 = 0;
 
-  /*
-  const float tach_duty_cycle = 0.25f;
-  float angle_tach = csps_angle14;
-
-  if(angle_tach >= 0.0f && angle_tach < 180.0f * tach_duty_cycle)
-    HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_SET);
-  else if(angle_tach >= 180.0f * tach_duty_cycle)
-    HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_RESET);
-  else if(angle_tach < -180.0f + 180.0f * tach_duty_cycle)
-    HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_SET);
-  else if(angle_tach >= -180.0f + 180.0f * tach_duty_cycle && angle_tach < 0.0f)
-    HAL_GPIO_WritePin(TACHOMETER_GPIO_Port, TACHOMETER_Pin, GPIO_PIN_RESET);
-  */
-
-  uint32_t value = (uint32_t)((float)(60 * 100000) / csps_rpm * 0.5f);
+  uint32_t value = roundf(csps_period * 0.05f);
   htim->Instance->PSC = value > 0xFFFF ? 0xFFFF : value;
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
