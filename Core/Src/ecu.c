@@ -1226,7 +1226,7 @@ static void ecu_update(void)
     enrichment_rate = math_interpolate_2d(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
     enrichment_rate *= enrichment_temp_mult + 1.0f;
 
-    enrichment_ign_corr = math_interpolate_2d(ipEnrLoadStart, ipRpm, TABLE_ROTATES_MAX, table->enrichment_ign_corr);
+    enrichment_ign_corr = math_interpolate_2d(ipEnrLoadStart, ipRpm, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_ign_corr);
 
     if(enrichment_sync_enabled) {
       enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
