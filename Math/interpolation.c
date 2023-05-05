@@ -99,7 +99,7 @@ INLINE float math_interpolate_1d(sMathInterpolateInput input, const float *table
 }
 
 INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, const float (*table)[y_size])
+    uint32_t x_size, const float (*table)[x_size])
 {
   float result = 0.0f;
   float output_1d[2];
@@ -118,7 +118,7 @@ INLINE float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolate
 }
 
 INLINE float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, const float (*table)[y_size])
+    uint32_t x_size, const float (*table)[x_size])
 {
   float result = 0.0f;
   uint8_t index_x = 0;
@@ -135,9 +135,9 @@ INLINE float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInter
 }
 
 INLINE float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, const float (*table)[y_size], float clamp_min, float clamp_max)
+    uint32_t x_size, const float (*table)[x_size], float clamp_min, float clamp_max)
 {
-  float result = math_interpolate_2d(input_x, input_y, y_size, table);
+  float result = math_interpolate_2d(input_x, input_y, x_size, table);
 
   if(result < clamp_min)
     result = clamp_min;
@@ -175,7 +175,7 @@ INLINE float math_interpolate_1d_set(sMathInterpolateInput input, float *table, 
 }
 
 INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[y_size], float new_value, float limit_l, float limit_h)
+    uint32_t x_size, float (*table)[x_size], float new_value, float limit_l, float limit_h)
 {
   float previous;
   float diff;
@@ -210,7 +210,7 @@ INLINE float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpo
 }
 
 INLINE float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t y_size, float (*table)[y_size], float new_value, float limit_l, float limit_h)
+    uint32_t x_size, float (*table)[x_size], float new_value, float limit_l, float limit_h)
 {
   float previous;
   float diff;
