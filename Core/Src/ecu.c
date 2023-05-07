@@ -1183,7 +1183,7 @@ static void ecu_update(void)
   else if(enrichment_load_type == 1 && gStatus.Sensors.Struct.Map == HAL_OK) enrichment_load_value = pressure;
   else enrichment_load_type = -1;
 
-  if(running && enrichment_load_values_count > 2 && enrichment_load_type >= 0) {
+  if(enrichment_load_values_count > 2 && enrichment_load_type >= 0) {
 
     if(++enrichment_load_values_counter >= enrichment_load_values_divider) {
       for(int i = enrichment_load_values_count - 2; i >= 0; i--) {
@@ -1249,7 +1249,6 @@ static void ecu_update(void)
     }
   } else {
     enrichment_amount_sync = 0;
-    enrichment_amount_async = 0;
     enrichment_load_values_counter = 0;
     enrichment_phase_state = 0;
     enrichment_ignition_state = 0;
@@ -1280,6 +1279,10 @@ static void ecu_update(void)
         ecu_async_injection_push(enrichment_async_time);
       }
     }
+  } else {
+    enrichment_amount_async = 0;
+    enrichment_triggered_async = 0;
+    enrichment_async_last = now;
   }
 
   if(enrichment_phase_state > 0.001f && enrichment_injection_phase > injection_phase) {
