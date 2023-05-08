@@ -588,8 +588,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->is_full_thr_used = 0;
   table->enrichment_ph_sync_enabled = 1;
   table->enrichment_ph_async_enabled = 0;
+  table->enrichment_ph_post_injection_enabled = 1;
   table->enrichment_pp_sync_enabled = 1;
   table->enrichment_pp_async_enabled = 0;
+  table->enrichment_pp_post_injection_enabled = 0;
   table->fuel_pressure = 3.0f;
   table->fuel_mass_per_cc = 0.75f;
   table->fuel_afr = 14.7f;
@@ -601,6 +603,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_ign_corr_decay_time = 200.0f;
   table->enrichment_injection_phase_decay_time = 200.0f;
   table->enrichment_async_pulses_divider = 5;
+  table->enrichment_end_injection_final_phase = 540;
 
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
