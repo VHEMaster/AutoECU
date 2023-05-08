@@ -610,6 +610,7 @@ static void ecu_update(void)
   static uint32_t enrichment_load_values_counter = 0;
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
+  uint8_t enrichment_triggered_once = 0;
   static uint8_t enrichment_triggered_async = 0;
 
   float warmup_mixture;
@@ -1225,8 +1226,8 @@ static void ecu_update(void)
       enrichment_ignition_state = 1;
       enrichment_phase_state = 1;
       enrichment_triggered_async = 1;
+      enrichment_triggered_once = 1;
       enrichment_async_last = now;
-      gLocalParams.EnrichmentTriggered = 1;
     } else if(enrichment_triggered) {
       enrichment_time_pass += diff_sec;
       enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
@@ -1235,7 +1236,6 @@ static void ecu_update(void)
         enrichment_triggered = 0;
       }
     }
-
     ipEnrLoadStart = math_interpolate_input_limit(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
     ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
 
@@ -1807,7 +1807,11 @@ static void ecu_update(void)
   gParameters.IgnitionAngle = ignition_angle;
   gParameters.InjectionPhase = injection_phase;
   gParameters.InjectionPhaseDuration = injection_phase_duration;
+
   gParameters.InjectionPulse = injection_time;
+  if(enrichment_triggered_once)
+    gLocalParams.EnrichmentTriggered = 1;
+
   gParameters.InjectionDutyCycle = injection_dutycycle;
   gParameters.InjectionEnrichment = enrichment_result;
   gParameters.InjectionLag = injector_lag;
@@ -2275,7 +2279,6 @@ ITCM_FUNC void ecu_process(void)
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float injection_time_prev[ECU_CYLINDERS_COUNT] = {0,0,0,0};
-  static float injection_time_overshot[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static uint8_t enrichment_triggered[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
@@ -2541,7 +2544,6 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       oldanglesbeforeinject[i] = 0.0f;
       injection_time_prev[i] = 0.0f;
-      injection_time_overshot[i] = 0.0f;
       enrichment_triggered[i] = 0;
     }
   }
@@ -2872,16 +2874,6 @@ ITCM_FUNC void ecu_process(void)
           if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
             anglesbeforeinject[i] = oldanglesbeforeinject[i];
 
-          if(enrichment_triggered[i]) {
-            injection_time_diff = (cy_injection[i] - inj_lag) - injection_time_prev[i];
-            if(injection_time_diff > 0) {
-              injection_time_prev[i] += injection_time_diff;
-              injection_time_diff += inj_lag;
-              ecu_inject(cy_count_injection, i, injection_time_diff);
-            }
-            enrichment_triggered[i] = 0;
-          }
-
           if(anglesbeforeinject[i] - inj_angle < 0.0f)
           {
             if(!injection[i])
@@ -2890,12 +2882,11 @@ ITCM_FUNC void ecu_process(void)
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
               if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-                injection_time_diff = cy_injection[i] - injection_time_overshot[i];
-                if(injection_time_diff > inj_lag)
-                  ecu_inject(cy_count_injection, i, injection_time_diff);
+                if(cy_injection[i] > inj_lag * 1.1f)
+                  ecu_inject(cy_count_injection, i, cy_injection[i]);
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
-                injection_time_overshot[i] = 0;
               }
+              enrichment_triggered[i] = 0;
             }
           }
 
@@ -2911,6 +2902,21 @@ ITCM_FUNC void ecu_process(void)
           }
           else injected[i] = 0;
 
+          float enrichment_end_injection_final_phase = 540.0f;
+
+          if(enrichment_triggered[i]) {
+            if((angle_injection[i] >= 0 && angle_injection[i] >= inj_phase && angle_injection[i] < enrichment_end_injection_final_phase) ||
+                (angle_injection[i] < 0 && angle_injection[i] >= inj_phase - 720.0f && angle_injection[i] < enrichment_end_injection_final_phase - 720.0f)) {
+              injection_time_diff = (cy_injection[i] - inj_lag) - injection_time_prev[i];
+              if(injection_time_diff > 100.0f) {
+                injection_time_prev[i] += injection_time_diff;
+                injection_time_diff += inj_lag;
+                ecu_inject(cy_count_injection, i, injection_time_diff);
+              }
+            }
+            enrichment_triggered[i] = 0;
+          }
+
           oldanglesbeforeinject[i] = anglesbeforeinject[i];
         }
       }
@@ -2921,7 +2927,6 @@ ITCM_FUNC void ecu_process(void)
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
       injection_time_prev[i] = 0;
-      injection_time_overshot[i] = 0;
       enrichment_triggered[i] = 0;
       saturated[i] = 0;
       ignited[i] = 1;
