@@ -4214,10 +4214,14 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
 
     if(gParameters.ThrottlePosition > 40) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
+#ifdef SIMULATION
       gDebugMap = 103000;
+#endif
     } else if(gParameters.ThrottlePosition < 5) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
+#ifdef SIMULATION
       gDebugMap = 50000;
+#endif
     }
 #endif
 }
