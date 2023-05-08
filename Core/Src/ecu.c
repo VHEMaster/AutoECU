@@ -2306,6 +2306,7 @@ ITCM_FUNC void ecu_process(void)
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
   float injection_time_diff;
   float enrichment_end_injection_final_phase = table->enrichment_end_injection_final_phase;
+  float enrichment_end_injection_final_amount = table->enrichment_end_injection_final_amount;
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   HAL_StatusTypeDef map_status = HAL_OK;
@@ -2912,6 +2913,7 @@ ITCM_FUNC void ecu_process(void)
               injection_time_diff = (cy_injection[i] - inj_lag) - injection_time_prev[i];
               if(injection_time_diff > 100.0f) {
                 injection_time_prev[i] += injection_time_diff;
+                injection_time_diff *= enrichment_end_injection_final_amount;
                 injection_time_diff += inj_lag;
                 ecu_inject(cy_count_injection, i, injection_time_diff);
               }
