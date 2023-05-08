@@ -612,6 +612,7 @@ static void ecu_update(void)
   static uint8_t enrichment_triggered = 0;
   uint8_t enrichment_triggered_once = 0;
   static uint8_t enrichment_triggered_async = 0;
+  uint8_t enrichment_post_injection_enabled;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -827,9 +828,11 @@ static void ecu_update(void)
   if(use_tsps && phased) {
     enrichment_async_enabled = table->enrichment_ph_async_enabled;
     enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
+    enrichment_post_injection_enabled = table->enrichment_ph_post_injection_enabled;
   } else  {
     enrichment_async_enabled = table->enrichment_pp_async_enabled;
     enrichment_sync_enabled = table->enrichment_pp_sync_enabled;
+    enrichment_post_injection_enabled = table->enrichment_pp_post_injection_enabled;
   }
 
   if(running && use_tsps && !phased) {
@@ -1809,7 +1812,7 @@ static void ecu_update(void)
   gParameters.InjectionPhaseDuration = injection_phase_duration;
 
   gParameters.InjectionPulse = injection_time;
-  if(enrichment_triggered_once)
+  if(enrichment_post_injection_enabled && enrichment_triggered_once)
     gLocalParams.EnrichmentTriggered = 1;
 
   gParameters.InjectionDutyCycle = injection_dutycycle;
@@ -2302,6 +2305,7 @@ ITCM_FUNC void ecu_process(void)
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
   float injection_time_diff;
+  float enrichment_end_injection_final_phase = table->enrichment_end_injection_final_phase;
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   HAL_StatusTypeDef map_status = HAL_OK;
@@ -2901,8 +2905,6 @@ ITCM_FUNC void ecu_process(void)
             }
           }
           else injected[i] = 0;
-
-          float enrichment_end_injection_final_phase = 540.0f;
 
           if(enrichment_triggered[i]) {
             if((angle_injection[i] >= 0 && angle_injection[i] >= inj_phase && angle_injection[i] < enrichment_end_injection_final_phase) ||
