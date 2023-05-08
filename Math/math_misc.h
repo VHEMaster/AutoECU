@@ -9,5 +9,6 @@
 #define MATH_MISC_H_
 
 void math_minmax(const float *array, unsigned int size, float *pmin, float *pmax);
+float math_median(const float *array, unsigned int size);
 
 #endif /* MATH_MISC_H_ */
