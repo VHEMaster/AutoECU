@@ -175,6 +175,7 @@ struct {
     uint32_t LastRunned;
 
     uint8_t PhasedInjection;
+    uint8_t EnrichmentTriggered;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -238,7 +239,9 @@ static void ecu_async_injection_init(void)
 
 static void ecu_async_injection_push(uint32_t time)
 {
-  protPush(&fifoAsyncInjection, &time);
+  if(time > 0) {
+    protPush(&fifoAsyncInjection, &time);
+  }
 }
 
 static uint8_t ecu_async_injection_pull(uint32_t *p_time)
@@ -1137,9 +1140,11 @@ static void ecu_update(void)
 
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
-  start_async_time += injector_lag_mult;
   if(found && !was_start_async) {
-    ecu_async_injection_push(start_async_time);
+    if(start_async_time > 0) {
+      start_async_time += injector_lag_mult;
+      ecu_async_injection_push(start_async_time);
+    }
     was_start_async = 1;
   }
 
@@ -1221,6 +1226,7 @@ static void ecu_update(void)
       enrichment_phase_state = 1;
       enrichment_triggered_async = 1;
       enrichment_async_last = now;
+      gLocalParams.EnrichmentTriggered = 1;
     } else if(enrichment_triggered) {
       enrichment_time_pass += diff_sec;
       enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
@@ -2268,6 +2274,9 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t turns_count_last = 0;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+  static float injection_time_prev[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+  static float injection_time_overshot[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+  static uint8_t enrichment_triggered[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t ignited[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
   static uint8_t injected[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
@@ -2289,6 +2298,7 @@ ITCM_FUNC void ecu_process(void)
   static uint32_t ignition_ignite_time[ECU_CYLINDERS_COUNT];
   static float anglesbeforeignite[ECU_CYLINDERS_COUNT];
   float anglesbeforeinject[ECU_CYLINDERS_COUNT];
+  float injection_time_diff;
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   HAL_StatusTypeDef map_status = HAL_OK;
@@ -2530,6 +2540,9 @@ ITCM_FUNC void ecu_process(void)
     inj_was_phased = phased_injection;
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       oldanglesbeforeinject[i] = 0.0f;
+      injection_time_prev[i] = 0.0f;
+      injection_time_overshot[i] = 0.0f;
+      enrichment_triggered[i] = 0;
     }
   }
 
@@ -2584,6 +2597,12 @@ ITCM_FUNC void ecu_process(void)
   } else {
     angle_injection[0] = non_phased_angles[0];
     angle_injection[1] = non_phased_angles[1];
+  }
+
+  if(gLocalParams.EnrichmentTriggered) {
+    for(int i = 0; i < cy_count_injection; i++)
+      enrichment_triggered[i] = 1;
+    gLocalParams.EnrichmentTriggered = 0;
   }
 
   if((found || ecu_async_injection_check() || async_inject_time || gIITest.StartedTime) && start_allowed && !gIgnCanShutdown)
@@ -2853,6 +2872,16 @@ ITCM_FUNC void ecu_process(void)
           if(oldanglesbeforeinject[i] - anglesbeforeinject[i] > 0.0f && oldanglesbeforeinject[i] - anglesbeforeinject[i] > 180.0f)
             anglesbeforeinject[i] = oldanglesbeforeinject[i];
 
+          if(enrichment_triggered[i]) {
+            injection_time_diff = (cy_injection[i] - inj_lag) - injection_time_prev[i];
+            if(injection_time_diff > 0) {
+              injection_time_prev[i] += injection_time_diff;
+              injection_time_diff += inj_lag;
+              ecu_inject(cy_count_injection, i, injection_time_diff);
+            }
+            enrichment_triggered[i] = 0;
+          }
+
           if(anglesbeforeinject[i] - inj_angle < 0.0f)
           {
             if(!injection[i])
@@ -2861,7 +2890,11 @@ ITCM_FUNC void ecu_process(void)
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
               if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-                ecu_inject(cy_count_injection, i, cy_injection[i]);
+                injection_time_diff = cy_injection[i] - injection_time_overshot[i];
+                if(injection_time_diff > inj_lag)
+                  ecu_inject(cy_count_injection, i, injection_time_diff);
+                injection_time_prev[i] = cy_injection[i] - inj_lag;
+                injection_time_overshot[i] = 0;
               }
             }
           }
@@ -2887,6 +2920,9 @@ ITCM_FUNC void ecu_process(void)
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
+      injection_time_prev[i] = 0;
+      injection_time_overshot[i] = 0;
+      enrichment_triggered[i] = 0;
       saturated[i] = 0;
       ignited[i] = 1;
       injection[i] = 0;
@@ -4169,10 +4205,13 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
     else if(pressure < 60000)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
 
-    if(gParameters.ThrottlePosition > 40)
+    if(gParameters.ThrottlePosition > 40) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
-    else if(gParameters.ThrottlePosition < 5)
+      gDebugMap = 103000;
+    } else if(gParameters.ThrottlePosition < 5) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
+      gDebugMap = 50000;
+    }
 #endif
 }
 
