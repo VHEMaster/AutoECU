@@ -604,6 +604,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_injection_phase_decay_time = 200.0f;
   table->enrichment_async_pulses_divider = 5;
   table->enrichment_end_injection_final_phase = 540;
+  table->enrichment_end_injection_final_amount = 1.0f;
 
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
