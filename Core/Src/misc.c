@@ -999,13 +999,13 @@ void Misc_Loop(void)
   uint32_t now = Delay_Tick;
 
   if(!work_o2 && !work_knock && !work_outs) {
-    if(DelayDiff(now, lastO2Exec) >= 10000) {
-      lastO2Exec = now;
-      work_o2 = 1;
-    }
     if(DelayDiff(now, lastKnockExec) >= 50000 || KnockConfigChanged) {
       lastKnockExec = now;
       work_knock = 1;
+    }
+    if(DelayDiff(now, lastO2Exec) >= 10000) {
+      lastO2Exec = now;
+      work_o2 = 1;
     }
     if(DelayDiff(now, lastOutsExec) >= 100000) {
       lastOutsExec = now;
@@ -1153,6 +1153,7 @@ INLINE void Knock_SetState(uint8_t is_integrate)
 
 INLINE void Knock_SetBandpassFilterFrequency(uint8_t value)
 {
+  value = CLAMP(value, 0, 63);
   if(value != KnockConfig.bandpass_filter_frequency) {
     KnockConfig.bandpass_filter_frequency = value;
     KnockConfigChanged = 1;
@@ -1161,6 +1162,7 @@ INLINE void Knock_SetBandpassFilterFrequency(uint8_t value)
 
 INLINE void Knock_SetGainValue(uint8_t value)
 {
+  value = CLAMP(value, 0, 63);
   if(value != KnockConfig.gain_value) {
     KnockConfig.gain_value = value;
     KnockConfigChanged = 1;
@@ -1169,6 +1171,7 @@ INLINE void Knock_SetGainValue(uint8_t value)
 
 INLINE void Knock_SetIntegratorTimeConstant(uint8_t value)
 {
+  value = CLAMP(value, 0, 31);
   if(value != KnockConfig.integrator_time_constant) {
     KnockConfig.integrator_time_constant = value;
     KnockConfigChanged = 1;
