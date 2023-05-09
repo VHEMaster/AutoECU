@@ -59,6 +59,131 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 
+typedef enum {
+  KnockStatusOk = 0,
+  KnockStatusLowNoise = 1,
+  KnockStatusDedonation = 2,
+  KnockStatusStrongDedonation = 4,
+  KnockStatusContinuousDedonation = 8,
+}eKnockStatus;
+
+typedef struct {
+    union {
+        struct {
+            HAL_StatusTypeDef Load : 2;
+            HAL_StatusTypeDef Save : 2;
+            HAL_StatusTypeDef Init : 2;
+        }Struct;
+        uint8_t Byte;
+    }Flash;
+    union {
+        struct {
+            HAL_StatusTypeDef CriticalSave : 2;
+            HAL_StatusTypeDef CriticalLoad : 2;
+            HAL_StatusTypeDef CorrsSave : 2;
+            HAL_StatusTypeDef CorrsLoad : 2;
+        }Struct;
+        uint8_t Byte;
+    }Bkpsram;
+    union {
+        struct {
+            HAL_StatusTypeDef Map : 2;
+            HAL_StatusTypeDef Knock : 2;
+            HAL_StatusTypeDef Csps : 2;
+            HAL_StatusTypeDef Tsps : 2;
+            HAL_StatusTypeDef AirTemp : 2;
+            HAL_StatusTypeDef EngineTemp : 2;
+            HAL_StatusTypeDef ThrottlePos : 2;
+            HAL_StatusTypeDef ReferenceVoltage : 2;
+            HAL_StatusTypeDef PowerVoltage : 2;
+            HAL_StatusTypeDef Lambda : 2;
+        }Struct;
+        uint32_t Dword;
+    }Sensors;
+    HAL_StatusTypeDef OutputStatus;
+    sOutputDiagnostic OutputDiagnostic;
+    HAL_StatusTypeDef IdleValvePosition;
+    HAL_StatusTypeDef O2Status;
+    HAL_StatusTypeDef O2TemperatureStatus;
+    HAL_StatusTypeDef O2HeaterStatus;
+    HAL_StatusTypeDef AdcStatus;
+    HAL_StatusTypeDef TspsSyncStatus;
+    HAL_StatusTypeDef CanInitStatus;
+    HAL_StatusTypeDef CanTestStatus;
+    HAL_StatusTypeDef KlineProtocolStatus;
+    HAL_StatusTypeDef KlineLoopbackStatus;
+    sO2Diagnostic O2Diagnostic;
+
+    struct {
+        eKnockStatus GeneralStatus;
+        uint32_t DetonationLast;
+        uint32_t StrongDetonationLast;
+        uint32_t LowNoiseLast;
+        uint32_t DetonationCount;
+        uint32_t DetonationCountCy[ECU_CYLINDERS_COUNT];
+        float Voltages[ECU_CYLINDERS_COUNT];
+        float VoltagesLpf[ECU_CYLINDERS_COUNT];
+        float Denoised[ECU_CYLINDERS_COUNT];
+        float Detonates[ECU_CYLINDERS_COUNT];
+        float Advances[ECU_CYLINDERS_COUNT];
+        uint32_t LastTime[ECU_CYLINDERS_COUNT];
+        uint32_t Period[ECU_CYLINDERS_COUNT];
+        float Voltage;
+        float Filtered;
+        float Detonate;
+        float StatusVoltage;
+        float StatusFiltered;
+        float StatusDetonate;
+        float Advance;
+        float DetonationCountPerSecond;
+        float DetonationRelation;
+        uint8_t Updated[ECU_CYLINDERS_COUNT];
+        uint8_t UpdatedInternally[ECU_CYLINDERS_COUNT];
+    }Knock;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }InjectionUnderflow;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }MapTpsRelation;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }LeanMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }RichMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }LeanIdleMixture;
+    struct {
+        uint8_t is_error;
+        uint32_t error_time;
+        uint32_t error_last;
+    }RichIdleMixture;
+    struct {
+        uint8_t is_error;
+        uint8_t is_running;
+        uint32_t run_time;
+        uint32_t error_time;
+        uint32_t error_started;
+    }OilPressure;
+    struct {
+        uint8_t is_error;
+        uint8_t is_running;
+        uint32_t run_time;
+    }BatteryCharge;
+}sStatus;
+
 typedef volatile struct {
     uint8_t savereq;
     uint8_t loadreq;
@@ -1405,35 +1530,48 @@ static void ecu_update(void)
   if(!gIgnCanShutdown)
 	  out_set_idle_valve(roundf(idle_wish_valve_pos));
 
-  gStatus.Knock.Voltage = 0.0f;
-  gStatus.Knock.Filtered = 0.0f;
-  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-    gStatus.Knock.Denoised[i]  = gStatus.Knock.Voltages[i] - knock_noise_level;
-    gStatus.Knock.Detonates[i]  = gStatus.Knock.Denoised[i] - knock_threshold;
-    if(gStatus.Knock.Denoised[i] < 0.0f)
-      gStatus.Knock.Denoised[i] = 0.0f;
-    if(gStatus.Knock.Detonates[i] < 0.0f)
-      gStatus.Knock.Detonates[i] = 0.0f;
-    if(gStatus.Knock.Voltage < gStatus.Knock.Voltages[i])
-      gStatus.Knock.Voltage = gStatus.Knock.Voltages[i];
-    if(gStatus.Knock.Filtered < gStatus.Knock.Denoised[i])
-      gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
-    if(gStatus.Knock.Detonate < gStatus.Knock.Detonates[i])
-      gStatus.Knock.Detonate = gStatus.Knock.Detonates[i];
-  }
+  gStatus.Knock.Voltage = 0;
+  gStatus.Knock.Filtered = 0;
+  gStatus.Knock.Detonate = 0;
 
-  if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
-    gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
-  if(gStatus.Knock.StatusFiltered < gStatus.Knock.Filtered)
-    gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
-  if(gStatus.Knock.StatusDetonate < gStatus.Knock.Detonate)
-    gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
+  if(running) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      if(gStatus.Knock.Updated[i]) {
+        gStatus.Knock.Denoised[i] = gStatus.Knock.Voltages[i] - knock_noise_level;
+        gStatus.Knock.Detonates[i] = gStatus.Knock.Denoised[i] - knock_threshold;
+        if(gStatus.Knock.Denoised[i] < 0.0f)
+          gStatus.Knock.Denoised[i] = 0.0f;
+        if(gStatus.Knock.Detonates[i] < 0.0f)
+          gStatus.Knock.Detonates[i] = 0.0f;
+        gStatus.Knock.Updated[i] = 0;
+        gStatus.Knock.UpdatedInternally[i] = 1;
+      }
+
+      if(gStatus.Knock.Voltage < gStatus.Knock.Voltages[i])
+        gStatus.Knock.Voltage = gStatus.Knock.Voltages[i];
+      if(gStatus.Knock.Filtered < gStatus.Knock.Denoised[i])
+        gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
+      if(gStatus.Knock.Detonate < gStatus.Knock.Detonates[i])
+        gStatus.Knock.Detonate = gStatus.Knock.Detonates[i];
+    }
+
+    if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
+      gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
+    if(gStatus.Knock.StatusFiltered < gStatus.Knock.Filtered)
+      gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
+    if(gStatus.Knock.StatusDetonate < gStatus.Knock.Detonate)
+      gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
+  }
 
   if(gLocalParams.RequestFillLast == 0 || DelayDiff(now, gLocalParams.RequestFillLast) > 500000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
     gLocalParams.RequestFillLast = now;
+  } else {
+    memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
+    memset(gStatus.Knock.Denoised, 0, sizeof(gStatus.Knock.Denoised));
+    memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
   }
 
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -1491,48 +1629,51 @@ static void ecu_update(void)
   }
   gStatus.InjectionUnderflow.error_last = hal_now;
 
-  if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK &&
-      !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
-    if(csps_isrunning()) {
-      knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
+  gStatus.Knock.DetonationCountPerSecond -= diff * 0.000001f;
+  if(gStatus.Knock.DetonationCountPerSecond < 0)
+    gStatus.Knock.DetonationCountPerSecond = 0;
 
-      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-        if(gStatus.Knock.Updated[i]) {
-          if(gStatus.Knock.Detonates[i] > 0.0f) {
-            gStatus.Knock.DetonationCount++;
-            gStatus.Knock.DetonationCountCy[i]++;
-            gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
-            gStatus.Knock.DetonationLast = hal_now;
-            gStatus.Knock.Advances[i] += gStatus.Knock.Detonates[i];
-            if(gStatus.Knock.Advances[i] > 1.0f)
-              gStatus.Knock.Advances[i] = 1.0f;
-          } else {
-            if(gStatus.Knock.Advances[i] > 0.0f) {
-              gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f * knock_zone * knock_zone; //10 seconds to restore if knock_zone is 1.0
-              if(gStatus.Knock.Advances[i] < 0.0f)
-                gStatus.Knock.Advances[i] = 0.0f;
-            }
-            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
-              gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
-              gStatus.Knock.LowNoiseLast = hal_now;
-            }
+  if(running && gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK &&
+      !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
+    knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      if(gStatus.Knock.UpdatedInternally[i]) {
+        if(gStatus.Knock.Detonates[i] > 0.01f) {
+          gStatus.Knock.DetonationCount++;
+          gStatus.Knock.DetonationCountPerSecond += 1.0f;
+          gStatus.Knock.DetonationCountCy[i]++;
+          gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
+          gStatus.Knock.DetonationLast = hal_now;
+          if(gStatus.Knock.Detonates[i] > 1.0f) {
+            gStatus.Knock.GeneralStatus |= KnockStatusStrongDedonation;
+            gStatus.Knock.StrongDetonationLast = hal_now;
           }
-          gStatus.Knock.Updated[i] = 0;
+          gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
+        } else {
+          if(gStatus.Knock.Advances[i] > 0.0f) {
+            gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f; //10 seconds to restore
+          }
+          if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.3f) {
+            gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
+            gStatus.Knock.LowNoiseLast = hal_now;
+          }
         }
+        gStatus.Knock.Advances[i] = CLAMP(gStatus.Knock.Advances[i], 0.0f, 1.0f);
+        gStatus.Knock.UpdatedInternally[i] = 0;
       }
-      if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
-        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-          gStatus.Knock.Advances[i] = 1.0f;
-        }
+    }
+    if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
+      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+        gStatus.Knock.Advances[i] = 1.0f;
       }
-    } else {
-      knock_zone = 0.0f;
-      gStatus.Knock.Advance = 0.0f;
-      gStatus.Knock.GeneralStatus = KnockStatusOk;
     }
   } else {
     knock_zone = 0.0f;
-    gStatus.Knock.Advance = 0.0f;
+    memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
+    memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
+    memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
+    memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
     gStatus.Knock.GeneralStatus = KnockStatusOk;
   }
 
@@ -1549,13 +1690,29 @@ static void ecu_update(void)
     }
   }
 
-  if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 10000) {
+  if(gStatus.Knock.StrongDetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.StrongDetonationLast) > 5000) {
+    gStatus.Knock.GeneralStatus &= ~KnockStatusStrongDedonation;
+    gStatus.Knock.StrongDetonationLast = 0;
+  }
+  if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 5000) {
     gStatus.Knock.GeneralStatus &= ~KnockStatusDedonation;
     gStatus.Knock.DetonationLast = 0;
   }
-  if(gStatus.Knock.LowNoiseLast && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) > 10000) {
+  if(gStatus.Knock.LowNoiseLast && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) > 5000) {
     gStatus.Knock.GeneralStatus &= ~KnockStatusLowNoise;
     gStatus.Knock.LowNoiseLast = 0;
+  }
+
+  if(running) {
+    gStatus.Knock.DetonationRelation = gStatus.Knock.DetonationCountPerSecond / rpm * 30.0f;
+  } else {
+    gStatus.Knock.DetonationRelation = 0;
+  }
+
+  if(gStatus.Knock.DetonationRelation > 0.1f) {
+    gStatus.Knock.GeneralStatus &= ~KnockStatusContinuousDedonation;
+  } else {
+    gStatus.Knock.GeneralStatus &= ~KnockStatusContinuousDedonation;
   }
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
@@ -1616,9 +1773,7 @@ static void ecu_update(void)
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
 
-          lpf_calculation *= 0.2f; //5 sec for LPF of ignition
-
-          if(gStatus.Knock.Detonate > 0.0f) {
+          if(gStatus.Knock.Detonate > 0.01f) {
             calib_cur_progress = 0.0f;
 
             ignition_correction = table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
@@ -2269,6 +2424,7 @@ ITCM_FUNC void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   uint8_t found = csps_isfound();
+  uint8_t running = csps_isrunning();
   sCspsData csps = csps_data();
   uint32_t now = Delay_Tick;
   static uint32_t last = 0;
@@ -2767,46 +2923,48 @@ ITCM_FUNC void ecu_process(void)
 #endif
 
         //Knock part
-        if(knock_busy && knock_process[knock_cylinder]) {
-          if(angle_knock[knock_cylinder] < gKnockDetectStartAngle || angle_knock[knock_cylinder] >= gKnockDetectEndAngle) {
-            Knock_SetState(KnockStateHold);
-            knock_process[knock_cylinder] = 0;
-            knock_busy = 0;
+        if(running) {
+          if(knock_busy && knock_process[knock_cylinder]) {
+            if(angle_knock[knock_cylinder] < gKnockDetectStartAngle || angle_knock[knock_cylinder] >= gKnockDetectEndAngle) {
+              Knock_SetState(KnockStateHold);
+              knock_process[knock_cylinder] = 0;
+              knock_busy = 0;
+            }
           }
-        }
-        if(!knock_busy) {
-          for(int i = 0; i < cy_count_knock; i++) {
-            if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
-              if(knock_cylinder >= 0) {
-                knock = adc_get_voltage(AdcChKnock);
-                if(cy_count_knock == ECU_CYLINDERS_COUNT) {
-                  gStatus.Knock.Voltages[knock_cylinder] = knock;
-                  gStatus.Knock.Updated[knock_cylinder] = 1;
-                  gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-                  gStatus.Knock.LastTime[knock_cylinder] = now;
+          if(!knock_busy) {
+            for(int i = 0; i < cy_count_knock; i++) {
+              if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
+                if(knock_cylinder >= 0) {
+                  knock = adc_get_voltage(AdcChKnock);
+                  if(cy_count_knock == ECU_CYLINDERS_COUNT) {
+                    gStatus.Knock.Voltages[knock_cylinder] = knock;
+                    gStatus.Knock.Updated[knock_cylinder] = 1;
+                    gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                    gStatus.Knock.LastTime[knock_cylinder] = now;
 
-                  knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
-                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
+                    knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
+                    gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
 
-                } else if(cy_count_knock == ECU_CYLINDERS_COUNT_HALF) {
-                  gStatus.Knock.Voltages[knock_cylinder] = knock;
-                  gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
-                  gStatus.Knock.Updated[knock_cylinder] = 1;
-                  gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
-                  gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-                  gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.Period[knock_cylinder];
-                  gStatus.Knock.LastTime[knock_cylinder] = now;
-                  gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
+                  } else if(cy_count_knock == ECU_CYLINDERS_COUNT_HALF) {
+                    gStatus.Knock.Voltages[knock_cylinder] = knock;
+                    gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
+                    gStatus.Knock.Updated[knock_cylinder] = 1;
+                    gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
+                    gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
+                    gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.Period[knock_cylinder];
+                    gStatus.Knock.LastTime[knock_cylinder] = now;
+                    gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
 
-                  knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
-                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
-                  gStatus.Knock.VoltagesLpf[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.VoltagesLpf[knock_cylinder];
+                    knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
+                    gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
+                    gStatus.Knock.VoltagesLpf[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.VoltagesLpf[knock_cylinder];
+                  }
                 }
+                knock_busy = 1;
+                knock_cylinder = i;
+                knock_process[knock_cylinder] = 1;
+                Knock_SetState(KnockStateIntegrate);
               }
-              knock_busy = 1;
-              knock_cylinder = i;
-              knock_process[knock_cylinder] = 1;
-              Knock_SetState(KnockStateIntegrate);
             }
           }
         }
@@ -2954,8 +3112,6 @@ ITCM_FUNC void ecu_process(void)
       injection[i] = 0;
       injected[i] = 0;
       //ignition_ready[i] = 0;
-      knock_process[i] = 0;
-      knock_busy = 0;
     }
 
 
@@ -2966,8 +3122,6 @@ ITCM_FUNC void ecu_process(void)
     }
 #endif
 
-    Knock_SetState(KnockStateHold);
-
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin;
     for(int i = 0; i < ITEMSOF(gInjChPins); i++)
       gInjChPorts[i]->BSRR = gInjChPins[i] << 16;
@@ -2976,6 +3130,15 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ITEMSOF(gInjPorts); i++)
       gInjPorts[i]->BSRR = gInjPins[i];
 
+  }
+
+  if(!running || !found) {
+    Knock_SetState(KnockStateHold);
+    knock_busy = 0;
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      knock_process[i] = 0;
+    }
   }
 }
 
@@ -3228,7 +3391,7 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckEngineRichIdleMixture, gStatus.RichIdleMixture.is_error && gStatus.RichIdleMixture.error_time > 5000);
   }
   if(gEcuParams.useKnockSensor) {
-    CHECK_STATUS(iserror, CheckKnockDetonationFound, (gStatus.Knock.GeneralStatus & KnockStatusDedonation) > 0);
+    CHECK_STATUS(iserror, CheckKnockDetonationFound, (gStatus.Knock.GeneralStatus & KnockStatusStrongDedonation) > 0);
     CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0);
   }
   if(gEcuParams.useTSPS) {
