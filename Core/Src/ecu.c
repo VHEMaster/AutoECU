@@ -1856,7 +1856,7 @@ static void ecu_update(void)
 
   strcpy(gParameters.CurrentTableName, table->name);
 
-  gDiagWorkingMode.Bits.is_enrichment = 0; // TODO
+  gDiagWorkingMode.Bits.is_enrichment = enrichment_result > 0.002f;
   gDiagWorkingMode.Bits.is_idle = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_lock_last = 0;
