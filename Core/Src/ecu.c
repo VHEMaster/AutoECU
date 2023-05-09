@@ -2773,12 +2773,14 @@ ITCM_FUNC void ecu_process(void)
           }
         }
         if(!knock_busy) {
+          float lpf = period * 0.5f * 0.000001f;
           for(int i = 0; i < cy_count_knock; i++) {
             if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
               if(knock_cylinder >= 0) {
                 knock = adc_get_voltage(AdcChKnock);
                 if(cy_count_knock == ECU_CYLINDERS_COUNT) {
                   gStatus.Knock.Voltages[knock_cylinder] = knock;
+                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - lpf);
                   gStatus.Knock.Updated[knock_cylinder] = 1;
                   gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
                   gStatus.Knock.LastTime[knock_cylinder] = now;
@@ -2791,6 +2793,9 @@ ITCM_FUNC void ecu_process(void)
                   gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
                   gStatus.Knock.LastTime[knock_cylinder] = now;
                   gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
+
+                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - lpf);
+                  gStatus.Knock.VoltagesLpf[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.VoltagesLpf[knock_cylinder];
                 }
               }
               knock_busy = 1;
