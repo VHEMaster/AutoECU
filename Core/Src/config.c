@@ -418,7 +418,7 @@ static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
 };
 
 static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
-    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    0.2f, 0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
 };
 
@@ -433,8 +433,8 @@ static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_knock_gain[TABLE_ROTATES_MAX] = {
-    14, 14, 14, 14, 14, 14, 14, 14,
-    14, 14, 14, 14, 14, 14, 14, 14
+    0, 0, 0, 0, 6, 9, 13, 17,
+    18, 20, 28, 32, 42, 50, 58, 63
 };
 
 static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
