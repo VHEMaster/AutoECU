@@ -2322,6 +2322,7 @@ ITCM_FUNC void ecu_process(void)
   float pressure_measurement_angle = 90 + pressure_measurement_time;
 #endif
 
+  float knock_lpf;
   float throttle;
   float angle = csps_getphasedangle(csps);
   float rpm = csps_getrpm(csps);
@@ -2330,6 +2331,7 @@ ITCM_FUNC void ecu_process(void)
   float r_uspa;
   float uspa_raw = csps_getuspa(csps);
   float period = csps_getperiod(csps);
+  float period_half = period * 0.5f;
   float time_sat;
   float time_pulse;
   float angle_ignite_koff = 0.1f;
@@ -2481,8 +2483,8 @@ ITCM_FUNC void ecu_process(void)
   inj_phase_temp = inj_phase;
 
   if(single_coil) {
-    time_sat = period * 0.5f * 0.65f;
-    time_pulse = period * 0.5f * 0.35f;
+    time_sat = period_half * 0.65f;
+    time_pulse = period_half * 0.35f;
   } else {
     time_sat = gParameters.IgnitionPulse;
     time_pulse = 2500;
@@ -2623,14 +2625,14 @@ ITCM_FUNC void ecu_process(void)
 
     //Ignition/Injection Test
     if(gIITest.StartedTime) {
-      Knock_SetState(0);
+      Knock_SetState(KnockStateHold);
       if(DelayDiff(now, gIITest.StartedTime) >= gIITest.Period) {
         gIITest.InjectionTriggered = 0;
         gIITest.CompletedCount++;
         if(gIITest.CompletedCount >= gIITest.Count) {
           memset(knock_process, 0, sizeof(knock_process));
           knock_busy = 0;
-          Knock_SetState(1);
+          Knock_SetState(KnockStateIntegrate);
           gIITest.StartedTime = 0;
           gIITest.IgnitionEnabled = 0;
           gIITest.InjectionEnabled = 0;
@@ -2767,41 +2769,44 @@ ITCM_FUNC void ecu_process(void)
         //Knock part
         if(knock_busy && knock_process[knock_cylinder]) {
           if(angle_knock[knock_cylinder] < gKnockDetectStartAngle || angle_knock[knock_cylinder] >= gKnockDetectEndAngle) {
-            Knock_SetState(0);
+            Knock_SetState(KnockStateHold);
             knock_process[knock_cylinder] = 0;
             knock_busy = 0;
           }
         }
         if(!knock_busy) {
-          float lpf = period * 0.5f * 0.000001f;
           for(int i = 0; i < cy_count_knock; i++) {
             if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
               if(knock_cylinder >= 0) {
                 knock = adc_get_voltage(AdcChKnock);
                 if(cy_count_knock == ECU_CYLINDERS_COUNT) {
                   gStatus.Knock.Voltages[knock_cylinder] = knock;
-                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - lpf);
                   gStatus.Knock.Updated[knock_cylinder] = 1;
                   gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
                   gStatus.Knock.LastTime[knock_cylinder] = now;
+
+                  knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
+                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
+
                 } else if(cy_count_knock == ECU_CYLINDERS_COUNT_HALF) {
                   gStatus.Knock.Voltages[knock_cylinder] = knock;
                   gStatus.Knock.Voltages[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = knock;
                   gStatus.Knock.Updated[knock_cylinder] = 1;
                   gStatus.Knock.Updated[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = 1;
                   gStatus.Knock.Period[knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[knock_cylinder]);
-                  gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = DelayDiff(now, gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder]);
+                  gStatus.Knock.Period[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.Period[knock_cylinder];
                   gStatus.Knock.LastTime[knock_cylinder] = now;
                   gStatus.Knock.LastTime[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = now;
 
-                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - lpf);
+                  knock_lpf = (float)gStatus.Knock.Period[knock_cylinder] * 0.000001f;
+                  gStatus.Knock.VoltagesLpf[knock_cylinder] = knock * knock_lpf + gStatus.Knock.VoltagesLpf[knock_cylinder] * (1.0f - knock_lpf);
                   gStatus.Knock.VoltagesLpf[ECU_CYLINDERS_COUNT - 1 - knock_cylinder] = gStatus.Knock.VoltagesLpf[knock_cylinder];
                 }
               }
               knock_busy = 1;
               knock_cylinder = i;
               knock_process[knock_cylinder] = 1;
-              Knock_SetState(1);
+              Knock_SetState(KnockStateIntegrate);
             }
           }
         }
@@ -2961,7 +2966,7 @@ ITCM_FUNC void ecu_process(void)
     }
 #endif
 
-    Knock_SetState(0);
+    Knock_SetState(KnockStateHold);
 
     IGN_NALLOW_GPIO_Port->BSRR = IGN_NALLOW_Pin;
     for(int i = 0; i < ITEMSOF(gInjChPins); i++)

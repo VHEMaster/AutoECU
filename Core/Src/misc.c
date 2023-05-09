@@ -1142,11 +1142,11 @@ HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *by
   return result;
 }
 
-INLINE void Knock_SetState(uint8_t is_integrate)
+INLINE void Knock_SetState(eKnockState state)
 {
-  if(is_integrate) {
+  if(state == KnockStateIntegrate) {
     KNOCK_INTEGRATE();
-  } else {
+  } else if (state == KnockStateHold){
     KNOCK_HOLD();
   }
 }

@@ -13,6 +13,11 @@
 #include "structs.h"
 
 typedef enum {
+  KnockStateHold = 0,
+  KnockStateIntegrate = 1,
+}eKnockState;
+
+typedef enum {
   O2AmplificationFactor8 = 0,
   O2AmplificationFactor17 = 1,
   O2AmplificationFactorCount,
@@ -80,7 +85,7 @@ void Misc_Loop(void);
 
 void O2_SetLambdaForceEnabled(uint8_t enabled);
 
-void Knock_SetState(uint8_t is_integrate);
+void Knock_SetState(eKnockState state);
 HAL_StatusTypeDef Knock_GetStatus(void);
 void Knock_SetBandpassFilterFrequency(uint8_t value);
 void Knock_SetGainValue(uint8_t value);
