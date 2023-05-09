@@ -3725,6 +3725,7 @@ static void ecu_config_process(void)
   sEcuTable *table = &gEcuTable[table_number];
   int32_t knock_frequency;
   int32_t knock_gain;
+  int32_t integrator_time = gEcuParams.knockIntegratorTime;
   sCspsData data = csps_data();
   float rpm = csps_getrpm(data);
   sMathInterpolateInput ipRpm;
@@ -3735,9 +3736,10 @@ static void ecu_config_process(void)
     ipRpm =  math_interpolate_input(rpm, table->rotates, table->rotates_count);
     knock_frequency = roundf(math_interpolate_1d(ipRpm, table->knock_filter_frequency));
     knock_gain = roundf(math_interpolate_1d(ipRpm, table->knock_gain));
+
     Knock_SetBandpassFilterFrequency(knock_frequency);
     Knock_SetGainValue(knock_gain);
-    Knock_SetIntegratorTimeConstant(gEcuParams.knockIntegratorTime);
+    Knock_SetIntegratorTimeConstant(integrator_time);
   }
 }
 
