@@ -822,6 +822,8 @@ static void ecu_update(void)
   uint8_t use_tsps = gEcuParams.useTSPS;
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
+  static uint8_t knock_running = 0;
+  static float knock_running_time = 0;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
 
@@ -1568,10 +1570,6 @@ static void ecu_update(void)
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
     gLocalParams.RequestFillLast = now;
-  } else {
-    memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
-    memset(gStatus.Knock.Denoised, 0, sizeof(gStatus.Knock.Denoised));
-    memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
   }
 
   if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -1633,43 +1631,57 @@ static void ecu_update(void)
   if(gStatus.Knock.DetonationCountPerSecond < 0)
     gStatus.Knock.DetonationCountPerSecond = 0;
 
-  if(running && gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK &&
-      !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
-    knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
+  if(running && gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
 
-    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      if(gStatus.Knock.UpdatedInternally[i]) {
-        if(gStatus.Knock.Detonates[i] > 0.01f) {
-          gStatus.Knock.DetonationCount++;
-          gStatus.Knock.DetonationCountPerSecond += 1.0f;
-          gStatus.Knock.DetonationCountCy[i]++;
-          gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
-          gStatus.Knock.DetonationLast = hal_now;
-          if(gStatus.Knock.Detonates[i] > 1.0f) {
-            gStatus.Knock.GeneralStatus |= KnockStatusStrongDedonation;
-            gStatus.Knock.StrongDetonationLast = hal_now;
-          }
-          gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
-        } else {
-          if(gStatus.Knock.Advances[i] > 0.0f) {
-            gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f; //10 seconds to restore
-          }
-          if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.3f) {
-            gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
-            gStatus.Knock.LowNoiseLast = hal_now;
-          }
-        }
-        gStatus.Knock.Advances[i] = CLAMP(gStatus.Knock.Advances[i], 0.0f, 1.0f);
-        gStatus.Knock.UpdatedInternally[i] = 0;
-      }
-    }
-    if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
+    if(knock_running) {
+      knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
+
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-        gStatus.Knock.Advances[i] = 1.0f;
+        if(gStatus.Knock.UpdatedInternally[i]) {
+          if(gStatus.Knock.Detonates[i] > 0.01f) {
+            gStatus.Knock.DetonationCount++;
+            gStatus.Knock.DetonationCountPerSecond += 1.0f;
+            gStatus.Knock.DetonationCountCy[i]++;
+            gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
+            gStatus.Knock.DetonationLast = hal_now;
+            if(gStatus.Knock.Detonates[i] > 1.0f) {
+              gStatus.Knock.GeneralStatus |= KnockStatusStrongDedonation;
+              gStatus.Knock.StrongDetonationLast = hal_now;
+            }
+            gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
+          } else {
+            if(gStatus.Knock.Advances[i] > 0.0f) {
+              gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f; //10 seconds to restore
+            }
+            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.3f) {
+              gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
+              gStatus.Knock.LowNoiseLast = hal_now;
+            }
+          }
+          gStatus.Knock.Advances[i] = CLAMP(gStatus.Knock.Advances[i], 0.0f, 1.0f);
+          gStatus.Knock.UpdatedInternally[i] = 0;
+        }
+      }
+      if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
+        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+          gStatus.Knock.Advances[i] = 1.0f;
+        }
+      }
+    } else {
+      knock_running_time += diff;
+      if(knock_running_time >= 1000000) {
+        knock_running = 1;
+        knock_running_time = 0;
+        memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
+        memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
+        memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
+        memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
       }
     }
   } else {
     knock_zone = 0.0f;
+    knock_running = 0;
+    knock_running_time = 0;
     memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
     memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
     memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
@@ -1681,7 +1693,7 @@ static void ecu_update(void)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
       gStatus.Knock.Advance = gStatus.Knock.Advances[i];
-    if(!calibration) {
+    if(!calibration && !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
       gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
       gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
     } else {
