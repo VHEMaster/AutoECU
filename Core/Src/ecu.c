@@ -681,6 +681,8 @@ static void ecu_update(void)
   float fuel_flow_per_us;
   float knock_noise_level;
   float knock_zone;
+  static float knock_low_noise_state = 0;
+  float knock_low_noise_lpf = 0;
 
   float min, max;
   uint8_t is_full_throttle_used;
@@ -1653,14 +1655,21 @@ static void ecu_update(void)
             if(gStatus.Knock.Advances[i] > 0.0f) {
               gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f; //10 seconds to restore
             }
-            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.3f) {
-              gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
-              gStatus.Knock.LowNoiseLast = hal_now;
+            knock_low_noise_lpf = gStatus.Knock.Period[i] * 0.000001f * 0.33f; // 3.0 seconds
+            knock_low_noise_lpf = CLAMP(knock_low_noise_lpf, 0.0f, 0.2f);
+            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
+              knock_low_noise_state = knock_low_noise_state * (1.0f - knock_low_noise_lpf) + 1.0f * knock_low_noise_lpf;
+            } else {
+              knock_low_noise_state *= 1.0f - knock_low_noise_lpf;
             }
           }
           gStatus.Knock.Advances[i] = CLAMP(gStatus.Knock.Advances[i], 0.0f, 1.0f);
           gStatus.Knock.UpdatedInternally[i] = 0;
         }
+      }
+      if(knock_low_noise_state >= 0.5f) {
+        gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
+        gStatus.Knock.LowNoiseLast = hal_now;
       }
       if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
         for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
@@ -1668,20 +1677,24 @@ static void ecu_update(void)
         }
       }
     } else {
+      knock_zone = 0.0f;
+      knock_low_noise_state = 0;
+      memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
+      memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
+      memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
+      memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
+
       knock_running_time += diff;
       if(knock_running_time >= 1000000) {
         knock_running = 1;
         knock_running_time = 0;
-        memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
-        memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
-        memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
-        memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
       }
     }
   } else {
     knock_zone = 0.0f;
     knock_running = 0;
     knock_running_time = 0;
+    knock_low_noise_state = 0;
     memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
     memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
     memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
