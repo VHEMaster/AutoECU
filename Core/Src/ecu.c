@@ -1634,6 +1634,11 @@ static void ecu_update(void)
 
   if(running && gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
 
+    if(sens_get_ign(NULL) != GPIO_PIN_SET) {
+      knock_running = 0;
+      knock_running_time = 0;
+    }
+
     if(knock_running) {
       knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
 
