@@ -4419,10 +4419,10 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   pressure = gLocalParams.MapAcceptValue;
 #endif
-    if(pressure > 80000)
-      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
-    else if(pressure < 60000)
-      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
+    //if(pressure > 80000)
+    //  HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
+    //else if(pressure < 60000)
+    //  HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
 
     if(throttle > 80) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);

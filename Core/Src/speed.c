@@ -99,6 +99,9 @@ void speed_exti(uint32_t timestamp)
   gSpeedCtx.acceleration = acceleration * accel_koff + gSpeedCtx.acceleration * (1.0f - accel_koff);
   gSpeedCtx.acceleration_time = timestamp;
   gSpeedCtx.speed_prev = gSpeedCtx.speed;
+
+
+  HAL_GPIO_TogglePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin);
 }
 
 void speed_loop(void)
