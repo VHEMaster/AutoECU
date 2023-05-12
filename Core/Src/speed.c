@@ -15,7 +15,7 @@ typedef struct {
     float input_corrective;
     float output_corrective;
     uint32_t irq_data[IRQ_SIZE];
-    uint32_t pulse_last;
+    volatile uint32_t pulse_last;
     uint8_t rotates;
     float speed;
     float speed_prev;
@@ -71,7 +71,6 @@ void speed_exti(uint32_t timestamp)
   const float accel_koff = 0.01f;
   float acceleration;
   float average = 0;
-  //float pwm_speed;
 
   gSpeedCtx.pulse_last = timestamp;
   for(i = 1; i < IRQ_SIZE; i++)
@@ -81,7 +80,6 @@ void speed_exti(uint32_t timestamp)
     return;
   }
   gSpeedCtx.rotates = 1;
-
 
   for(i = 1; i < IRQ_SIZE; i++)
     average += DelayDiff(gSpeedCtx.irq_data[i], gSpeedCtx.irq_data[i - 1]);
@@ -94,12 +92,10 @@ void speed_exti(uint32_t timestamp)
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
 
-
   acceleration = ((gSpeedCtx.speed - gSpeedCtx.speed_prev) * 0.27777778f) / (DelayDiff(timestamp, gSpeedCtx.acceleration_time) * 0.000001f);
   gSpeedCtx.acceleration = acceleration * accel_koff + gSpeedCtx.acceleration * (1.0f - accel_koff);
   gSpeedCtx.acceleration_time = timestamp;
   gSpeedCtx.speed_prev = gSpeedCtx.speed;
-
 
   HAL_GPIO_TogglePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin);
 }
