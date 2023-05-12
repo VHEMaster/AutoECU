@@ -54,7 +54,6 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
     uint32_t y_size, const float (*table)[]);
 
 #define ENRICHMENT_LOAD_STATES_COUNT     (64)
-#define ENRICHMENT_LOAD_STATES_MEDIAN    (3)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
 #define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
@@ -1332,8 +1331,8 @@ static void ecu_update(void)
       enrichment_load_values_counter = 0;
     }
 
-    min = math_median(&enrichmentLoadStates[enrichment_load_values_count - 1 - ENRICHMENT_LOAD_STATES_MEDIAN], ENRICHMENT_LOAD_STATES_MEDIAN);
-    max = math_median(&enrichmentLoadStates[0], ENRICHMENT_LOAD_STATES_MEDIAN);
+    min = enrichmentLoadStates[enrichment_load_values_count - 1];
+    max = enrichmentLoadStates[0];
 
     enrichment_load_value_start = min;
     enrichment_load_diff = max - min;
