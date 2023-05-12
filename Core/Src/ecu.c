@@ -726,7 +726,7 @@ static void ecu_update(void)
 
   float enrichment_load_value_start = 0;
   static float enrichment_load_value_start_accept = 0;
-  float enrichment_load_value = 0;
+  float enrichment_load_value = -1;
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
@@ -4412,7 +4412,10 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
   ecu_process();
 
 #ifdef DEBUG
-  float pressure = gParameters.ManifoldAirPressure;
+  float pressure;
+  float throttle;
+  sens_get_throttle_position(&throttle);
+  sens_get_map(&pressure);
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   pressure = gLocalParams.MapAcceptValue;
 #endif
@@ -4421,12 +4424,12 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
     else if(pressure < 60000)
       HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
 
-    if(gParameters.ThrottlePosition > 40) {
+    if(throttle > 80) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
 #ifdef SIMULATION
       gDebugMap = 103000;
 #endif
-    } else if(gParameters.ThrottlePosition < 5) {
+    } else if(throttle < 50) {
       HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
 #ifdef SIMULATION
       gDebugMap = 50000;
