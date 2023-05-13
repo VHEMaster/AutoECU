@@ -1128,7 +1128,7 @@ static void ecu_update(void)
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
-  idle_ignition_time_by_tps_lpf = diff_sec * idle_ignition_time_by_tps;
+  idle_ignition_time_by_tps_lpf = 1.0f - (diff_sec * idle_ignition_time_by_tps);
   idle_ignition_time_by_tps_lpf = CLAMP(idle_ignition_time_by_tps_lpf, 0.0f, 1.0f);
 
   if(!running) {
@@ -1759,7 +1759,7 @@ static void ecu_update(void)
 
       if(calibration && corr_math_interpolate_2d_set_func) {
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !(idle_calibration && idle_flag) && !enrichment_triggered) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) && !enrichment_triggered) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
