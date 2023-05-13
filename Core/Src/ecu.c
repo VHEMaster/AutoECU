@@ -680,6 +680,7 @@ static void ecu_update(void)
   static float knock_low_noise_state = 0;
   float knock_low_noise_lpf = 0;
   float knock_cy_level_multiplier;
+  float knock_cy_level_multiplier_correction;
 
   float min, max;
   static uint8_t ventilation_flag = 0;
@@ -1519,6 +1520,8 @@ static void ecu_update(void)
   if(running) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       knock_cy_level_multiplier = math_interpolate_1d(ipRpm, table->knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier_correction = math_interpolate_1d(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier *= knock_cy_level_multiplier_correction + 1.0f;
       knock_cy_level_multiplier = CLAMP(knock_cy_level_multiplier, 0.1f, 5.0f);
       if(gStatus.Knock.Updated[i]) {
         gStatus.Knock.Denoised[i] = (gStatus.Knock.Voltages[i] * knock_cy_level_multiplier) - knock_noise_level;
@@ -3799,6 +3802,13 @@ static void ecu_corrections_loop(void)
         float value = gEcuCorrectionsProgress.progress_idle_valve_to_rpm[y][x];
         if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_idle_valve_to_rpm[y][x] = value * 255.0f;
+      }
+    }
+    for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
+      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+        float value = gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[y][x];
+        if(value > 1.0f) value = 1.0f;
+        gEcuCorrections.progress_knock_cy_level_multiplier[y][x] = value * 255.0f;
       }
     }
   }

@@ -740,6 +740,10 @@ void config_default_corrections(sEcuCorrections *table)
   for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->idle_valve_to_rpm[i][j] = 0.0f;
+
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->knock_cy_level_multiplier[i][j] = 0.0f;
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)
@@ -811,9 +815,16 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
     }
     state++;
   } else if(state == 3) {
-    for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         backup->idle_valve_to_rpm[i][j] = CLAMP(roundf(corr->idle_valve_to_rpm[i][j] * 125.0f), -128, 127);
+      }
+    }
+    state++;
+  } else if(state == 4) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->knock_cy_level_multiplier[i][j] = CLAMP(roundf(corr->knock_cy_level_multiplier[i][j] * 125.0f), -128, 127);
       }
     }
     state = 0;
@@ -851,9 +862,16 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     }
     state++;
   } else if(state == 3) {
-    for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->idle_valve_to_rpm[i][j] = (float)backup->idle_valve_to_rpm[i][j] * 0.008f;
+      }
+    }
+    state++;
+  } else if(state == 4) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->knock_cy_level_multiplier[i][j] = (float)backup->knock_cy_level_multiplier[i][j] * 0.008f;
       }
     }
     state = 0;

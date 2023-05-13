@@ -12,7 +12,7 @@
 #include "sst25vf032b.h"
 #include "crc.h"
 
-#define BACKUP_VERSION 0x00000020
+#define BACKUP_VERSION 0x00000021
 #define BACKUP_ADDR BKPSRAM_BASE
 #define BACKUP_SIZE 4096
 #define BACKUP_REGION_SIZE (BACKUP_SIZE / 2)
