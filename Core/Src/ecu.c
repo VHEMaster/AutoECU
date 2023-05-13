@@ -291,6 +291,7 @@ union {
 
 struct {
     volatile uint32_t RequestFillLast;
+    volatile uint32_t ParametersAcceptLast;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
     volatile float MapAcceptValue;
     volatile float TpsAcceptValue;
@@ -321,6 +322,7 @@ static sEcuCriticalBackup gEcuCriticalBackup;
 static uint8_t volatile gStatusReset = 0;
 static sStatus gStatus = {{{0}}};
 static sParameters gParameters = {0};
+static sParameters gSharedParameters = {0};
 static sForceParameters gForceParameters = {0};
 static sIgnitionInjectionTest gIITest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
@@ -624,6 +626,8 @@ static void ecu_update(void)
 
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
+  uint32_t params_accept_last = gLocalParams.ParametersAcceptLast;
+  uint32_t request_fill_last = gLocalParams.RequestFillLast;
 
   float rpm;
   float pressure;
@@ -1566,7 +1570,7 @@ static void ecu_update(void)
       gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
   }
 
-  if(gLocalParams.RequestFillLast == 0 || DelayDiff(now, gLocalParams.RequestFillLast) > 500000) {
+  if(request_fill_last == 0 || DelayDiff(now, request_fill_last) > 100000) {
     gStatus.Knock.StatusVoltage = gStatus.Knock.Voltage;
     gStatus.Knock.StatusFiltered = gStatus.Knock.Filtered;
     gStatus.Knock.StatusDetonate = gStatus.Knock.Detonate;
@@ -1755,7 +1759,7 @@ static void ecu_update(void)
 
       if(calibration && corr_math_interpolate_2d_set_func) {
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !(idle_calibration && idle_flag)) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !(idle_calibration && idle_flag) && !enrichment_triggered) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
@@ -2040,7 +2044,7 @@ static void ecu_update(void)
 
   strcpy(gParameters.CurrentTableName, table->name);
 
-  gDiagWorkingMode.Bits.is_enrichment = enrichment_result > 0.002f;
+  gDiagWorkingMode.Bits.is_enrichment = enrichment_triggered;
   gDiagWorkingMode.Bits.is_idle = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_lock_last = 0;
@@ -2055,6 +2059,14 @@ static void ecu_update(void)
   gDiagWorkingMode.Bits.is_use_lambda = o2_valid;
 
   updated_last = now;
+
+  params_accept_last = gLocalParams.ParametersAcceptLast;
+  now = Delay_Tick;
+
+  if(!running || params_accept_last == 0 || DelayDiff(now, params_accept_last) > 100000) {
+    memcpy(&gSharedParameters, &gParameters, sizeof(sParameters));
+    gLocalParams.ParametersAcceptLast = now;
+  }
 }
 
 static void ecu_init_post_init(void)
@@ -3091,6 +3103,7 @@ ITCM_FUNC void ecu_process(void)
                   ecu_inject(cy_count_injection, i, cy_injection[i]);
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
+              gLocalParams.ParametersAcceptLast = 0;
               enrichment_triggered[i] = 0;
             }
           }
@@ -3120,6 +3133,7 @@ ITCM_FUNC void ecu_process(void)
               enrichment_time_saturation[i] += inj_lag;
               ecu_inject(cy_count_injection, i, enrichment_time_saturation[i]);
               enrichment_time_saturation[i] = 0;
+              gLocalParams.ParametersAcceptLast = 0;
             }
           }
           enrichment_triggered[i] = 0;
@@ -3442,7 +3456,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.ram_error = 0;
   gDiagErrors.Bits.flash_error = 0;
 
-  gDiagErrors.Bits.low_voltage = gParameters.PowerVoltage < 7.0f;
+  gDiagErrors.Bits.low_voltage = gSharedParameters.PowerVoltage < 7.0f;
   gDiagErrors.Bits.not_used2 = 0;
   gDiagErrors.Bits.not_used3 = 0;
   gDiagErrors.Bits.engine_temp_low = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
@@ -3451,7 +3465,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.maf_low = gStatus.Sensors.Struct.Map != HAL_OK;
   gDiagErrors.Bits.low_noise = (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0;
 
-  gDiagErrors.Bits.high_voltage = gParameters.PowerVoltage > 16.0f;
+  gDiagErrors.Bits.high_voltage = gSharedParameters.PowerVoltage > 16.0f;
   gDiagErrors.Bits.not_used4 = 0;
   gDiagErrors.Bits.not_used5 = 0;
   gDiagErrors.Bits.engine_temp_high = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
@@ -3516,8 +3530,9 @@ static void ecu_checkengine_loop(void)
 static void ecu_drag_process(void)
 {
   uint32_t now = Delay_Tick;
-  float rpm = gParameters.RPM;
-  float speed = gParameters.Speed;
+  sCspsData csps = csps_data();
+  float rpm = csps_getrpm(csps);
+  float speed = speed_getspeed();
   if(Drag.Ready)
   {
     if(Drag.Completed)
@@ -3538,13 +3553,13 @@ static void ecu_drag_process(void)
             Drag.StopTime = now;
             Drag.Points[Drag.PointsCount].RPM = rpm;
             Drag.Points[Drag.PointsCount].Speed = speed;
-            Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
-            Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
-            Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
-            Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
-            Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
-            Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
-            Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
+            Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
+            Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
+            Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+            Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
+            Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
+            Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
+            Drag.Points[Drag.PointsCount].Throttle = gSharedParameters.ThrottlePosition;
             Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
             Drag.PointsCount++;
 
@@ -3613,13 +3628,13 @@ static void ecu_drag_process(void)
               Drag.StopTime = now;
               Drag.Points[Drag.PointsCount].RPM = rpm;
               Drag.Points[Drag.PointsCount].Speed = speed;
-              Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
-              Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
-              Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
-              Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
-              Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
-              Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
-              Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
+              Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
+              Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
+              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
+              Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
+              Drag.Points[Drag.PointsCount].Throttle = gSharedParameters.ThrottlePosition;
               Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
               Drag.PointsCount++;
             }
@@ -3642,13 +3657,13 @@ static void ecu_drag_process(void)
               Drag.StopTime = now;
               Drag.Points[Drag.PointsCount].RPM = rpm;
               Drag.Points[Drag.PointsCount].Speed = speed;
-              Drag.Points[Drag.PointsCount].Acceleration = gParameters.Acceleration;
-              Drag.Points[Drag.PointsCount].Pressure = gParameters.ManifoldAirPressure;
-              Drag.Points[Drag.PointsCount].Ignition = gParameters.IgnitionAngle;
-              Drag.Points[Drag.PointsCount].Mixture = gParameters.FuelRatio;
-              Drag.Points[Drag.PointsCount].CycleAirFlow = gParameters.CyclicAirFlow;
-              Drag.Points[Drag.PointsCount].MassAirFlow = gParameters.MassAirFlow;
-              Drag.Points[Drag.PointsCount].Throttle = gParameters.ThrottlePosition;
+              Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
+              Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
+              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
+              Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
+              Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
+              Drag.Points[Drag.PointsCount].Throttle = gSharedParameters.ThrottlePosition;
               Drag.Points[Drag.PointsCount].Time = DelayDiff(now, Drag.StartTime);
               Drag.PointsCount++;
             }
@@ -4156,30 +4171,30 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[1]; //Слово флагов текущих неисправностей 2
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[2]; //Слово флагов текущих неисправностей 3
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[3]; //Слово флагов текущих неисправностей 4
-            tx_message.data[tx_message.length++] = gParameters.EngineTemp <= -40 ? 0 : gParameters.EngineTemp + 40; //Температура охлаждающей жидкости
-            tx_message.data[tx_message.length++] = (gParameters.FuelRatio < 7.5f ? 7.5f : gParameters.FuelRatio > 21 ? 21 : gParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
-            tx_message.data[tx_message.length++] = gParameters.ThrottlePosition > 100 ? 100 : gParameters.ThrottlePosition < 0 ? 0 : gParameters.ThrottlePosition; //Положение дроссельной заслонки
-            tx_message.data[tx_message.length++] = gParameters.RPM / 40.0f; //Скорость вращения двигателя
-            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
-            tx_message.data[tx_message.length++] = gParameters.WishIdleValvePosition > 255 ? 255 : gParameters.WishIdleValvePosition < 0 ? 0 : gParameters.WishIdleValvePosition; //Желаемое положение регулятора холостого хода
-            tx_message.data[tx_message.length++] = gParameters.IdleValvePosition > 255 ? 255 : gParameters.IdleValvePosition < 0 ? 0 : gParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
-            tx_message.data[tx_message.length++] = gParameters.LongTermCorrection + gParameters.ShortTermCorrection * 256.0f + 128; //Коэффициент коррекции времени впрыска
-            tx_message.data[tx_message.length++] = (int8_t)(gParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
-            tx_message.data[tx_message.length++] = gParameters.Speed; //Скорость автомобиля
-            tx_message.data[tx_message.length++] = ((gParameters.PowerVoltage > 17.5f ? 17.5f : gParameters.PowerVoltage < 5.5f ? 5.5f : gParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
-            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Желаемые обороты холостого хода
-            tx_message.data[tx_message.length++] = (gParameters.AdcLambdaUA > 4.9f ? 4.9f : gParameters.AdcLambdaUA) / 5.0f * 256.0f; //Напряжение на датчике кислорода
+            tx_message.data[tx_message.length++] = gSharedParameters.EngineTemp <= -40 ? 0 : gSharedParameters.EngineTemp + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = (gSharedParameters.FuelRatio < 7.5f ? 7.5f : gSharedParameters.FuelRatio > 21 ? 21 : gSharedParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = gSharedParameters.ThrottlePosition > 100 ? 100 : gSharedParameters.ThrottlePosition < 0 ? 0 : gSharedParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = gSharedParameters.RPM / 40.0f; //Скорость вращения двигателя
+            tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
+            tx_message.data[tx_message.length++] = gSharedParameters.WishIdleValvePosition > 255 ? 255 : gSharedParameters.WishIdleValvePosition < 0 ? 0 : gSharedParameters.WishIdleValvePosition; //Желаемое положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = gSharedParameters.LongTermCorrection + gSharedParameters.ShortTermCorrection * 256.0f + 128; //Коэффициент коррекции времени впрыска
+            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
+            tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Желаемые обороты холостого хода
+            tx_message.data[tx_message.length++] = (gSharedParameters.AdcLambdaUA > 4.9f ? 4.9f : gSharedParameters.AdcLambdaUA) / 5.0f * 256.0f; //Напряжение на датчике кислорода
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
             tx_message.data[tx_message.length++] = 0; //Контрольная сумма ПЗУ (младший байт)
             tx_message.data[tx_message.length++] = 0; //Контрольная сумма ПЗУ (старший байт)
           } else if(rx_message.data[1] == 0x02) { //endOfLineServiceRecordLocalIdentifier
@@ -4187,33 +4202,33 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = 0x18; //Слово комплектации 2
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[0]; //Слово режима работы 1
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[1]; //Слово режима работы 2
-            tx_message.data[tx_message.length++] = gParameters.EngineTemp <= -40 ? 0 : gParameters.EngineTemp + 40; //Температура охлаждающей жидкости
-            tx_message.data[tx_message.length++] = (gParameters.FuelRatio < 7.5f ? 7.5f : gParameters.FuelRatio > 21 ? 21 : gParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
-            tx_message.data[tx_message.length++] = gParameters.ThrottlePosition > 100 ? 100 : gParameters.ThrottlePosition < 0 ? 0 : gParameters.ThrottlePosition; //Положение дроссельной заслонки
-            tx_message.data[tx_message.length++] = gParameters.RPM / 40.0f; //Скорость вращения двигателя
-            tx_message.data[tx_message.length++] = gParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
-            tx_message.data[tx_message.length++] = gParameters.IdleValvePosition > 255 ? 255 : gParameters.IdleValvePosition < 0 ? 0 : gParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
-            tx_message.data[tx_message.length++] = (int8_t)(gParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
-            tx_message.data[tx_message.length++] = gParameters.Speed; //Скорость автомобиля
-            tx_message.data[tx_message.length++] = ((gParameters.PowerVoltage > 17.5f ? 17.5f : gParameters.PowerVoltage < 5.5f ? 5.5f : gParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = gSharedParameters.EngineTemp <= -40 ? 0 : gSharedParameters.EngineTemp + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = (gSharedParameters.FuelRatio < 7.5f ? 7.5f : gSharedParameters.FuelRatio > 21 ? 21 : gSharedParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = gSharedParameters.ThrottlePosition > 100 ? 100 : gSharedParameters.ThrottlePosition < 0 ? 0 : gSharedParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = gSharedParameters.RPM / 40.0f; //Скорость вращения двигателя
+            tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
+            tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
+            tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
-            tx_message.data[tx_message.length++] = (uint32_t)(gParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
-            tx_message.data[tx_message.length++] = ((uint32_t)(gParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.MassAirFlow * 10.0f) & 0xFF; //Массовый расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.MassAirFlow * 10.0f) >> 8) & 0xFF; //Массовый расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.CyclicAirFlow * 6.0f) & 0xFF; //Цикловой расход воздуха (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.CyclicAirFlow * 6.0f) >> 8) & 0xFF; //Цикловой расход воздуха (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.FuelHourly * 50.0f) & 0xFF; //Часовой расход топлива (младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.FuelHourly * 50.0f) >> 8) & 0xFF; //Часовой расход топлива (старший байт)
+            tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
+            tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
           } else if(rx_message.data[1] == 0x03) { //  factoryTestRecordLocalIdentifier
-            tx_message.data[tx_message.length++] = (gParameters.KnockSensor > 4.95f) ? 255 : (gParameters.KnockSensor / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gParameters.AdcEngineTemp > 4.95f) ? 255 : (gParameters.AdcEngineTemp / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gParameters.AdcManifoldAirPressure > 4.95f) ? 255 : (gParameters.AdcManifoldAirPressure / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gParameters.PowerVoltage > 4.95f) ? 255 : (gParameters.PowerVoltage / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gParameters.AdcLambdaUA > 4.95f) ? 255 : (gParameters.AdcLambdaUA / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gParameters.AdcThrottlePosition > 4.95f) ? 255 : (gParameters.AdcThrottlePosition / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.KnockSensor > 4.95f) ? 255 : (gSharedParameters.KnockSensor / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.AdcEngineTemp > 4.95f) ? 255 : (gSharedParameters.AdcEngineTemp / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.AdcManifoldAirPressure > 4.95f) ? 255 : (gSharedParameters.AdcManifoldAirPressure / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.PowerVoltage > 4.95f) ? 255 : (gSharedParameters.PowerVoltage / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.AdcLambdaUA > 4.95f) ? 255 : (gSharedParameters.AdcLambdaUA / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (gSharedParameters.AdcThrottlePosition > 4.95f) ? 255 : (gSharedParameters.AdcThrottlePosition / 5.0f * 256);
             tx_message.data[tx_message.length++] = 0;
             tx_message.data[tx_message.length++] = 0;
             tx_message.data[tx_message.length++] = 0;
@@ -4513,11 +4528,11 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_GeneralStatusRequestID :
       //PK_Copy(&PK_GeneralStatusRequest, msgBuf);
-      PK_GeneralStatusResponse.RPM = gParameters.RPM;
-      PK_GeneralStatusResponse.Pressure = gParameters.ManifoldAirPressure;
-      PK_GeneralStatusResponse.Voltage = gParameters.PowerVoltage;
-      PK_GeneralStatusResponse.EngineTemp = gParameters.EngineTemp;
-      PK_GeneralStatusResponse.FuelUsage = gParameters.FuelConsumption;
+      PK_GeneralStatusResponse.RPM = gSharedParameters.RPM;
+      PK_GeneralStatusResponse.Pressure = gSharedParameters.ManifoldAirPressure;
+      PK_GeneralStatusResponse.Voltage = gSharedParameters.PowerVoltage;
+      PK_GeneralStatusResponse.EngineTemp = gSharedParameters.EngineTemp;
+      PK_GeneralStatusResponse.FuelUsage = gSharedParameters.FuelConsumption;
       PK_GeneralStatusResponse.check = gEcuIsError;
       PK_GeneralStatusResponse.tablenum = ecu_get_table();
       strcpy(PK_GeneralStatusResponse.tablename, gEcuTable[ecu_get_table()].name);
@@ -4819,14 +4834,14 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_DragUpdateResponse.ErrorCode = 0;
       PK_DragUpdateResponse.FromSpeed = Drag.FromSpeed;
       PK_DragUpdateResponse.ToSpeed = Drag.ToSpeed;
-      PK_DragUpdateResponse.Data.Pressure = gParameters.ManifoldAirPressure;
-      PK_DragUpdateResponse.Data.RPM = gParameters.RPM;
-      PK_DragUpdateResponse.Data.Mixture = gParameters.FuelRatio;
-      PK_DragUpdateResponse.Data.Acceleration = gParameters.Acceleration;
-      PK_DragUpdateResponse.Data.Ignition = gParameters.IgnitionAngle;
-      PK_DragUpdateResponse.Data.CycleAirFlow = gParameters.CyclicAirFlow;
-      PK_DragUpdateResponse.Data.MassAirFlow = gParameters.MassAirFlow;
-      PK_DragUpdateResponse.Data.Throttle = gParameters.ThrottlePosition;
+      PK_DragUpdateResponse.Data.Pressure = gSharedParameters.ManifoldAirPressure;
+      PK_DragUpdateResponse.Data.RPM = gSharedParameters.RPM;
+      PK_DragUpdateResponse.Data.Mixture = gSharedParameters.FuelRatio;
+      PK_DragUpdateResponse.Data.Acceleration = gSharedParameters.Acceleration;
+      PK_DragUpdateResponse.Data.Ignition = gSharedParameters.IgnitionAngle;
+      PK_DragUpdateResponse.Data.CycleAirFlow = gSharedParameters.CyclicAirFlow;
+      PK_DragUpdateResponse.Data.MassAirFlow = gSharedParameters.MassAirFlow;
+      PK_DragUpdateResponse.Data.Throttle = gSharedParameters.ThrottlePosition;
       PK_DragUpdateResponse.TotalPoints = Drag.PointsCount;
       PK_DragUpdateResponse.Started = Drag.Started;
       PK_DragUpdateResponse.Completed = Drag.Completed;
@@ -4903,7 +4918,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
     case PK_ParametersRequestID :
       //PK_Copy(&PK_ParametersRequest, msgBuf);
-      PK_ParametersResponse.Parameters = gParameters;
+      PK_ParametersResponse.Parameters = gSharedParameters;
       gLocalParams.RequestFillLast = 0;
       PK_SendCommand(xChaSrc, &PK_ParametersResponse, sizeof(PK_ParametersResponse));
       break;
@@ -4912,8 +4927,8 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_Copy(&PK_SpecificParameterRequest, msgBuf);
       PK_SpecificParameterResponse.addr = PK_SpecificParameterRequest.addr;
       memset(&PK_SpecificParameterResponse.Parameter, 0, sizeof(PK_SpecificParameterResponse.Parameter));
-      if(PK_SpecificParameterRequest.addr < sizeof(gParameters) / 4) {
-        addr = &((uint32_t *)&gParameters)[PK_SpecificParameterRequest.addr];
+      if(PK_SpecificParameterRequest.addr < sizeof(gSharedParameters) / 4) {
+        addr = &((uint32_t *)&gSharedParameters)[PK_SpecificParameterRequest.addr];
         memcpy(&PK_SpecificParameterResponse.Parameter, addr, sizeof(uint32_t));
       }
       PK_SendCommand(xChaSrc, &PK_SpecificParameterResponse, sizeof(PK_SpecificParameterResponse));
@@ -4987,12 +5002,12 @@ static int8_t ecu_can_process_message(const sCanMessage *message)
     }
   } else if(message->id == 0x102) { //Parameter request
     if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-      if(message->data.dwords[0] < sizeof(gParameters) / sizeof(uint32_t)) {
+      if(message->data.dwords[0] < sizeof(gSharedParameters) / sizeof(uint32_t)) {
         transmit.id = message->id + 0x100;
         transmit.rtr = CAN_RTR_DATA;
         transmit.length = 8;
         transmit.data.dwords[0] = message->data.dwords[0];
-        transmit.data.dwords[1] = ((uint32_t *)&gParameters)[message->data.dwords[0]];
+        transmit.data.dwords[1] = ((uint32_t *)&gSharedParameters)[message->data.dwords[0]];
 
         if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
             OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
