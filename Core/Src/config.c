@@ -19,6 +19,10 @@
 
 static sEcuCorrectionsBackup tableBackupCorrections = {0};
 
+static const float default_cylinders[ECU_CYLINDERS_COUNT] = {
+    1, 2, 3, 4
+};
+
 static const float default_pressures[TABLE_PRESSURES_MAX] = {
     10000, 16200, 22400, 28600, 34800, 41000, 47200, 53400,
     59600, 65800, 72000, 78200, 84400, 90600, 96800, 103000
@@ -384,6 +388,13 @@ static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
 };
 
+static const float default_knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_MAX] = {
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+};
+
 static const float default_air_temps[TABLE_TEMPERATURES_MAX] = {
     -40, -30, -20, -10, -5, 0, 5, 10,
     15, 20, 30, 40, 50, 60, 70, 80
@@ -533,6 +544,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_end_injection_final_phase = 540;
   table->enrichment_end_injection_final_amount = 1.0f;
 
+  table->cylinders_count = ITEMSOF(default_cylinders);
+  memcpy(table->cylinders, default_cylinders, sizeof(default_cylinders));
+
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
 
@@ -643,6 +657,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_zone, default_knock_zone, sizeof(default_knock_zone));
   memcpy(table->knock_gain, default_knock_gain, sizeof(default_knock_gain));
   memcpy(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(default_knock_filter_frequency));
+  memcpy(table->knock_cy_level_multiplier, default_knock_cy_level_multiplier, sizeof(default_knock_cy_level_multiplier));
 
   memcpy(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(default_tsps_relative_pos));
   memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
