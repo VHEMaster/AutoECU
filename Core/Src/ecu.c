@@ -653,18 +653,10 @@ static void ecu_update(void)
   float cold_start_idle_corr;
 
   float fuel_ratio_diff;
-  float fuel_mixture_full;
-  float fuel_mixture_part;
-  float fuel_mixture_sw_lpf;
-  static float fuel_mixture_sw_state = 0;
   float wish_fuel_ratio;
   float filling;
   float pressure_from_throttle;
   float effective_volume;
-  float ignition_angle_part;
-  float ignition_angle_full;
-  float ignition_angle_sw_lpf;
-  static float ignition_angle_sw_state = 0;
   float ignition_angle;
   float start_ignition_angle;
   float ignition_time;
@@ -689,8 +681,6 @@ static void ecu_update(void)
   float knock_low_noise_lpf = 0;
 
   float min, max;
-  uint8_t is_full_throttle_used;
-  uint8_t is_full_throttle;
   static uint8_t ventilation_flag = 0;
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
@@ -701,10 +691,6 @@ static void ecu_update(void)
   float short_term_correction_pid = 0.0f;
   float injection_phase_start;
   float injection_phase_table;
-  float injection_phase_full;
-  float injection_phase_part;
-  float injection_phase_sw_lpf;
-  static float injection_phase_sw_state = 0;
   float injection_phase_lpf;
   float fuel_amount_per_cycle;
 
@@ -857,7 +843,6 @@ static void ecu_update(void)
   period = csps_getperiod(csps);
   period_half = period * 0.5f;
   fuel_pressure = table->fuel_pressure;
-  is_full_throttle_used = table->is_full_thr_used;
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
@@ -992,7 +977,6 @@ static void ecu_update(void)
   }
 
   throttle_idle_flag = throttle < 0.5f;
-  is_full_throttle = is_full_throttle_used && throttle > 92.0f;
   idle_flag = throttle_idle_flag && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -1061,16 +1045,11 @@ static void ecu_update(void)
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   start_ignition_angle = math_interpolate_1d(ipEngineTemp, table->start_ignition);
-  ignition_angle_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.ignitions);
-  ignition_angle_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.ignitions);
-  ignition_angle_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_ign_lpf);
-  ignition_angle_sw_lpf = CLAMP(ignition_angle_sw_lpf, 0.0f, 1.0f);
-  ignition_angle_sw_state = (float)is_full_throttle * ignition_angle_sw_lpf + ignition_angle_sw_state * (1.0f - ignition_angle_sw_lpf);
+  ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
   idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
 
-  ignition_angle = ignition_angle_full * ignition_angle_sw_state + ignition_angle_part * (1.0f - ignition_angle_sw_state);
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
   air_temp_ign_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
 
@@ -1170,18 +1149,8 @@ static void ecu_update(void)
   ignition_angle += air_temp_ign_corr;
   ignition_angle += ignition_corr_final;
 
-  fuel_mixture_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.fuel_mixtures);
-  fuel_mixture_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.fuel_mixtures);
-  fuel_mixture_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_mix_lpf);
-  fuel_mixture_sw_state = (float)is_full_throttle * fuel_mixture_sw_lpf + fuel_mixture_sw_state * (1.0f - fuel_mixture_sw_lpf);
-
-  injection_phase_full = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.full_throttle.injection_phase);
-  injection_phase_part = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->main.part_load.injection_phase);
-  injection_phase_sw_lpf = math_interpolate_1d(ipRpm, table->main.switch_phase_lpf);
-  injection_phase_sw_state = (float)is_full_throttle * injection_phase_sw_lpf + injection_phase_sw_state * (1.0f - injection_phase_sw_lpf);
-
-  wish_fuel_ratio = fuel_mixture_full * fuel_mixture_sw_state + fuel_mixture_part * (1.0f - fuel_mixture_sw_state);
-  injection_phase_table = injection_phase_full * injection_phase_sw_state + injection_phase_part * (1.0f - injection_phase_sw_state);
+  wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
+  injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
   injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
   air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);

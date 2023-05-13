@@ -82,7 +82,7 @@ static const float default_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX] = 
     { 101000, 101000, 101000, 101000, 101000, 100599, 97228, 96783, 96540, 96576, 96236, 96093, 95816, 95223, 96681, 101000, },
 };
 
-static const float default_part_load_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_throttle_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 14.7f, 16.6f, 18.8f, 22.4f, 26.8f, 33.1f, 39.4f, 41.8f, 43.1f, 43.8f, 44.2f, 44.3f, 44.3f, 44.6f, 44.9f, 45.3f, },
     { 16.5f, 18.8f, 21.0f, 24.5f, 28.5f, 34.0f, 39.6f, 41.9f, 43.1f, 43.8f, 44.2f, 44.3f, 44.3f, 44.6f, 44.9f, 45.3f, },
     { 18.2f, 20.3f, 22.3f, 25.5f, 29.2f, 34.4f, 39.6f, 41.8f, 43.0f, 43.7f, 44.1f, 44.2f, 44.2f, 44.6f, 44.9f, 45.3f, },
@@ -101,7 +101,7 @@ static const float default_part_load_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_
     { 5.8f, 6.4f, 6.9f, 7.5f, 8.2f, 9.2f, 11.1f, 14.4f, 18.1f, 20.1f, 21.4f, 20.9f, 20.7f, 21.0f, 21.1f, 21.7f, },
 };
 
-static const float default_part_load_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_throttle_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
     { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
     { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
@@ -120,7 +120,7 @@ static const float default_part_load_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTA
     { 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
 };
 
-static const float default_part_load_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_throttle_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 113, 116, 121, 128, 136, 144, 153, 160, 165, 168, 169, 167, 163, 159, 154, 152, },
     { 117, 120, 125, 132, 140, 148, 157, 164, 170, 173, 173, 172, 168, 164, 160, 157, },
     { 124, 127, 132, 139, 147, 155, 164, 171, 177, 181, 181, 180, 177, 172, 169, 166, },
@@ -137,78 +137,6 @@ static const float default_part_load_injection_phase[TABLE_FILLING_MAX][TABLE_RO
     { 517, 518, 519, 520, 522, 524, 525, 527, 529, 530, 530, 531, 530, 530, 530, 530, },
     { 547, 548, 548, 549, 550, 551, 552, 554, 554, 555, 556, 556, 556, 556, 555, 555, },
     { 565, 565, 565, 566, 567, 567, 568, 569, 569, 570, 570, 570, 570, 570, 570, 570, },
-};
-
-static const float default_full_throttle_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
-    { 14.7f, 16.6f, 18.8f, 22.4f, 26.8f, 33.1f, 39.4f, 41.8f, 43.1f, 43.8f, 44.2f, 44.3f, 44.3f, 44.6f, 44.9f, 45.3f, },
-    { 16.5f, 18.8f, 21.0f, 24.5f, 28.5f, 34.0f, 39.6f, 41.9f, 43.1f, 43.8f, 44.2f, 44.3f, 44.3f, 44.6f, 44.9f, 45.3f, },
-    { 18.2f, 20.3f, 22.3f, 25.5f, 29.2f, 34.4f, 39.6f, 41.8f, 43.0f, 43.7f, 44.1f, 44.2f, 44.2f, 44.6f, 44.9f, 45.3f, },
-    { 18.7f, 20.7f, 22.5f, 25.4f, 29.0f, 34.1f, 39.2f, 41.4f, 42.4f, 43.1f, 43.4f, 43.5f, 43.6f, 44.1f, 44.4f, 44.8f, },
-    { 17.7f, 19.7f, 21.6f, 24.5f, 28.0f, 32.9f, 38.0f, 40.2f, 41.3f, 41.9f, 42.3f, 42.4f, 42.5f, 43.0f, 43.3f, 43.7f, },
-    { 15.2f, 17.7f, 19.4f, 22.4f, 26.1f, 31.0f, 36.0f, 38.4f, 39.6f, 40.5f, 41.0f, 41.1f, 41.3f, 41.8f, 42.1f, 42.4f, },
-    { 12.1f, 14.5f, 16.1f, 18.9f, 23.0f, 28.2f, 33.2f, 35.8f, 37.3f, 38.4f, 39.2f, 39.7f, 40.0f, 40.5f, 40.9f, 41.2f, },
-    { 9.8f, 11.6f, 13.0f, 15.5f, 19.3f, 24.2f, 29.3f, 32.4f, 34.5f, 36.3f, 37.4f, 38.1f, 38.5f, 39.1f, 39.4f, 39.7f, },
-    { 8.0f, 9.3f, 10.5f, 12.6f, 15.7f, 19.9f, 24.8f, 28.5f, 31.3f, 33.8f, 35.2f, 35.5f, 35.7f, 36.1f, 36.3f, 36.7f, },
-    { 6.7f, 7.8f, 8.9f, 10.6f, 13.1f, 17.0f, 22.0f, 26.0f, 28.9f, 31.5f, 32.8f, 32.5f, 32.4f, 32.8f, 32.9f, 33.3f, },
-    { 6.2f, 7.0f, 7.8f, 9.2f, 11.3f, 15.0f, 20.2f, 24.5f, 27.4f, 29.7f, 30.7f, 30.1f, 29.9f, 30.3f, 30.6f, 31.0f, },
-    { 6.0f, 6.6f, 7.3f, 8.4f, 10.1f, 13.3f, 18.3f, 22.8f, 25.9f, 28.2f, 29.0f, 28.2f, 28.0f, 28.6f, 28.9f, 29.3f, },
-    { 6.0f, 6.6f, 7.1f, 8.0f, 9.4f, 11.9f, 16.1f, 20.3f, 23.4f, 25.9f, 26.9f, 26.2f, 26.0f, 26.5f, 26.9f, 27.2f, },
-    { 6.0f, 6.6f, 7.1f, 7.9f, 9.0f, 10.9f, 14.1f, 17.9f, 21.1f, 23.9f, 25.0f, 24.4f, 24.2f, 24.6f, 24.9f, 25.3f, },
-    { 5.9f, 6.5f, 7.0f, 7.8f, 8.6f, 10.0f, 12.5f, 16.1f, 19.6f, 21.9f, 23.1f, 22.5f, 22.4f, 22.8f, 22.9f, 23.5f, },
-    { 5.8f, 6.4f, 6.9f, 7.5f, 8.2f, 9.2f, 11.1f, 14.4f, 18.1f, 20.1f, 21.4f, 20.9f, 20.7f, 21.0f, 21.1f, 21.7f, },
-};
-
-static const float default_full_throttle_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
-    { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.9f, 13.9f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.8f, 13.8f, 13.9f, 13.9f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
-    { 13.6f, 13.6f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, 13.8f, },
-    { 13.5f, 13.5f, 13.5f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, 13.6f, },
-    { 13.3f, 13.3f, 13.3f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, 13.4f, },
-    { 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, 13.2f, },
-    { 13.0f, 13.0f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, 12.9f, },
-    { 12.9f, 12.9f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
-    { 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
-    { 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
-    { 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
-};
-
-static const float default_full_throttle_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
-    { 113, 116, 121, 128, 136, 144, 153, 160, 165, 168, 169, 167, 163, 159, 154, 152, },
-    { 117, 120, 125, 132, 140, 148, 157, 164, 170, 173, 173, 172, 168, 164, 160, 157, },
-    { 124, 127, 132, 139, 147, 155, 164, 171, 177, 181, 181, 180, 177, 172, 169, 166, },
-    { 134, 137, 142, 149, 158, 166, 175, 183, 188, 192, 193, 192, 189, 185, 182, 179, },
-    { 149, 152, 157, 164, 173, 181, 190, 198, 204, 208, 209, 208, 206, 202, 199, 197, },
-    { 170, 173, 178, 185, 193, 201, 210, 218, 224, 228, 230, 229, 227, 224, 221, 219, },
-    { 196, 199, 204, 211, 218, 227, 235, 242, 249, 253, 255, 255, 253, 250, 248, 246, },
-    { 230, 232, 237, 243, 250, 258, 266, 273, 279, 283, 285, 285, 284, 282, 280, 278, },
-    { 270, 273, 277, 282, 289, 296, 303, 309, 315, 318, 321, 321, 320, 319, 317, 316, },
-    { 318, 320, 323, 328, 334, 340, 346, 351, 356, 359, 361, 362, 361, 360, 359, 358, },
-    { 370, 372, 375, 379, 383, 388, 393, 398, 402, 404, 406, 407, 406, 405, 405, 404, },
-    { 425, 426, 428, 431, 434, 438, 442, 445, 448, 451, 452, 452, 452, 452, 451, 451, },
-    { 475, 476, 478, 480, 482, 485, 488, 490, 492, 494, 495, 495, 495, 495, 494, 494, },
-    { 517, 518, 519, 520, 522, 524, 525, 527, 529, 530, 530, 531, 530, 530, 530, 530, },
-    { 547, 548, 548, 549, 550, 551, 552, 554, 554, 555, 556, 556, 556, 556, 555, 555, },
-    { 565, 565, 565, 566, 567, 567, 568, 569, 569, 570, 570, 570, 570, 570, 570, 570, },
-};
-
-static const float default_part_load_fuel_mixtures_lpf[TABLE_ROTATES_MAX] = {
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-};
-
-static const float default_switch_ign_lpf[TABLE_ROTATES_MAX] = {
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-};
-
-static const float default_switch_phase_lpf[TABLE_ROTATES_MAX] = {
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
 };
 
 static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
@@ -585,7 +513,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->is_fuel_phase_by_end = 1;
   table->is_fuel_pressure_const = 1;
-  table->is_full_thr_used = 0;
   table->enrichment_ph_sync_enabled = 1;
   table->enrichment_ph_async_enabled = 0;
   table->enrichment_ph_post_injection_enabled = 1;
@@ -641,17 +568,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->injection_phase_lpf, default_injection_phase_lpf, sizeof(default_injection_phase_lpf));
 
-  memcpy(table->main.full_throttle.ignitions, default_full_throttle_ignitions, sizeof(default_full_throttle_ignitions));
-  memcpy(table->main.full_throttle.fuel_mixtures, default_full_throttle_fuel_mixtures, sizeof(default_full_throttle_fuel_mixtures));
-  memcpy(table->main.full_throttle.injection_phase, default_full_throttle_injection_phase, sizeof(default_full_throttle_injection_phase));
-
-  memcpy(table->main.part_load.ignitions, default_part_load_ignitions, sizeof(default_part_load_ignitions));
-  memcpy(table->main.part_load.fuel_mixtures, default_part_load_fuel_mixtures, sizeof(default_part_load_fuel_mixtures));
-  memcpy(table->main.part_load.injection_phase, default_part_load_injection_phase, sizeof(default_part_load_injection_phase));
-
-  memcpy(table->main.switch_mix_lpf, default_part_load_fuel_mixtures_lpf, sizeof(default_part_load_fuel_mixtures_lpf));
-  memcpy(table->main.switch_ign_lpf, default_switch_ign_lpf, sizeof(default_switch_ign_lpf));
-  memcpy(table->main.switch_phase_lpf, default_switch_phase_lpf, sizeof(default_switch_phase_lpf));
+  memcpy(table->ignitions, default_throttle_ignitions, sizeof(default_throttle_ignitions));
+  memcpy(table->fuel_mixtures, default_throttle_fuel_mixtures, sizeof(default_throttle_fuel_mixtures));
+  memcpy(table->injection_phase, default_throttle_injection_phase, sizeof(default_throttle_injection_phase));
 
   memcpy(table->injection_phase_lpf, default_injection_phase_lpf, sizeof(default_injection_phase_lpf));
   memcpy(table->ignition_time_rpm_mult, default_ignition_time_rpm_mult, sizeof(default_ignition_time_rpm_mult));
