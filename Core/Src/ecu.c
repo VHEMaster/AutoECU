@@ -1128,8 +1128,12 @@ static void ecu_update(void)
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
-  idle_ignition_time_by_tps_lpf = 1.0f - (diff_sec * idle_ignition_time_by_tps);
-  idle_ignition_time_by_tps_lpf = CLAMP(idle_ignition_time_by_tps_lpf, 0.0f, 1.0f);
+  if(idle_ignition_time_by_tps < diff_sec) {
+    idle_ignition_time_by_tps_lpf = 1.0f;
+  } else {
+    idle_ignition_time_by_tps_lpf = diff_sec * (1.0f / idle_ignition_time_by_tps);
+    idle_ignition_time_by_tps_lpf = CLAMP(idle_ignition_time_by_tps_lpf, 0.0f, 1.0f);
+  }
 
   if(!running) {
     idle_wish_ignition = start_ignition_angle;
