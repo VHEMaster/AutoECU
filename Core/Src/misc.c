@@ -582,7 +582,7 @@ static int8_t O2_Loop(void)
           (engine_temperature > 30.0f && diff > 26000000) ||
           (engine_temperature > 20.0f && diff > 28000000) ||
           (engine_temperature > 10.0f && diff > 30000000)) {
-        o2heater = 5.0f; // 8.5 by Datasheet
+        o2heater = 2.0f; // 8.5 by Datasheet
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
         state++;
