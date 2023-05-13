@@ -136,6 +136,7 @@ typedef struct {
         float Advance;
         float DetonationCountPerSecond;
         float DetonationRelation;
+        float AdaptationDetonate;
         uint8_t Updated[ECU_CYLINDERS_COUNT];
         uint8_t UpdatedInternally[ECU_CYLINDERS_COUNT];
     }Knock;
@@ -1564,6 +1565,8 @@ static void ecu_update(void)
         gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
       if(gStatus.Knock.Detonate < gStatus.Knock.Detonates[i])
         gStatus.Knock.Detonate = gStatus.Knock.Detonates[i];
+      if(gStatus.Knock.AdaptationDetonate < gStatus.Knock.Detonate)
+        gStatus.Knock.AdaptationDetonate = gStatus.Knock.Detonate;
     }
 
     if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
@@ -1711,6 +1714,7 @@ static void ecu_update(void)
     memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
     memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
     memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
+    gStatus.Knock.AdaptationDetonate = 0;
     gStatus.Knock.GeneralStatus = KnockStatusOk;
   }
 
@@ -1810,7 +1814,8 @@ static void ecu_update(void)
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
 
-          if(gStatus.Knock.Detonate > 0.01f) {
+          if(gStatus.Knock.AdaptationDetonate > 0.01f) {
+            gStatus.Knock.AdaptationDetonate = 0;
             calib_cur_progress = 0.0f;
 
             ignition_correction = table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
@@ -1821,6 +1826,8 @@ static void ecu_update(void)
           corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
         }
       } else {
+        gStatus.Knock.AdaptationDetonate = 0;
+
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !econ_flag) {
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
