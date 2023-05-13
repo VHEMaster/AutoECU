@@ -679,6 +679,7 @@ static void ecu_update(void)
   float knock_zone;
   static float knock_low_noise_state = 0;
   float knock_low_noise_lpf = 0;
+  float knock_cy_level_multiplier;
 
   float min, max;
   static uint8_t ventilation_flag = 0;
@@ -1517,9 +1518,11 @@ static void ecu_update(void)
 
   if(running) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      knock_cy_level_multiplier = math_interpolate_1d(ipRpm, table->knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier = CLAMP(knock_cy_level_multiplier, 0.1f, 5.0f);
       if(gStatus.Knock.Updated[i]) {
-        gStatus.Knock.Denoised[i] = gStatus.Knock.Voltages[i] - knock_noise_level;
-        gStatus.Knock.Detonates[i] = gStatus.Knock.Denoised[i] - knock_threshold;
+        gStatus.Knock.Denoised[i] = (gStatus.Knock.Voltages[i] * knock_cy_level_multiplier) - knock_noise_level;
+        gStatus.Knock.Detonates[i] = (gStatus.Knock.Denoised[i] / knock_cy_level_multiplier) - knock_threshold;
         if(gStatus.Knock.Denoised[i] < 0.0f)
           gStatus.Knock.Denoised[i] = 0.0f;
         if(gStatus.Knock.Detonates[i] < 0.0f)
@@ -1942,6 +1945,8 @@ static void ecu_update(void)
   gParameters.KnockZone = knock_zone;
   gParameters.KnockAdvance = gStatus.Knock.Advance;
   gParameters.KnockCount = gStatus.Knock.DetonationCount;
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+    gParameters.KnockCountCy[i] = gStatus.Knock.DetonationCountCy[i];
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.ManifoldAirPressure = pressure;
