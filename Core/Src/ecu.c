@@ -139,6 +139,7 @@ typedef struct {
         float AdaptationDetonate;
         uint8_t Updated[ECU_CYLINDERS_COUNT];
         uint8_t UpdatedInternally[ECU_CYLINDERS_COUNT];
+        uint8_t UpdatedAdaptation[ECU_CYLINDERS_COUNT];
     }Knock;
     struct {
         uint8_t is_error;
@@ -676,11 +677,12 @@ static void ecu_update(void)
   float filling_relative;
   float fuel_flow_per_us;
   float knock_noise_level;
-  float knock_zone;
+  static float knock_zone = 0;
   static float knock_low_noise_state = 0;
   float knock_low_noise_lpf = 0;
-  float knock_cy_level_multiplier;
-  float knock_cy_level_multiplier_correction;
+  float knock_cy_level_diff;
+  static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
+  static float knock_cy_level_multiplier_correction[ECU_CYLINDERS_COUNT] = {0};
 
   float min, max;
   static uint8_t ventilation_flag = 0;
@@ -978,7 +980,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  throttle_idle_flag = throttle < 0.5f;
+  throttle_idle_flag = throttle < 0.2f;
   idle_flag = throttle_idle_flag && running;
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
@@ -1519,19 +1521,20 @@ static void ecu_update(void)
 
   if(running) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      knock_cy_level_multiplier = math_interpolate_1d(ipRpm, table->knock_cy_level_multiplier[i]);
-      knock_cy_level_multiplier_correction = math_interpolate_1d(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i]);
-      knock_cy_level_multiplier *= knock_cy_level_multiplier_correction + 1.0f;
-      knock_cy_level_multiplier = CLAMP(knock_cy_level_multiplier, 0.1f, 5.0f);
+      knock_cy_level_multiplier[i] = math_interpolate_1d(ipRpm, table->knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier_correction[i] = math_interpolate_1d(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier[i] *= knock_cy_level_multiplier_correction[i] + 1.0f;
+      knock_cy_level_multiplier[i] = CLAMP(knock_cy_level_multiplier[i], 0.1f, 5.0f);
       if(gStatus.Knock.Updated[i]) {
-        gStatus.Knock.Denoised[i] = (gStatus.Knock.Voltages[i] * knock_cy_level_multiplier) - knock_noise_level;
-        gStatus.Knock.Detonates[i] = (gStatus.Knock.Denoised[i] / knock_cy_level_multiplier) - knock_threshold;
+        gStatus.Knock.Denoised[i] = (gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i]) - knock_noise_level;
+        gStatus.Knock.Detonates[i] = (gStatus.Knock.Denoised[i] / knock_cy_level_multiplier[i]) - knock_threshold;
         if(gStatus.Knock.Denoised[i] < 0.0f)
           gStatus.Knock.Denoised[i] = 0.0f;
         if(gStatus.Knock.Detonates[i] < 0.0f)
           gStatus.Knock.Detonates[i] = 0.0f;
         gStatus.Knock.Updated[i] = 0;
         gStatus.Knock.UpdatedInternally[i] = 1;
+        gStatus.Knock.UpdatedAdaptation[i] = 1;
       }
 
       if(gStatus.Knock.Voltage < gStatus.Knock.Voltages[i])
@@ -1673,6 +1676,8 @@ static void ecu_update(void)
       memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
       memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
       memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
+      memset(gStatus.Knock.UpdatedInternally, 0, sizeof(gStatus.Knock.UpdatedInternally));
+      memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
 
       knock_running_time += diff;
       if(knock_running_time >= 1000000) {
@@ -1689,6 +1694,8 @@ static void ecu_update(void)
     memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
     memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
     memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
+    memset(gStatus.Knock.UpdatedInternally, 0, sizeof(gStatus.Knock.UpdatedInternally));
+    memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
     gStatus.Knock.AdaptationDetonate = 0;
     gStatus.Knock.GeneralStatus = KnockStatusOk;
   }
@@ -1789,16 +1796,38 @@ static void ecu_update(void)
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
 
-          if(gStatus.Knock.AdaptationDetonate > 0.01f) {
-            gStatus.Knock.AdaptationDetonate = 0;
-            calib_cur_progress = 0.0f;
+          if(knock_zone > 0.05f) {
+            if(gStatus.Knock.AdaptationDetonate > 0.01f) {
+              gStatus.Knock.AdaptationDetonate = 0;
+              calib_cur_progress = 0.0f;
 
-            ignition_correction = table->knock_ign_corr_max * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
-            corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
-          } else {
-            calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+              ignition_correction = table->knock_ign_corr_max * knock_zone * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
+              corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
+            } else {
+              calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+            }
+            corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
+            memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
+          } else if(idle_flag) {
+            for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+              if(gStatus.Knock.UpdatedAdaptation[i]) {
+                lpf_calculation *= 0.3f; //3 sec
+
+                knock_cy_level_diff = knock_noise_level;
+                knock_cy_level_diff /= gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
+                knock_cy_level_diff -= 1.0f;
+
+                knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * lpf_calculation;
+                math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+
+                calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
+                calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+                math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
+                gStatus.Knock.UpdatedAdaptation[i] = 0;
+              }
+            }
           }
-          corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
+
         }
       } else {
         gStatus.Knock.AdaptationDetonate = 0;
