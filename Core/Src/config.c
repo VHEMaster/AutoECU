@@ -727,7 +727,7 @@ void config_default_corrections(sEcuCorrections *table)
 
   for(int i = 0; i < TABLE_FILLING_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->ignitions[i][j] = 0;
+      table->ignitions[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
@@ -744,6 +744,10 @@ void config_default_corrections(sEcuCorrections *table)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->knock_cy_level_multiplier[i][j] = 0.0f;
+
+  for(int i = 0; i < TABLE_FILLING_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->knock_detonation_counter[i][j] = 0.0f;
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)
@@ -827,6 +831,15 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
         backup->knock_cy_level_multiplier[i][j] = CLAMP(roundf(corr->knock_cy_level_multiplier[i][j] * 125.0f), -128, 127);
       }
     }
+    state++;
+  } else if(state == 5) {
+    backup->long_term_correction = corr->long_term_correction;
+    backup->idle_correction = corr->idle_correction;
+    for(int i = 0; i < TABLE_FILLING_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->knock_detonation_counter[i][j] = CLAMP(roundf(corr->ignitions[i][j] * 10.0f), 0, 127);
+      }
+    }
     state = 0;
     return 1;
   } else state = 0;
@@ -872,6 +885,15 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->knock_cy_level_multiplier[i][j] = (float)backup->knock_cy_level_multiplier[i][j] * 0.008f;
+      }
+    }
+    state++;
+  } else if(state == 5) {
+    corr->long_term_correction = backup->long_term_correction;
+    corr->idle_correction = backup->idle_correction;
+    for(int i = 0; i < TABLE_FILLING_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->knock_detonation_counter[i][j] = (float)backup->ignitions[i][j] * 0.1f;
       }
     }
     state = 0;
