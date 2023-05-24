@@ -48,6 +48,35 @@ static const float default_fillings[TABLE_FILLING_MAX] = {
     293, 325, 358, 390, 423, 455, 488, 520,
 };
 
+static const float default_idle_filling_rotates[TABLE_ROTATES_MAX] = {
+    800, 860, 930, 990, 1030, 1060, 1080, 1100,
+    1120, 1140, 1170, 1200, 1240, 1290, 1350, 1400,
+};
+
+static const float default_idle_filling_pressures[TABLE_PRESSURES_MAX] = {
+    40000, 43000, 46000, 48500, 50500, 52500, 54000, 55000,
+    56000, 57500, 59000, 61000, 63000, 65000, 67000, 69000,
+};
+
+static const float default_idle_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
+};
+
 static const float default_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.680f, 0.700f, 0.700f, 0.701f, 0.742f, 0.648f, 0.500f, 0.500f, 0.500f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.597f, 0.571f, 0.666f, 0.700f, 0.601f, 0.790f, 0.894f, 0.837f, 0.453f, 0.500f, 0.500f, },
@@ -91,18 +120,18 @@ static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 16.5f, 18.8f, 21.0f, 24.5f, 28.5f, 34.0f, 39.6f, 41.9f, 43.1f, 43.8f, 44.2f, 44.3f, 44.3f, 44.6f, 44.9f, 45.3f, },
     { 18.2f, 20.3f, 22.3f, 25.5f, 29.2f, 34.4f, 39.6f, 41.8f, 43.0f, 43.7f, 44.1f, 44.2f, 44.2f, 44.6f, 44.9f, 45.3f, },
     { 18.7f, 20.7f, 22.5f, 25.4f, 29.0f, 34.1f, 39.2f, 41.4f, 42.4f, 43.1f, 43.4f, 43.5f, 43.6f, 44.1f, 44.4f, 44.8f, },
-    { 17.7f, 19.7f, 21.6f, 24.5f, 28.0f, 32.9f, 38.0f, 40.2f, 41.3f, 41.9f, 42.3f, 42.3f, 42.5f, 43.0f, 43.3f, 43.7f, },
+    { 17.7f, 19.7f, 21.6f, 24.5f, 28.0f, 32.9f, 38.0f, 40.2f, 41.3f, 41.9f, 42.3f, 42.4f, 42.5f, 43.0f, 43.3f, 43.7f, },
     { 15.2f, 17.7f, 19.4f, 22.4f, 26.1f, 31.0f, 36.0f, 38.4f, 39.6f, 40.5f, 41.0f, 41.1f, 41.3f, 41.8f, 42.1f, 42.4f, },
-    { 14.0f, 15.9f, 18.9f, 20.6f, 23.8f, 28.2f, 33.2f, 35.8f, 37.1f, 38.4f, 38.8f, 38.9f, 39.3f, 40.5f, 40.9f, 41.2f, },
-    { 12.5f, 14.2f, 16.2f, 18.6f, 21.1f, 25.0f, 29.3f, 32.4f, 34.5f, 36.3f, 36.4f, 36.4f, 36.8f, 38.7f, 39.4f, 39.7f, },
-    { 12.2f, 13.8f, 15.3f, 17.2f, 19.0f, 22.0f, 25.4f, 28.5f, 31.3f, 33.8f, 33.2f, 33.5f, 33.7f, 35.6f, 36.3f, 36.7f, },
-    { 11.7f, 13.4f, 14.4f, 15.6f, 17.8f, 19.9f, 23.0f, 26.0f, 28.9f, 31.5f, 30.8f, 30.5f, 30.4f, 32.3f, 32.9f, 33.3f, },
-    { 11.0f, 12.8f, 13.5f, 14.6f, 16.2f, 18.7f, 21.2f, 24.5f, 27.4f, 29.7f, 28.7f, 28.1f, 27.9f, 29.8f, 30.6f, 31.0f, },
-    { 10.8f, 11.6f, 12.3f, 13.4f, 14.9f, 17.5f, 19.7f, 22.8f, 25.9f, 28.2f, 27.0f, 26.2f, 26.0f, 28.0f, 28.9f, 29.3f, },
-    { 10.4f, 10.7f, 11.4f, 12.2f, 14.0f, 15.6f, 18.5f, 20.3f, 23.4f, 25.9f, 24.9f, 24.2f, 24.0f, 26.0f, 26.9f, 27.2f, },
-    { 10.2f, 10.8f, 11.2f, 11.6f, 13.3f, 14.6f, 16.9f, 18.7f, 21.1f, 23.9f, 23.0f, 22.4f, 22.2f, 24.1f, 24.9f, 25.3f, },
-    { 10.0f, 10.4f, 10.9f, 11.2f, 12.8f, 14.2f, 15.2f, 16.8f, 19.6f, 21.9f, 21.1f, 20.5f, 20.4f, 22.3f, 22.9f, 23.5f, },
-    { 10.0f, 10.2f, 10.4f, 11.1f, 12.4f, 13.6f, 14.3f, 15.6f, 18.1f, 20.1f, 19.0f, 18.9f, 18.7f, 20.5f, 21.1f, 21.7f, },
+    { 14.0f, 15.9f, 18.9f, 20.6f, 23.8f, 28.2f, 33.2f, 35.8f, 37.3f, 38.4f, 39.2f, 39.7f, 40.0f, 40.5f, 40.9f, 41.2f, },
+    { 12.5f, 14.2f, 16.2f, 18.6f, 21.1f, 25.0f, 29.3f, 32.4f, 34.5f, 36.3f, 37.4f, 38.1f, 38.5f, 39.1f, 39.4f, 39.7f, },
+    { 12.2f, 13.8f, 15.3f, 17.2f, 19.0f, 22.0f, 25.4f, 28.5f, 31.3f, 33.8f, 35.2f, 35.5f, 35.7f, 36.1f, 36.3f, 36.7f, },
+    { 11.7f, 13.4f, 14.4f, 15.6f, 17.8f, 19.9f, 23.0f, 26.0f, 28.9f, 31.5f, 32.8f, 32.5f, 32.4f, 32.8f, 32.9f, 33.3f, },
+    { 11.0f, 12.8f, 13.5f, 14.6f, 16.2f, 18.7f, 21.2f, 24.5f, 27.4f, 29.7f, 30.7f, 30.1f, 29.9f, 30.3f, 30.6f, 31.0f, },
+    { 10.8f, 11.6f, 12.3f, 13.4f, 14.9f, 17.5f, 19.7f, 22.8f, 25.9f, 28.2f, 29.0f, 28.2f, 28.0f, 28.6f, 28.9f, 29.3f, },
+    { 10.4f, 10.7f, 11.4f, 12.2f, 14.0f, 15.6f, 18.5f, 20.3f, 23.4f, 25.9f, 26.9f, 26.2f, 26.0f, 26.5f, 26.9f, 27.2f, },
+    { 10.2f, 10.8f, 11.2f, 11.6f, 13.3f, 14.6f, 16.9f, 18.7f, 21.1f, 23.9f, 25.0f, 24.4f, 24.2f, 24.6f, 24.9f, 25.3f, },
+    { 10.0f, 10.4f, 10.9f, 11.2f, 12.8f, 14.2f, 15.2f, 16.8f, 19.6f, 21.9f, 23.1f, 22.5f, 22.4f, 22.8f, 22.9f, 23.5f, },
+    { 10.0f, 10.2f, 10.4f, 11.1f, 12.4f, 13.6f, 14.3f, 15.6f, 18.1f, 20.1f, 21.4f, 20.9f, 20.7f, 21.0f, 21.1f, 21.7f, },
 };
 
 static const float default_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -665,6 +694,13 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_econ_delay, default_idle_econ_delay, sizeof(default_idle_econ_delay));
   memcpy(table->start_econ_delay, default_start_econ_delay, sizeof(default_start_econ_delay));
 
+  table->use_idle_filling = 0;
+  table->idle_filling_rotates_count = ITEMSOF(default_idle_filling_rotates);
+  table->idle_filling_pressures_count = ITEMSOF(default_idle_filling_pressures);
+  memcpy(table->idle_filling_rotates, default_idle_filling_rotates, sizeof(default_idle_filling_rotates));
+  memcpy(table->idle_filling_pressures, default_idle_filling_pressures, sizeof(default_idle_filling_pressures));
+  memcpy(table->idle_filling_by_map, default_idle_filling_by_map, sizeof(default_idle_filling_by_map));
+
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
     table->cy_corr_ignition[i] = 0;
@@ -732,6 +768,10 @@ void config_default_corrections(sEcuCorrections *table)
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->fill_by_map[i][j] = 0.0f;
+
+  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
+    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
+      table->idle_filling_by_map[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
@@ -812,27 +852,34 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->map_by_thr[i][j] = CLAMP(roundf(corr->map_by_thr[i][j] * 125.0f), -128, 127);
+        backup->idle_filling_by_map[i][j] = CLAMP(roundf(corr->idle_filling_by_map[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
   } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->idle_valve_to_rpm[i][j] = CLAMP(roundf(corr->idle_valve_to_rpm[i][j] * 125.0f), -128, 127);
+        backup->map_by_thr[i][j] = CLAMP(roundf(corr->map_by_thr[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
   } else if(state == 4) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        backup->idle_valve_to_rpm[i][j] = CLAMP(roundf(corr->idle_valve_to_rpm[i][j] * 125.0f), -128, 127);
+      }
+    }
+    state++;
+  } else if(state == 5) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         backup->knock_cy_level_multiplier[i][j] = CLAMP(roundf(corr->knock_cy_level_multiplier[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
-  } else if(state == 5) {
+  } else if(state == 6) {
     backup->long_term_correction = corr->long_term_correction;
     backup->idle_correction = corr->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
@@ -868,27 +915,34 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->map_by_thr[i][j] = (float)backup->map_by_thr[i][j] * 0.008f;
+        corr->idle_filling_by_map[i][j] = (float)backup->idle_filling_by_map[i][j] * 0.008f;
       }
     }
     state++;
   } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->idle_valve_to_rpm[i][j] = (float)backup->idle_valve_to_rpm[i][j] * 0.008f;
+        corr->map_by_thr[i][j] = (float)backup->map_by_thr[i][j] * 0.008f;
       }
     }
     state++;
   } else if(state == 4) {
+    for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
+      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
+        corr->idle_valve_to_rpm[i][j] = (float)backup->idle_valve_to_rpm[i][j] * 0.008f;
+      }
+    }
+    state++;
+  } else if(state == 5) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->knock_cy_level_multiplier[i][j] = (float)backup->knock_cy_level_multiplier[i][j] * 0.008f;
       }
     }
     state++;
-  } else if(state == 5) {
+  } else if(state == 6) {
     corr->long_term_correction = backup->long_term_correction;
     corr->idle_correction = backup->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
