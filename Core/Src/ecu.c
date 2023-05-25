@@ -45,6 +45,7 @@
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define PRESSURE_ACCEPTION_FEATURE  0
+#define IGNITION_ACCEPTION_FEATURE  1
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 
@@ -581,6 +582,18 @@ static void ecu_pid_init(void)
   ecu_pid_update(0, 0);
 }
 
+static void ecu_update_shared_parameters(void)
+{
+  uint8_t running = csps_isrunning();
+  uint32_t params_accept_last = gLocalParams.ParametersAcceptLast;
+  uint32_t now = Delay_Tick;
+
+  if(!running || params_accept_last == 0 || DelayDiff(now, params_accept_last) > 100000) {
+    memcpy(&gSharedParameters, &gParameters, sizeof(sParameters));
+    gLocalParams.ParametersAcceptLast = now;
+  }
+}
+
 #ifdef SIMULATION
 float gDebugMap = 50000;
 float gDebugAirTemp = 30.0f;
@@ -633,7 +646,6 @@ static void ecu_update(void)
 
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
-  uint32_t params_accept_last = gLocalParams.ParametersAcceptLast;
   uint32_t request_fill_last = gLocalParams.RequestFillLast;
 
   float rpm;
@@ -838,6 +850,8 @@ static void ecu_update(void)
 
   if(!now)
     now++;
+
+  ecu_update_shared_parameters();
 
   idle_valve_position = out_get_idle_valve();
 
@@ -2036,6 +2050,8 @@ static void ecu_update(void)
   gStatus.RichIdleMixture.error_last = hal_now;
   gStatus.LeanIdleMixture.error_last = hal_now;
 
+  ecu_update_shared_parameters();
+
   gParameters.AdcKnockVoltage = gStatus.Knock.Voltage;
   gParameters.AdcAirTemp = adc_get_voltage(AdcChAirTemperature);
   gParameters.AdcEngineTemp = adc_get_voltage(AdcChEngineTemperature);
@@ -2151,14 +2167,6 @@ static void ecu_update(void)
   gDiagWorkingMode.Bits.is_use_lambda = o2_valid;
 
   updated_last = now;
-
-  params_accept_last = gLocalParams.ParametersAcceptLast;
-  now = Delay_Tick;
-
-  if(!running || params_accept_last == 0 || DelayDiff(now, params_accept_last) > 100000) {
-    memcpy(&gSharedParameters, &gParameters, sizeof(sParameters));
-    gLocalParams.ParametersAcceptLast = now;
-  }
 }
 
 static void ecu_init_post_init(void)
@@ -2572,6 +2580,9 @@ ITCM_FUNC void ecu_process(void)
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float injection_time_prev[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+#if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
+  static float ignition_accepted_angle[ECU_CYLINDERS_COUNT] = {0,0,0,0};
+#endif
   static float enrichment_time_saturation[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static uint8_t enrichment_triggered[ECU_CYLINDERS_COUNT] = { 0,0,0,0 };
   static uint8_t saturated[ECU_CYLINDERS_COUNT] = { 1,1,1,1 };
@@ -2635,6 +2646,7 @@ ITCM_FUNC void ecu_process(void)
   float angles_ignition_per_turn;
   float inj_pulse;
   float inj_angle;
+  float cur_cy_ignition;
   static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
   float cy_injection[ECU_CYLINDERS_COUNT];
   float var, var2, knock;
@@ -3106,10 +3118,15 @@ ITCM_FUNC void ecu_process(void)
         //Ignition part
         for(int i = 0; i < cy_count_ignition; i++)
         {
-          if(angle_ignition[i] < -cy_ignition[i])
-            anglesbeforeignite[i] = -angle_ignition[i] - cy_ignition[i];
+#if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
+          cur_cy_ignition = ignition_accepted_angle[i];
+#else
+          cur_cy_ignition = cy_ignition[i];
+#endif
+          if(angle_ignition[i] < -cur_cy_ignition)
+            anglesbeforeignite[i] = -angle_ignition[i] - cur_cy_ignition;
           else
-            anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cy_ignition[i];
+            anglesbeforeignite[i] = angles_ignition_per_turn - angle_ignition[i] - cur_cy_ignition;
 
           if(anglesbeforeignite[i] - oldanglesbeforeignite[i] > 0.0f && anglesbeforeignite[i] - oldanglesbeforeignite[i] < 180.0f)
             anglesbeforeignite[i] = oldanglesbeforeignite[i];
@@ -3199,6 +3216,10 @@ ITCM_FUNC void ecu_process(void)
               gLocalParams.ParametersAcceptLast = 0;
               gLocalParams.InjectionMapPressure = pressure;
               enrichment_triggered[i] = 0;
+
+#if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
+              ignition_accepted_angle[i] = cy_ignition[i];
+#endif
             }
           }
 
@@ -3229,6 +3250,10 @@ ITCM_FUNC void ecu_process(void)
               enrichment_time_saturation[i] = 0;
               gLocalParams.InjectionMapPressure = pressure;
               gLocalParams.ParametersAcceptLast = 0;
+
+#if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
+              ignition_accepted_angle[i] = cy_ignition[i];
+#endif
             }
           }
           enrichment_triggered[i] = 0;
@@ -3239,6 +3264,7 @@ ITCM_FUNC void ecu_process(void)
     }
   } else {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+
       oldanglesbeforeignite[i] = 0.0f;
       ignition_saturate_time[i] = 0;
       ignition_ignite_time[i] = 0;
@@ -3257,6 +3283,12 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       pressure_measurement[i] = 0;
       oldanglesbeforepressure[i] = 0.0f;
+    }
+#endif
+
+#if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
+    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
+      ignition_accepted_angle[i] = angle_ignite_param;
     }
 #endif
 
