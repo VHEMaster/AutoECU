@@ -749,6 +749,8 @@ static void ecu_update(void)
   float warmup_mix_corr;
   float air_temp_mix_corr;
   float air_temp_ign_corr;
+  float engine_temp_mix_corr;
+  float engine_temp_ign_corr;
 
   float fuel_pressure;
   float fuel_abs_pressure;
@@ -1091,6 +1093,7 @@ static void ecu_update(void)
 
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
   air_temp_ign_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
+  engine_temp_ign_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
@@ -1186,6 +1189,7 @@ static void ecu_update(void)
   ignition_angle = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_angle * (1.0f - idle_ignition_time_by_tps_value);
 
   ignition_angle += air_temp_ign_corr;
+  ignition_angle += engine_temp_ign_corr;
   ignition_angle += ignition_corr_final;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
@@ -1193,6 +1197,7 @@ static void ecu_update(void)
 
   injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
   air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
+  engine_temp_mix_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
   injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
   injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 0.99f);
 
@@ -1206,7 +1211,7 @@ static void ecu_update(void)
 
   warmup_mix_corr = math_interpolate_1d(ipEngineTemp, table->warmup_mix_corrs);
   warmup_mix_koff = math_interpolate_1d(ipEngineTemp, table->warmup_mix_koffs);
-  if(warmup_mix_koff > 0.0f) {
+  if(warmup_mix_koff > 0.003f) {
     warmup_mixture = math_interpolate_1d(ipEngineTemp, table->warmup_mixtures);
     if(warmup_mixture < wish_fuel_ratio) {
       wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
@@ -1314,6 +1319,7 @@ static void ecu_update(void)
   injection_time *= warmup_mix_corr + 1.0f;
   injection_time *= start_filling_mult + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
+  injection_time *= engine_temp_mix_corr + 1.0f;
   injection_time *= cold_start_idle_mult + 1.0f;
 
   enrichment_load_type = table->enrichment_load_type;
