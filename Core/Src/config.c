@@ -173,8 +173,8 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
 };
 
 static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
-    0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f,
-    0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f,
+    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
+    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
 };
 
 static const float default_enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS_MAX] = {

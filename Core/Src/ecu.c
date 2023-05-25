@@ -1199,7 +1199,7 @@ static void ecu_update(void)
   air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
   engine_temp_mix_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
   injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
-  injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 0.99f);
+  injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 1.00f);
 
   if(running) {
     for(int ht = 0; ht < halfturns_performed; ht++) {
