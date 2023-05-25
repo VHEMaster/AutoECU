@@ -128,7 +128,7 @@ void speed_emulate(uint32_t timestamp, float speedd);
 
 float gDebugRpm = 1100;
 float gDebugSpeed = 0;
-uint8_t gPhased = 1;
+uint8_t gPhased = 0;
 #endif
 
 STATIC_INLINE void fast_loop(void)

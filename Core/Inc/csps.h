@@ -16,6 +16,11 @@ typedef struct
   float PhasedAnglePrev;
 }sCspsData;
 
+typedef void (*csps_rotated_callback_t)(uint32_t period);
+void csps_register_rotated_callback(csps_rotated_callback_t callback);
+void csps_set_tsps_simulation_egde(int8_t edge);
+
+
 void csps_loop(void);
 void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel);
 void csps_exti(uint32_t timestamp);

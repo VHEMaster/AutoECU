@@ -307,6 +307,11 @@ struct {
     uint8_t EnrichmentTriggered;
 
     volatile float InjectionMapPressure;
+
+    volatile uint32_t CspsRotates;
+    volatile float CspsPeriod;
+    volatile float CspsPeriodLast;
+    uint8_t PhaseSimulation;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -363,6 +368,13 @@ static int8_t ecu_shutdown_process(void);
 #endif
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
+
+static void ecu_csps_rotated_callback(uint32_t period)
+{
+  gLocalParams.CspsRotates++;
+  gLocalParams.CspsPeriodLast = gLocalParams.CspsPeriod;
+  gLocalParams.CspsPeriod = period;
+}
 
 static void ecu_async_injection_init(void)
 {
@@ -977,7 +989,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
 
-  if(use_tsps && phased) {
+  if(phased) {
     enrichment_async_enabled = table->enrichment_ph_async_enabled;
     enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
     enrichment_post_injection_enabled = table->enrichment_ph_post_injection_enabled;
@@ -987,7 +999,7 @@ static void ecu_update(void)
     enrichment_post_injection_enabled = table->enrichment_pp_post_injection_enabled;
   }
 
-  if(running && use_tsps && !phased) {
+  if(running && !phased) {
     if(DelayDiff(now, phased_last) > 500000) {
       gStatus.Sensors.Struct.Tsps = HAL_ERROR;
       phased_last = now;
@@ -2561,6 +2573,10 @@ STATIC_INLINE ITCM_FUNC void ecu_inject_async(uint32_t time)
     injector_enable(i, time);
 }
 
+#ifdef SIMULATION
+extern uint8_t gDebugPhasedDetection;
+#endif
+
 ITCM_FUNC void ecu_process(void)
 {
   sEcuTable *table = &gEcuTable[ecu_get_table()];
@@ -2574,9 +2590,12 @@ ITCM_FUNC void ecu_process(void)
 
   static GPIO_PinState clutch = GPIO_PIN_RESET;
   static uint8_t was_found = 0;
+  static uint8_t was_running = 0;
   static uint8_t last_start_triggered = 0;
   static uint32_t last_start = 0;
   static uint32_t turns_count_last = 0;
+  static uint32_t turns_count_since_run = 0;
+  static uint32_t turns_count_since_ph_start = 0;
   static float oldanglesbeforeignite[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float oldanglesbeforeinject[ECU_CYLINDERS_COUNT] = {0,0,0,0};
   static float injection_time_prev[ECU_CYLINDERS_COUNT] = {0,0,0,0};
@@ -2622,6 +2641,7 @@ ITCM_FUNC void ecu_process(void)
   float pressure_measurement_angle = 90 + pressure_measurement_time;
 #endif
 
+  float periods_relation;
   float knock_lpf;
   float throttle;
   float angle = csps_getphasedangle(csps);
@@ -2671,10 +2691,18 @@ ITCM_FUNC void ecu_process(void)
   HAL_StatusTypeDef throttle_status = HAL_OK;
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
-  uint32_t turns_count = csps_getturns();
+  uint32_t turns_count = gLocalParams.CspsRotates;
+
+  static int8_t phase_detect_edge = 0;
+  static uint8_t phase_detect_cnt = 0;
+  static uint8_t phase_detect_stp = 0;
+  static uint8_t phase_detect_tries = 0;
+
+  static uint8_t phased_detect_step = 0;
 
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
+
   float inj_lag = gParameters.InjectionLag * 1000.0f;
 
   float phased_angles[ECU_CYLINDERS_COUNT];
@@ -2693,7 +2721,6 @@ ITCM_FUNC void ecu_process(void)
 #ifndef SIMULATION
   throttle_status = sens_get_throttle_position(&throttle);
 #else
-
   pressure = gDebugMap;
   throttle = gDebugThrottle;
 #endif
@@ -2730,7 +2757,7 @@ ITCM_FUNC void ecu_process(void)
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
   use_tsps = gEcuParams.useTSPS;
-  use_phased = use_tsps && is_phased;
+  use_phased = is_phased;
   phased_injection = use_phased;
   phased_ignition = use_phased && individual_coils && !single_coil;
   phased_knock = use_phased;
@@ -2749,6 +2776,8 @@ ITCM_FUNC void ecu_process(void)
     last_start_triggered = 1;
     last_start = now;
     turns_count_last = turns_count;
+    phased_detect_step = 0;
+    gLocalParams.PhaseSimulation = 0;
   }
 
   if(last_start_triggered) {
@@ -2760,6 +2789,79 @@ ITCM_FUNC void ecu_process(void)
       }
     } else {
       last_start_triggered = 0;
+    }
+  }
+
+  if(running != was_running) {
+    was_running = running;
+    if(running) {
+      turns_count_since_run = turns_count;
+    }
+  }
+
+  if(!gLocalParams.PhaseSimulation && !phased_injection) {
+    if(throttle_status == HAL_OK && running) {
+      periods_relation = fabsf(1.0f - (gLocalParams.CspsPeriod / gLocalParams.CspsPeriodLast));
+      if(phased_detect_step == 0) {
+        if(throttle < 0.4f) {
+          if(turns_count - turns_count_since_run > 2) {
+            phased_detect_step = 1;
+            phase_detect_stp = 0;
+            phase_detect_cnt = 0;
+            phase_detect_edge = 0;
+            phase_detect_tries = 0;
+          }
+        } else {
+          turns_count_since_run = turns_count;
+        }
+      }
+      if(phased_detect_step == 4) {
+        if(turns_count - turns_count_since_ph_start > 1) {
+          turns_count_since_ph_start = turns_count;
+          phase_detect_edge = 0;
+          phase_detect_cnt = 0;
+        } else if(turns_count - turns_count_since_ph_start == 1) {
+          if(gLocalParams.CspsPeriod < gLocalParams.CspsPeriodLast && (!!(phase_detect_stp & 1) || periods_relation > 0.003f)) {
+            if((phase_detect_edge != 1 && !!(phase_detect_stp & 1)) || (phase_detect_edge != -1 && !(phase_detect_stp & 1))) {
+              phase_detect_edge = 1;
+              phase_detect_cnt = 0;
+              phase_detect_tries++;
+            } else {
+              phase_detect_cnt++;
+            }
+          } else if(gLocalParams.CspsPeriod > gLocalParams.CspsPeriodLast && (!!(phase_detect_stp & 1) || periods_relation > 0.003f)) {
+            if((phase_detect_edge != -1 && !!(phase_detect_stp & 1)) || (phase_detect_edge != 1 && !(phase_detect_stp & 1))) {
+              phase_detect_edge = -1;
+              phase_detect_cnt = 0;
+              phase_detect_tries++;
+            } else {
+              phase_detect_cnt++;
+            }
+          } else {
+            phase_detect_tries++;
+          }
+
+          phase_detect_stp++;
+          turns_count_since_ph_start++;
+
+          if(phase_detect_cnt >= 4) {
+            phased_detect_step = 0;
+#ifdef SIMULATION
+            gDebugPhasedDetection = 0;
+#endif
+            gLocalParams.PhaseSimulation = 1;
+            csps_set_tsps_simulation_egde(phase_detect_edge);
+          }
+
+          if(phase_detect_tries >= 8) {
+            phased_detect_step = 0;
+            gLocalParams.PhaseSimulation = 0;
+#ifdef SIMULATION
+          gDebugPhasedDetection = 0;
+#endif
+          }
+        }
+      }
     }
   }
 
@@ -3209,8 +3311,32 @@ ITCM_FUNC void ecu_process(void)
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
               if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-                if(cy_injection[i] > inj_lag * 1.1f)
-                  ecu_inject(cy_count_injection, i, cy_injection[i]);
+                if(phased_injection) {
+                  if(cy_injection[i] > inj_lag * 1.1f)
+                    ecu_inject(cy_count_injection, i, cy_injection[i]);
+                } else {
+                  for(int j = 0, cy; j < 2; j++) {
+                    cy = ((i - j) & 3) | (j << 1);
+
+                    if(!phased_detect_step || cy == 1 || cy == 3) {
+                      if(cy_injection[i] > inj_lag * 1.1f)
+                        ecu_inject(cy_count_injection, i, cy_injection[i]);
+                    }
+
+                    if(phased_detect_step == 1 && cy == 0)
+                      phased_detect_step = 2;
+                    if(phased_detect_step == 2 && cy == 2)
+                      phased_detect_step = 3;
+                    if(phased_detect_step == 3) {
+#ifdef SIMULATION
+                      gDebugPhasedDetection = 1;
+#endif
+                      turns_count_since_ph_start = turns_count;
+                      phased_detect_step = 4;
+                    }
+                  }
+                }
+
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
               gLocalParams.ParametersAcceptLast = 0;
@@ -4552,6 +4678,8 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
 
   ecu_async_injection_init();
 
+  csps_register_rotated_callback(ecu_csps_rotated_callback);
+
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
@@ -4598,7 +4726,7 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
 #endif
 }
 
-ITCM_FUNC void ecu_irq_slow_loop(void)
+void ecu_irq_slow_loop(void)
 {
   if(!gEcuInitialized)
     return;
