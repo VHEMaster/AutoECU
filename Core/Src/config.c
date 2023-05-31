@@ -759,7 +759,7 @@ void config_default_params(sEcuParams *table)
 
   table->cutoffRPM = 7000;
   table->cutoffMode = 5;
-  table->cutoffAngle = 10.0f;
+  table->cutoffAdvance = 10.0f;
   table->cutoffMixture = 12.6f;
   table->oilPressureCutoffRPM = 2000;
   table->speedInputCorrection = 0.91f;
@@ -786,7 +786,7 @@ void config_default_params(sEcuParams *table)
   table->shiftThrThr = 80;
   table->shiftRpmThr = 5000;
   table->shiftRpmTill = 2500;
-  table->shiftAngle = 3.0f;
+  table->shiftAdvance = 3.0f;
   table->shiftMixture = 12.1f;
 
   table->useShortTermCorr = 0;

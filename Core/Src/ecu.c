@@ -611,7 +611,7 @@ static void ecu_update(void)
   static float fuel_consumed = 0;
   static float km_driven = 0;
   static uint32_t updated_last = 0;
-  static float idle_angle_correction = 0;
+  static float idle_advance_correction = 0;
   static float idle_valve_pos_correction = 0;
   static uint8_t is_cold_start = 1;
   static float cold_start_idle_temperature = 0.0f;
@@ -678,8 +678,8 @@ static void ecu_update(void)
   float filling;
   float pressure_from_throttle;
   float effective_volume;
-  float ignition_angle;
-  float start_ignition_angle;
+  float ignition_advance;
+  float start_ignition_advance;
   float ignition_time;
   float injector_lag;
   float injector_lag_mult;
@@ -1099,8 +1099,8 @@ static void ecu_update(void)
 
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
-  start_ignition_angle = math_interpolate_1d(ipEngineTemp, table->start_ignition);
-  ignition_angle = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
+  start_ignition_advance = math_interpolate_1d(ipEngineTemp, table->start_ignition);
+  ignition_advance = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
   idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
@@ -1172,7 +1172,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    idle_wish_ignition = start_ignition_angle;
+    idle_wish_ignition = start_ignition_advance;
     idle_ignition_time_by_tps_value = 0;
   } else {
     idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_rpm_flag_value);
@@ -1200,11 +1200,11 @@ static void ecu_update(void)
     }
   }
 
-  ignition_angle = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_angle * (1.0f - idle_ignition_time_by_tps_value);
+  ignition_advance = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_advance * (1.0f - idle_ignition_time_by_tps_value);
 
-  ignition_angle += air_temp_ign_corr;
-  ignition_angle += engine_temp_ign_corr;
-  ignition_angle += ignition_corr_final;
+  ignition_advance += air_temp_ign_corr;
+  ignition_advance += engine_temp_ign_corr;
+  ignition_advance += ignition_corr_final;
 
   wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
@@ -1242,12 +1242,12 @@ static void ecu_update(void)
     ignition_time = gForceParameters.IgnitionPulse;
 
   if(shift_processing && !cutoff_processing) {
-    ignition_angle = gEcuParams.shiftAngle;
+    ignition_advance = gEcuParams.shiftAdvance;
     wish_fuel_ratio = gEcuParams.shiftMixture;
   }
 
   if(cutoff_processing) {
-    ignition_angle = gEcuParams.cutoffAngle;
+    ignition_advance = gEcuParams.cutoffAdvance;
     wish_fuel_ratio = gEcuParams.cutoffMixture;
   }
 
@@ -1464,7 +1464,7 @@ static void ecu_update(void)
     injection_phase = injection_phase * (1.0f - enrichment_phase_state) + enrichment_injection_phase * enrichment_phase_state;
   }
   if(enrichment_ignition_state > 0.001f) {
-    ignition_angle += enrichment_ign_corr * enrichment_ignition_state;
+    ignition_advance += enrichment_ign_corr * enrichment_ignition_state;
   }
 
   if(gForceParameters.Enable.InjectionPhase)
@@ -1517,7 +1517,7 @@ static void ecu_update(void)
     idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
     math_pid_set_clamp(&gPidIdleAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
-    idle_angle_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+    idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
@@ -1529,22 +1529,22 @@ static void ecu_update(void)
 
   if(!idle_corr_flag) {
     idle_valve_pos_correction = 0;
-    idle_angle_correction = 0;
+    idle_advance_correction = 0;
   }
 
   idle_wish_valve_pos += idle_valve_pos_correction;
-  ignition_angle += idle_angle_correction;
+  ignition_advance += idle_advance_correction;
 
-  if(gForceParameters.Enable.IgnitionAngle)
-    ignition_angle = gForceParameters.IgnitionAngle;
+  if(gForceParameters.Enable.IgnitionAdvance)
+    ignition_advance = gForceParameters.IgnitionAdvance;
   if(gForceParameters.Enable.IgnitionOctane)
-    ignition_angle += gForceParameters.IgnitionOctane;
+    ignition_advance += gForceParameters.IgnitionOctane;
 
   if(idle_flag && running) {
-    if(gForceParameters.Enable.WishIdleIgnitionAngle) {
+    if(gForceParameters.Enable.WishIdleIgnitionAdvance) {
       math_pid_reset(&gPidIdleIgnition);
-      ignition_angle = gForceParameters.WishIdleIgnitionAngle;
-      idle_angle_correction = 0;
+      ignition_advance = gForceParameters.WishIdleIgnitionAdvance;
+      idle_advance_correction = 0;
     }
   }
 
@@ -1643,7 +1643,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    ignition_angle = start_ignition_angle;
+    ignition_advance = start_ignition_advance;
     if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     	if(!rotates && throttle >= 95.0f)
     		ventilation_flag = 1;
@@ -1759,7 +1759,7 @@ static void ecu_update(void)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
       gStatus.Knock.Advance = gStatus.Knock.Advances[i];
-    if(!calibration && !gForceParameters.Enable.IgnitionAngle && !gForceParameters.Enable.InjectionPulse) {
+    if(!calibration && !gForceParameters.Enable.IgnitionAdvance && !gForceParameters.Enable.InjectionPulse) {
       gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
       gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
     } else {
@@ -2103,8 +2103,8 @@ static void ecu_update(void)
   gParameters.WishIdleRPM = idle_wish_rpm;
   gParameters.WishIdleMassAirFlow = idle_wish_massair;
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;
-  gParameters.WishIdleIgnitionAngle = idle_wish_ignition;
-  gParameters.IgnitionAngle = ignition_angle;
+  gParameters.WishIdleIgnitionAdvance = idle_wish_ignition;
+  gParameters.IgnitionAdvance = ignition_advance;
   gParameters.InjectionPhase = injection_phase;
   gParameters.InjectionPhaseDuration = injection_phase_duration;
 
@@ -2737,7 +2737,7 @@ ITCM_FUNC void ecu_process(void)
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_knock = phased_knock ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
-  angle_ignite_param = gParameters.IgnitionAngle;
+  angle_ignite_param = gParameters.IgnitionAdvance;
   injection_phase_by_end = table->is_fuel_phase_by_end;
   inj_phase_param = gParameters.InjectionPhase;
   inj_pulse = gParameters.InjectionPulse;
@@ -3682,7 +3682,7 @@ static void ecu_drag_process(void)
             Drag.Points[Drag.PointsCount].Speed = speed;
             Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
             Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
-            Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+            Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
             Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
             Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
             Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
@@ -3757,7 +3757,7 @@ static void ecu_drag_process(void)
               Drag.Points[Drag.PointsCount].Speed = speed;
               Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
               Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
-              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
               Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
               Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
               Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
@@ -3786,7 +3786,7 @@ static void ecu_drag_process(void)
               Drag.Points[Drag.PointsCount].Speed = speed;
               Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
               Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
-              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAngle;
+              Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
               Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
               Drag.Points[Drag.PointsCount].CycleAirFlow = gSharedParameters.CyclicAirFlow;
               Drag.Points[Drag.PointsCount].MassAirFlow = gSharedParameters.MassAirFlow;
@@ -4320,7 +4320,7 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleValvePosition > 255 ? 255 : gSharedParameters.WishIdleValvePosition < 0 ? 0 : gSharedParameters.WishIdleValvePosition; //Желаемое положение регулятора холостого хода
             tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
             tx_message.data[tx_message.length++] = gSharedParameters.LongTermCorrection + gSharedParameters.ShortTermCorrection * 256.0f + 128; //Коэффициент коррекции времени впрыска
-            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAdvance * 2.0f); //Угол опережения зажигания
             tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
             tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Желаемые обороты холостого хода
@@ -4349,7 +4349,7 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = gSharedParameters.RPM / 40.0f; //Скорость вращения двигателя
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
             tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
-            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAngle * 2.0f); //Угол опережения зажигания
+            tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAdvance * 2.0f); //Угол опережения зажигания
             tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
             tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
@@ -4979,7 +4979,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_DragUpdateResponse.Data.RPM = gSharedParameters.RPM;
       PK_DragUpdateResponse.Data.Mixture = gSharedParameters.FuelRatio;
       PK_DragUpdateResponse.Data.Acceleration = gSharedParameters.Acceleration;
-      PK_DragUpdateResponse.Data.Ignition = gSharedParameters.IgnitionAngle;
+      PK_DragUpdateResponse.Data.Ignition = gSharedParameters.IgnitionAdvance;
       PK_DragUpdateResponse.Data.CycleAirFlow = gSharedParameters.CyclicAirFlow;
       PK_DragUpdateResponse.Data.MassAirFlow = gSharedParameters.MassAirFlow;
       PK_DragUpdateResponse.Data.Throttle = gSharedParameters.ThrottlePosition;
