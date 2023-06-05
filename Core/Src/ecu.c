@@ -56,6 +56,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 
 #define ENRICHMENT_LOAD_STATES_COUNT     (64)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
+#define FAN_HIGH_SWITCH_TIME        (500 * 1000)
 #define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 
@@ -3361,6 +3362,9 @@ static void ecu_fuelpump_process(void)
 
 static void ecu_fan_process(void)
 {
+  static uint32_t running_last = 0;
+  static uint32_t high_start_time = 0;
+
   float engine_temp;
   HAL_StatusTypeDef status;
   uint8_t fan_state;
@@ -3374,10 +3378,10 @@ static void ecu_fan_process(void)
 
   GPIO_PinState out_fan_state = fan_pin_state;
   GPIO_PinState out_fan_sw_state = switch_state;
+  GPIO_PinState out_fan_sw_state_temp = GPIO_PIN_SET;
 
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
-  static uint32_t running_last = 0;
   uint32_t now = Delay_Tick;
 
   if(running) {
@@ -3402,6 +3406,7 @@ static void ecu_fan_process(void)
     } else {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state = GPIO_PIN_SET;
+      out_fan_sw_state_temp = GPIO_PIN_SET;
       fan_state = 2;
       return;
     }
@@ -3411,32 +3416,42 @@ static void ecu_fan_process(void)
 
   if(force_enabled) {
     out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
-    out_fan_sw_state = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    out_fan_sw_state_temp = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
   } else if((!running && rotates && !can_shutdown) || !running_last || starter_state == GPIO_PIN_SET) {
     out_fan_state = GPIO_PIN_RESET;
-    out_fan_sw_state = GPIO_PIN_RESET;
+    out_fan_sw_state_temp = GPIO_PIN_RESET;
   } else if(status != HAL_OK || force == GPIO_PIN_SET) {
     out_fan_state  = GPIO_PIN_SET;
-    out_fan_sw_state = GPIO_PIN_SET;
+    out_fan_sw_state_temp = GPIO_PIN_SET;
     fan_state = 2;
   } else if(fan_state == 0) {
     if(engine_temp > temp_mid) {
       out_fan_state = GPIO_PIN_SET;
-      out_fan_sw_state = GPIO_PIN_RESET;
+      out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 1) {
     if(engine_temp > temp_high) {
       out_fan_state = GPIO_PIN_SET;
-      out_fan_sw_state = GPIO_PIN_SET;
+      out_fan_sw_state_temp = GPIO_PIN_SET;
     } else if(engine_temp < temp_low) {
       out_fan_state = GPIO_PIN_RESET;
-      out_fan_sw_state = GPIO_PIN_RESET;
+      out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 2) {
     if(engine_temp < temp_mid) {
       out_fan_state = GPIO_PIN_SET;
-      out_fan_sw_state = GPIO_PIN_RESET;
+      out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
+  }
+
+  if(out_fan_state == GPIO_PIN_SET && out_fan_sw_state_temp == GPIO_PIN_SET && out_fan_sw_state == GPIO_PIN_RESET) {
+    if(high_start_time > 0 && DelayDiff(now, high_start_time) > FAN_HIGH_SWITCH_TIME) {
+      high_start_time = 0;
+      out_fan_sw_state = out_fan_sw_state_temp;
+    }
+  } else {
+    high_start_time = now;
+    out_fan_sw_state = out_fan_sw_state_temp;
   }
 
   out_set_fan(out_fan_state);
