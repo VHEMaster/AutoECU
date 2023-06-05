@@ -600,7 +600,20 @@ static void ecu_update_shared_parameters(void)
   if(!running || params_accept_last == 0 || DelayDiff(now, params_accept_last) > 100000) {
     memcpy(&gSharedParameters, &gParameters, sizeof(sParameters));
     gLocalParams.ParametersAcceptLast = now;
+  } else {
+    gSharedParameters.AdcAirTemp = gParameters.AdcAirTemp;
+    gSharedParameters.AdcEngineTemp = gParameters.AdcEngineTemp;
+    gSharedParameters.AdcKnockVoltage = gParameters.AdcKnockVoltage;
+    gSharedParameters.AdcLambdaUA = gParameters.AdcLambdaUA;
+    gSharedParameters.AdcLambdaUR = gParameters.AdcLambdaUR;
+    gSharedParameters.AdcManifoldAirPressure = gParameters.AdcManifoldAirPressure;
+    gSharedParameters.AdcPowerVoltage = gParameters.AdcPowerVoltage;
+    gSharedParameters.AdcReferenceVoltage = gParameters.AdcReferenceVoltage;
+    gSharedParameters.AdcThrottlePosition = gParameters.AdcThrottlePosition;
+    gSharedParameters.CylinderIgnitionBitmask = gParameters.CylinderIgnitionBitmask;
+    gSharedParameters.CylinderInjectionBitmask = gParameters.CylinderInjectionBitmask;
   }
+
 }
 
 #ifdef SIMULATION
@@ -3188,6 +3201,7 @@ ITCM_FUNC void ecu_process(void)
                 } else {
                   ecu_coil_ignite(cy_count_ignition, i);
                 }
+                gParameters.CylinderIgnitionBitmask ^= 1 << i;
                 ignition_ignite[i] = time_pulse;
                 ignition_ignite_time[i] = now;
               }
@@ -3224,6 +3238,7 @@ ITCM_FUNC void ecu_process(void)
               }
               gLocalParams.ParametersAcceptLast = 0;
               gLocalParams.InjectionMapPressure = pressure;
+              gParameters.CylinderInjectionBitmask ^= 1 << i;
               enrichment_triggered[i] = 0;
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
@@ -3308,6 +3323,9 @@ ITCM_FUNC void ecu_process(void)
       gIgnPorts[i]->BSRR = gIgnPins[i] << 16;
     for(int i = 0; i < ITEMSOF(gInjPorts); i++)
       gInjPorts[i]->BSRR = gInjPins[i];
+
+    gParameters.CylinderIgnitionBitmask = 0;
+    gParameters.CylinderInjectionBitmask = 0;
 
   }
 
