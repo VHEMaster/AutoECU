@@ -336,6 +336,14 @@ static sProFIFO fifoAsyncInjection = {0};
 static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
 static float enrichmentLoadStates[ENRICHMENT_LOAD_STATES_COUNT] = {0};
 
+volatile static uint32_t gSpecificParametersOverflow = 0;
+volatile static uint32_t gSpecificParametersReadPointer = 0;
+volatile static uint32_t gSpecificParametersWritePointer = 0;
+volatile static uint8_t gSpecificParametersConfigured = 0;
+volatile static uint8_t gSpecificParametersPeriod = 0;
+static uint32_t gSpecificParametersAddrs[SPECIFIC_PARAMETERS_ARRAY_MAX_ITEMS] = {0};
+static uDword gSpecificParametersArray[SPECIFIC_PARAMETERS_ARRAY_MAX_ITEMS][SPECIFIC_PARAMETERS_ARRAY_POINTS];
+
 static volatile uint8_t gEcuInitialized = 0;
 static volatile uint8_t gEcuIsError = 0;
 static uint8_t gCanTestStarted = 0;
@@ -3668,7 +3676,6 @@ static void ecu_checkengine_loop(void)
   }
 }
 
-
 static void ecu_drag_process(void)
 {
   uint32_t now = Delay_Tick;
@@ -3817,6 +3824,43 @@ static void ecu_drag_process(void)
         }
       }
     }
+  }
+}
+
+static void ecu_specific_parameters_loop(void)
+{
+  static uint32_t counter = 0;
+  uint32_t pointer = gSpecificParametersWritePointer;
+  uint32_t pointer_new = pointer;
+  uint32_t addr;
+  uint8_t period = gSpecificParametersPeriod;
+
+  if(gSpecificParametersConfigured) {
+    if(counter >= period) {
+      if(++pointer_new >= SPECIFIC_PARAMETERS_ARRAY_POINTS)
+        pointer_new = 0;
+
+      if(gSpecificParametersReadPointer == pointer_new) {
+        gSpecificParametersOverflow++;
+      } else {
+        for(int i = 0; i < gSpecificParametersConfigured; i++) {
+          addr = gSpecificParametersAddrs[i];
+          if(addr && addr < sizeof(gParameters) / 4) {
+            memcpy(&gSpecificParametersArray[i][pointer], &((uint32_t *)&gParameters)[addr], sizeof(uDword));
+          }
+        }
+
+        gSpecificParametersWritePointer = pointer_new;
+      }
+      counter = 0;
+    } else {
+      counter++;
+    }
+  } else {
+    gSpecificParametersOverflow = 0;
+    gSpecificParametersReadPointer = 0;
+    gSpecificParametersWritePointer = 0;
+    counter = 0;
   }
 }
 
@@ -4632,6 +4676,7 @@ ITCM_FUNC void ecu_irq_slow_loop(void)
   ecu_starter_process();
 
   ecu_drag_process();
+  ecu_specific_parameters_loop();
 
 #ifndef SIMULATION
   ecu_ign_process();
@@ -5088,6 +5133,66 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
         memcpy(&PK_SpecificParameterResponse.Parameter, addr, sizeof(uint32_t));
       }
       PK_SendCommand(xChaSrc, &PK_SpecificParameterResponse, sizeof(PK_SpecificParameterResponse));
+      break;
+
+    case PK_SpecificParameterArrayConfigureRequestID :
+      PK_Copy(&PK_SpecificParameterArrayConfigureRequest, msgBuf);
+      PK_SpecificParameterArrayConfigureResponse.ErrorCode = 0;
+
+      for(int i = 0; i < SPECIFIC_PARAMETERS_ARRAY_MAX_ITEMS; i++) {
+        PK_SpecificParameterArrayConfigureResponse.Addrs[i] = PK_SpecificParameterArrayConfigureRequest.Addrs[i];
+        if(PK_SpecificParameterArrayConfigureRequest.Addrs[i] >= sizeof(gParameters) / 4)
+          PK_SpecificParameterArrayConfigureResponse.ErrorCode = 11;
+      }
+      PK_SpecificParameterArrayConfigureResponse.Period = PK_SpecificParameterArrayConfigureRequest.Period;
+      PK_SpecificParameterArrayConfigureResponse.BufferSize = 0;
+
+      if(PK_SpecificParameterArrayConfigureRequest.Period > 1000) {
+        PK_SpecificParameterArrayConfigureResponse.ErrorCode = 12;
+      }
+
+      if(PK_SpecificParameterArrayConfigureResponse.ErrorCode == 0) {
+        gSpecificParametersOverflow = 0;
+        gSpecificParametersReadPointer = 0;
+        gSpecificParametersWritePointer = 0;
+
+        gSpecificParametersPeriod = PK_SpecificParameterArrayConfigureRequest.Period;
+        gSpecificParametersConfigured = 0;
+        for(int i = 0; i < SPECIFIC_PARAMETERS_ARRAY_MAX_ITEMS; i++) {
+          if(PK_SpecificParameterArrayConfigureRequest.Addrs[i]) {
+            gSpecificParametersAddrs[gSpecificParametersConfigured++] = PK_SpecificParameterArrayConfigureRequest.Addrs[i];
+          }
+        }
+        PK_SpecificParameterArrayConfigureResponse.BufferSize = SPECIFIC_PARAMETERS_ARRAY_POINTS;
+      }
+
+      PK_SendCommand(xChaSrc, &PK_SpecificParameterArrayConfigureResponse, sizeof(PK_SpecificParameterArrayConfigureResponse));
+      break;
+
+    case PK_SpecificParameterArrayRequestID :
+      PK_Copy(&PK_SpecificParameterArrayRequest, msgBuf);
+      memset(&PK_SpecificParameterArrayResponse.Parameters, 0, sizeof(PK_SpecificParameterArrayResponse.Parameters));
+
+      size = 0;
+      while(size < PACKET_SPECIFIC_PARAMETERS_ARRAY_MAX_SIZE && gSpecificParametersWritePointer != gSpecificParametersReadPointer) {
+        offset = gSpecificParametersReadPointer;
+
+        for(int i = 0; i < gSpecificParametersConfigured && size < PACKET_SPECIFIC_PARAMETERS_ARRAY_MAX_SIZE; i++, size++) {
+          PK_SpecificParameterArrayResponse.Parameters[size] = gSpecificParametersArray[i][offset];
+        }
+
+        if(++offset >= SPECIFIC_PARAMETERS_ARRAY_POINTS)
+          offset = 0;
+        gSpecificParametersReadPointer = offset;
+      }
+      PK_SpecificParameterArrayResponse.Length = size;
+      PK_SpecificParameterArrayResponse.Underflow = gSpecificParametersOverflow;
+      PK_SpecificParameterArrayResponse.Items = gSpecificParametersConfigured;
+      PK_SpecificParameterArrayResponse.IsLeft = gSpecificParametersReadPointer != gSpecificParametersWritePointer;
+      PK_SpecificParameterArrayResponse.ErrorCode = 0;
+      gSpecificParametersOverflow = 0;
+
+      PK_SendCommand(xChaSrc, &PK_SpecificParameterArrayResponse, sizeof(PK_SpecificParameterArrayResponse));
       break;
 
     case PK_ForceParametersDataID :
