@@ -3410,8 +3410,11 @@ static void ecu_fan_process(void)
   uint8_t rotates = csps_isrotates();
   uint32_t now = Delay_Tick;
 
+  if(!now)
+    now += 1;
+
   if(running) {
-    running_last = !now ? 1 : now;
+    running_last = now;
   }
 
   if(running_last > 0 && DelayDiff(now, running_last) > FAN_TIMEOUT) {
@@ -3470,8 +3473,8 @@ static void ecu_fan_process(void)
     }
   }
 
-  if(out_fan_state == GPIO_PIN_SET && out_fan_sw_state_temp == GPIO_PIN_SET && out_fan_sw_state == GPIO_PIN_RESET) {
-    if(high_start_time > 0 && DelayDiff(now, high_start_time) > FAN_HIGH_SWITCH_TIME) {
+  if(out_fan_state == GPIO_PIN_SET && out_fan_sw_state == GPIO_PIN_RESET) {
+    if(high_start_time == 0 || DelayDiff(now, high_start_time) > FAN_HIGH_SWITCH_TIME) {
       high_start_time = 0;
       out_fan_sw_state = out_fan_sw_state_temp;
     }
