@@ -579,6 +579,10 @@ static void Getter(sGetterHandle * handle)
 void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
 {
   sGetterHandle * handle;
+
+  if(!huart)
+    return;
+
   for(int i = 0; i < ITEMSOF(xHandles); i++)
   {
     handle = &xHandles[i];
@@ -588,19 +592,14 @@ void xDmaTxIrqHandler(UART_HandleTypeDef *huart)
       if(protIsSome(&handle->xTxFifo))
       {
         handle->TxBusy = 1;
-        while(protPull(&handle->xTxFifo, &handle->BufTx[length++])
-            && length < MAX_PACK_LEN);
-        if(handle->xUart) {
-          if(handle->xUart->hdmatx) {
-            CacheClean(handle->BufTx, length);
-            HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
-          }
-          else
-            HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
+        while(length < MAX_PACK_LEN && protPull(&handle->xTxFifo, &handle->BufTx[length])) {
+          length++;
+        }
+        if(handle->xUart->hdmatx) {
+          CacheClean(handle->BufTx, length);
+          HAL_UART_Transmit_DMA(handle->xUart, handle->BufTx, length);
         } else {
-#ifdef VIRTUALCOMPORT
-          CDC_Transmit(handle->BufTx, length);
-#endif
+          HAL_UART_Transmit_IT(handle->xUart, handle->BufTx, length);
         }
       }
       else handle->TxBusy = 0;
@@ -623,8 +622,9 @@ void CDC_TxCpltCallback(void)
       if(protIsSome(&handle->xTxFifo))
       {
         handle->TxBusy = 1;
-        while(protPull(&handle->xTxFifo, &handle->BufTx[length++])
-            && length < MAX_PACK_LEN);
+        while(length < MAX_PACK_LEN && protPull(&handle->xTxFifo, &handle->BufTx[length])) {
+          length++;
+        }
         CDC_Transmit(handle->BufTx, length);
       }
       else handle->TxBusy = 0;
@@ -761,8 +761,9 @@ void xGetterLoop(void)
       length = 0;
       handle->TxBusy = 1;
       taskEXIT_CRITICAL();
-      while(protPull(&handle->xTxFifo, &handle->BufTx[length++])
-          && length < MAX_PACK_LEN);
+      while(length < MAX_PACK_LEN && protPull(&handle->xTxFifo, &handle->BufTx[length])) {
+        length++;
+      }
 
       if(handle->xUart) {
         if(handle->xUart->hdmatx) {
