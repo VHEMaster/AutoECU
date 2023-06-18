@@ -2243,7 +2243,7 @@ static void ecu_backup_save_process(void)
   }
 }
 
-STATIC_INLINE ITCM_FUNC uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder, float rpm)
+STATIC_INLINE uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cylinder, float rpm)
 {
   static uint8_t cutoff_processing_prev = 0;
   static int8_t cutoffcnt0 = -1;
@@ -2407,7 +2407,7 @@ STATIC_INLINE ITCM_FUNC uint8_t ecu_cutoff_ign_act(uint8_t cy_count, uint8_t cyl
   return 1;
 }
 
-STATIC_INLINE ITCM_FUNC uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, float rpm)
+STATIC_INLINE uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cylinder, float rpm)
 {
   float cutoffrpm = gEcuParams.cutoffRPM;
 
@@ -2425,7 +2425,7 @@ STATIC_INLINE ITCM_FUNC uint8_t ecu_cutoff_inj_act(uint8_t cy_count, uint8_t cyl
   return 1;
 }
 
-STATIC_INLINE ITCM_FUNC uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch, uint8_t reset)
+STATIC_INLINE uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cylinder, uint8_t mode, GPIO_PinState clutch, uint8_t reset)
 {
   static int8_t shift_cnt1 = -1;
   static uint32_t shift_time_last = 0;
@@ -2479,7 +2479,7 @@ STATIC_INLINE ITCM_FUNC uint8_t ecu_shift_process(uint8_t cy_count, uint8_t cyli
   return retval;
 }
 
-STATIC_INLINE ITCM_FUNC uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+STATIC_INLINE uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
 {
   uint8_t mode = gEcuParams.shiftMode;
   float thrthr = gEcuParams.shiftThrThr;
@@ -2527,13 +2527,13 @@ STATIC_INLINE ITCM_FUNC uint8_t ecu_shift_ign_act(uint8_t cy_count, uint8_t cyli
   return shift_result > 0;
 }
 
-STATIC_INLINE ITCM_FUNC uint8_t ecu_shift_inj_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
+STATIC_INLINE uint8_t ecu_shift_inj_act(uint8_t cy_count, uint8_t cylinder, GPIO_PinState clutch, float rpm, float throttle)
 {
   //TODO: currently not affecting injection directly
   return 1;
 }
 
-STATIC_INLINE ITCM_FUNC void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder];
@@ -2546,7 +2546,7 @@ STATIC_INLINE ITCM_FUNC void ecu_coil_saturate(uint8_t cy_count, uint8_t cylinde
   }
 }
 
-STATIC_INLINE ITCM_FUNC void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
+STATIC_INLINE void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
 {
   if(cy_count == ECU_CYLINDERS_COUNT && cylinder < ECU_CYLINDERS_COUNT) {
     gIgnPorts[cylinder]->BSRR = gIgnPins[cylinder] << 16;
@@ -2559,7 +2559,7 @@ STATIC_INLINE ITCM_FUNC void ecu_coil_ignite(uint8_t cy_count, uint8_t cylinder)
   }
 }
 
-STATIC_INLINE ITCM_FUNC void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
+STATIC_INLINE void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint32_t time)
 {
 #if defined(INJECTORS_ON_INJ_CH1_ONLY) && INJECTORS_ON_INJ_CH1_ONLY == 1
   if(gParameters.InjectorChannel != InjectorChannel1) {
@@ -2577,7 +2577,7 @@ STATIC_INLINE ITCM_FUNC void ecu_inject(uint8_t cy_count, uint8_t cylinder, uint
   }
 }
 
-STATIC_INLINE ITCM_FUNC void ecu_inject_async(uint32_t time)
+STATIC_INLINE void ecu_inject_async(uint32_t time)
 {
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
     injector_enable(i, time);
@@ -4678,7 +4678,7 @@ ITCM_FUNC void ecu_irq_fast_loop(void)
 #endif
 }
 
-ITCM_FUNC void ecu_irq_slow_loop(void)
+void ecu_irq_slow_loop(void)
 {
   if(!gEcuInitialized)
     return;
