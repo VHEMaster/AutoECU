@@ -372,8 +372,8 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
       {
           if (xDataLen)
           {
-              for(int i = 0; i < 8; i++)
-                protPull(xFifo, &header[i]);
+            for (aCount = 0; aCount < 8; aCount++)
+                protPull(xFifo, &header[aCount]);
 
               for (aCount = 0; aCount < xDataLen - 10; aCount++)
               {
@@ -408,10 +408,7 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
           else
           {
               for (aCount = 0; aCount < 8; aCount++)
-              {
-                for(int i = 0; i < 8; i++)
-                  protPull(xFifo, &header[i]);
-              }
+                protPull(xFifo, &header[aCount]);
 
               taskENTER_CRITICAL();
               if(hDest->NeedAckPacket && hDest->NeededAckPacketId != 0 && hDest->NeededAckPacketId == xPacketId && !hDest->ReceivedAckPacket)
@@ -510,6 +507,8 @@ STATIC_INLINE int32_t countCRC16(sGetterHandle * handle, uint32_t xLen) {
     return aCrc16;
 }
 
+volatile uint32_t errcodes[4] = {0};
+
 static void Getter(sGetterHandle * handle)
 {
   uint32_t dataSkip = 0;
@@ -531,7 +530,7 @@ static void Getter(sGetterHandle * handle)
             // Got True package
             parser(xFifo,packetId,dataLen,lookByte(xFifo,1),lookByte(xFifo,2));
         }
-        else { dataSkip=1; } // Wrong CRC16, so skip 1 byte
+        else { dataSkip=1; errcodes[0]++; } // Wrong CRC16, so skip 1 byte
         dataReceiving = 0;
         dataLen = 0;
     }
@@ -558,11 +557,11 @@ static void Getter(sGetterHandle * handle)
                   parser(xFifo,packetId,0,lookByte(xFifo,1),lookByte(xFifo,2));
               }
           }
-          else { dataSkip=1; } // Wrong data length or packet id, so skip 1 byte
+          else { dataSkip=1; errcodes[1]++; } // Wrong data length or packet id, so skip 1 byte
         }
-        else { dataSkip=1; } // Wrong CRC8, so skip 1 byte
+        else { dataSkip=1; errcodes[2]++; } // Wrong CRC8, so skip 1 byte
       }
-      else { dataSkip=1; } // Wrong sync bytes
+      else { dataSkip=1; errcodes[3]++; } // Wrong sync bytes
     }
   }
 
