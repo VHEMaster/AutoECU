@@ -23,9 +23,9 @@ static const float default_cylinders[ECU_CYLINDERS_COUNT] = {
     1, 2, 3, 4
 };
 
-static const float default_pressures[TABLE_PRESSURES_MAX] = {
-    0.115f, 0.186f, 0.258f, 0.329f, 0.400f, 0.472f, 0.543f, 0.614f,
-    0.686f, 0.757f, 0.828f, 0.900f, 0.971f, 1.042f, 1.114f, 1.185f,
+static const float default_densities[TABLE_DENSITIES_MAX] = {
+    0.100f, 0.187f, 0.273f, 0.360f, 0.447f, 0.533f, 0.620f, 0.707f,
+    0.793f, 0.880f, 0.967f, 1.053f, 1.140f, 1.227f, 1.313f, 1.400f,
 };
 
 static const float default_idle_rotates[TABLE_ROTATES_MAX] = {
@@ -49,16 +49,16 @@ static const float default_fillings[TABLE_FILLING_MAX] = {
 };
 
 static const float default_idle_filling_rotates[TABLE_ROTATES_MAX] = {
-    800, 860, 930, 990, 1030, 1060, 1080, 1100,
-    1120, 1140, 1170, 1200, 1240, 1290, 1350, 1400,
+    860, 930, 990, 1030, 1060, 1080, 1100, 1120,
+    1140, 1170, 1200, 1240, 1290, 1350, 1400, 1450,
 };
 
-static const float default_idle_filling_pressures[TABLE_PRESSURES_MAX] = {
-    40000, 43000, 46000, 48500, 50500, 52500, 54000, 55000,
-    56000, 57500, 59000, 61000, 63000, 65000, 67000, 69000,
+static const float default_idle_filling_densities[TABLE_DENSITIES_MAX] = {
+    0.400f, 0.420f, 0.440f, 0.460f, 0.480f, 0.500f, 0.520f, 0.540f,
+    0.560f, 0.580f, 0.600f, 0.620f, 0.640f, 0.660f, 0.680f, 0.700f,
 };
 
-static const float default_idle_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_idle_filling_by_density[TABLE_DENSITIES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
@@ -77,7 +77,7 @@ static const float default_idle_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATE
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
 };
 
-static const float default_filling_by_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_filling_by_map[TABLE_DENSITIES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.599f, 0.598f, 0.599f, 0.605f, 0.622f, 0.712f, 0.716f, 0.688f, 0.707f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.599f, 0.597f, 0.595f, 0.595f, 0.600f, 0.616f, 0.718f, 0.726f, 0.685f, 0.705f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.598f, 0.594f, 0.590f, 0.589f, 0.596f, 0.630f, 0.745f, 0.740f, 0.685f, 0.720f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
@@ -598,8 +598,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
 
-  table->pressures_count = ITEMSOF(default_pressures);
-  memcpy(table->pressures, default_pressures, sizeof(default_pressures));
+  table->densities_count = ITEMSOF(default_densities);
+  memcpy(table->densities, default_densities, sizeof(default_densities));
 
   table->rotates_count = ITEMSOF(default_rotates);
   memcpy(table->rotates, default_rotates, sizeof(default_rotates));
@@ -610,7 +610,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));
 
-  memcpy(table->fill_by_map, default_filling_by_map, sizeof(default_filling_by_map));
+  memcpy(table->fill_by_density, default_filling_by_map, sizeof(default_filling_by_map));
   memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
 
   table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
@@ -717,10 +717,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->use_idle_filling = 0;
   table->idle_filling_rotates_count = ITEMSOF(default_idle_filling_rotates);
-  table->idle_filling_pressures_count = ITEMSOF(default_idle_filling_pressures);
+  table->idle_filling_densities_count = ITEMSOF(default_idle_filling_densities);
   memcpy(table->idle_filling_rotates, default_idle_filling_rotates, sizeof(default_idle_filling_rotates));
-  memcpy(table->idle_filling_pressures, default_idle_filling_pressures, sizeof(default_idle_filling_pressures));
-  memcpy(table->idle_filling_by_map, default_idle_filling_by_map, sizeof(default_idle_filling_by_map));
+  memcpy(table->idle_filling_densities, default_idle_filling_densities, sizeof(default_idle_filling_densities));
+  memcpy(table->idle_filling_by_density, default_idle_filling_by_density, sizeof(default_idle_filling_by_density));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;
@@ -786,13 +786,13 @@ void config_default_corrections(sEcuCorrections *table)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->ignitions[i][j] = 0.0f;
 
-  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
+  for(int i = 0; i < TABLE_DENSITIES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->fill_by_map[i][j] = 0.0f;
+      table->fill_by_density[i][j] = 0.0f;
 
-  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
+  for(int i = 0; i < TABLE_DENSITIES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->idle_filling_by_map[i][j] = 0.0f;
+      table->idle_filling_by_density[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
@@ -865,16 +865,16 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
     }
     state++;
   } else if(state == 1) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+    for(int i = 0; i < TABLE_DENSITIES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->fill_by_map[i][j] = CLAMP(roundf(corr->fill_by_map[i][j] * 125.0f), -128, 127);
+        backup->fill_by_density[i][j] = CLAMP(roundf(corr->fill_by_density[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+    for(int i = 0; i < TABLE_DENSITIES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->idle_filling_by_map[i][j] = CLAMP(roundf(corr->idle_filling_by_map[i][j] * 125.0f), -128, 127);
+        backup->idle_filling_by_density[i][j] = CLAMP(roundf(corr->idle_filling_by_density[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
@@ -926,16 +926,16 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     }
     state++;
   } else if(state == 1) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+    for(int i = 0; i < TABLE_DENSITIES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->fill_by_map[i][j] = (float)backup->fill_by_map[i][j] * 0.008f;
+        corr->fill_by_density[i][j] = (float)backup->fill_by_density[i][j] * 0.008f;
       }
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
+    for(int i = 0; i < TABLE_DENSITIES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->idle_filling_by_map[i][j] = (float)backup->idle_filling_by_map[i][j] * 0.008f;
+        corr->idle_filling_by_density[i][j] = (float)backup->idle_filling_by_density[i][j] * 0.008f;
       }
     }
     state++;
