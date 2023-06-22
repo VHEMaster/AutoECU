@@ -1135,7 +1135,7 @@ static void ecu_update(void)
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
   idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
   idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
-  idle_valve_pos_adaptation = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm);
+  idle_valve_pos_adaptation = math_interpolate_1d(ipEngineTemp, gEcuCorrections.idle_valve_position);
 
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
@@ -1536,7 +1536,7 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
   if(running) {
-    idle_table_valve_pos = math_interpolate_2d(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, table->idle_valve_to_rpm);
+    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
     math_pid_set_clamp(&gPidIdleAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
@@ -1878,13 +1878,13 @@ static void ecu_update(void)
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
-          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrections.idle_valve_to_rpm, idle_valve_pos_adaptation, -1.0f, 1.0f);
+          math_interpolate_1d_set(ipEngineTemp, gEcuCorrections.idle_valve_position, idle_valve_pos_adaptation, -1.0f, 1.0f);
 
           percentage = (idle_valve_pos_dif + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
-          calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm);
+          calib_cur_progress = math_interpolate_1d(ipEngineTemp, gEcuCorrectionsProgress.progress_idle_valve_position);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          corr_math_interpolate_2d_set_func(ipRpm, ipEngineTemp, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_valve_to_rpm, calib_cur_progress, 0.0f, 1.0f);
+          math_interpolate_1d_set(ipEngineTemp, gEcuCorrectionsProgress.progress_idle_valve_position, calib_cur_progress, 0.0f, 1.0f);
         }
 
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
@@ -4024,11 +4024,9 @@ static void ecu_corrections_loop(void)
       }
     }
     for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_idle_valve_to_rpm[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_idle_valve_to_rpm[y][x] = value * 255.0f;
-      }
+      float value = gEcuCorrectionsProgress.progress_idle_valve_position[y];
+      if(value > 1.0f) value = 1.0f;
+      gEcuCorrections.progress_idle_valve_position[y] = value * 255.0f;
     }
     for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
