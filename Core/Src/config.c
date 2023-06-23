@@ -506,6 +506,21 @@ static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_MAX] = {
     0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f,
 };
 
+static const float default_idle_valve_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_valve_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_valve_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+};
+
 static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
     0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f,
     0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f,
@@ -676,6 +691,10 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
   memcpy(table->idle_valve_to_massair_pid_d, default_idle_valve_to_massair_pid_d, sizeof(default_idle_valve_to_massair_pid_d));
+
+  memcpy(table->idle_valve_to_rpm_pid_p, default_idle_valve_to_rpm_pid_p, sizeof(default_idle_valve_to_rpm_pid_p));
+  memcpy(table->idle_valve_to_rpm_pid_i, default_idle_valve_to_rpm_pid_i, sizeof(default_idle_valve_to_rpm_pid_i));
+  memcpy(table->idle_valve_to_rpm_pid_d, default_idle_valve_to_rpm_pid_d, sizeof(default_idle_valve_to_rpm_pid_d));
 
   memcpy(table->idle_ign_to_rpm_pid_p, default_idle_ign_to_rpm_pid_p, sizeof(default_idle_ign_to_rpm_pid_p));
   memcpy(table->idle_ign_to_rpm_pid_i, default_idle_ign_to_rpm_pid_i, sizeof(default_idle_ign_to_rpm_pid_i));

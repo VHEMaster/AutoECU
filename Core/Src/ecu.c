@@ -351,8 +351,9 @@ static uint8_t gCanTestStarted = 0;
 static volatile int8_t gCriticalStatus = 0;
 static volatile int8_t gBackupStatus = 0;
 
+static sMathPid gPidIdleValveAirFlow = {0};
+static sMathPid gPidIdleValveRpm = {0};
 static sMathPid gPidIdleIgnition = {0};
-static sMathPid gPidIdleAirFlow = {0};
 static sMathPid gPidShortTermCorr = {0};
 
 static const float gKnockDetectStartAngle = -100;
@@ -568,24 +569,29 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, float idle_wish_to_rpm_relatio
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
   if(isidle) {
+    math_pid_set_koffs(&gPidIdleValveAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p),
+        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d));
+    math_pid_set_koffs(&gPidIdleValveRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_p),
+        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_d));
     math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_p),
         math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_d));
-    math_pid_set_koffs(&gPidIdleAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d));
   } else {
+    math_pid_set_koffs(&gPidIdleValveAirFlow, 0, 0, 0);
+    math_pid_set_koffs(&gPidIdleValveRpm, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleIgnition, 0, 0, 0);
-    math_pid_set_koffs(&gPidIdleAirFlow, 0, 0, 0);
   }
   math_pid_set_koffs(&gPidShortTermCorr, table->short_term_corr_pid_p, table->short_term_corr_pid_i, table->short_term_corr_pid_d);
 }
 
 static void ecu_pid_init(void)
 {
-  math_pid_init(&gPidIdleIgnition);
-  math_pid_init(&gPidIdleAirFlow);
+  math_pid_init(&gPidIdleValveAirFlow);
   math_pid_init(&gPidShortTermCorr);
+  math_pid_init(&gPidIdleValveRpm);
+  math_pid_init(&gPidIdleIgnition);
 
-  math_pid_set_clamp(&gPidIdleAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
+  math_pid_set_clamp(&gPidIdleValveAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
+  math_pid_set_clamp(&gPidIdleValveRpm, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
   ecu_pid_update(0, 0);
@@ -1532,15 +1538,18 @@ static void ecu_update(void)
     injection_time = 0;
   }
 
-  math_pid_set_target(&gPidIdleAirFlow, idle_wish_massair);
+  math_pid_set_target(&gPidIdleValveAirFlow, idle_wish_massair);
+  math_pid_set_target(&gPidIdleValveRpm, idle_wish_rpm);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
   if(running) {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
-    math_pid_set_clamp(&gPidIdleAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
+    math_pid_set_clamp(&gPidIdleValveAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
+    math_pid_set_clamp(&gPidIdleValveRpm, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-    idle_valve_pos_correction = math_pid_update(&gPidIdleAirFlow, mass_air_flow, now);
+    idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
+    idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
   }
@@ -1571,7 +1580,8 @@ static void ecu_update(void)
   }
 
   if(gForceParameters.Enable.WishIdleValvePosition) {
-    math_pid_reset(&gPidIdleAirFlow);
+    math_pid_reset(&gPidIdleValveAirFlow);
+    math_pid_reset(&gPidIdleValveRpm);
     idle_valve_pos_correction = 0;
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
