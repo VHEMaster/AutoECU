@@ -364,6 +364,12 @@ static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
 
+static enum {
+  PhaseDetectDisabled = 0,
+  PhaseDetectByDisabling,
+  PhaseDetectByFueling
+} gPhaseDetectEnabled = PhaseDetectDisabled;
+
 static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
@@ -2653,6 +2659,14 @@ ITCM_FUNC void ecu_process(void)
   float pressure_measurement_angle = 90 + pressure_measurement_time;
 #endif
 
+  static const uint8_t phjase_detect_cycles_wait = 8;
+  static const uint8_t phjase_detect_cycles_threshold = 8;
+  static const float phjase_detect_fueling_multiplier = 1.5f;
+  static uint8_t phase_detect_fueling = 0;
+  static uint8_t phase_detect_running_cycles = 0;
+  static uint8_t phase_detect_cycles = 0;
+  uint8_t phase_detect_enabled = gPhaseDetectEnabled;
+
   float knock_lpf;
   float throttle;
   float angle = csps_getphasedangle(csps);
@@ -2878,6 +2892,8 @@ ITCM_FUNC void ecu_process(void)
       if(fabsf(knock_injection_correctives[i]) > 0.0005f || fabsf(knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) > 0.0005f)
         cy_injection[i] *= (knock_injection_correctives[i] + knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f;
       cy_injection[i] += inj_lag;
+
+      cy_injection[ECU_CYLINDERS_COUNT - 1 - i] = cy_injection[i];
     }
   }
 
@@ -3223,7 +3239,7 @@ ITCM_FUNC void ecu_process(void)
         }
 
         //Injection part
-        for(int i = 0; i < cy_count_injection; i++)
+        for(int i = 0, i_inv; i < cy_count_injection; i++)
         {
           if(angle_injection[i] < inj_phase_temp)
             anglesbeforeinject[i] = -angle_injection[i] + inj_phase_temp;
@@ -3241,8 +3257,42 @@ ITCM_FUNC void ecu_process(void)
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
               if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-                if(cy_injection[i] > inj_lag * 1.1f)
-                  ecu_inject(cy_count_injection, i, cy_injection[i]);
+                if(cy_injection[i] > inj_lag * 1.1f) {
+                  if(phased_injection) {
+                    ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
+                  } else {
+                    i_inv = ECU_CYLINDERS_COUNT - i - 1;
+
+                    if(phase_detect_enabled != PhaseDetectDisabled && gParameters.IdleFlag && running) {
+                      if(phase_detect_running_cycles < phjase_detect_cycles_wait) {
+                        phase_detect_running_cycles++;
+                      } else {
+                        if(phase_detect_cycles < phjase_detect_cycles_threshold) {
+
+                          if(phase_detect_enabled == PhaseDetectByDisabling) {
+                            cy_injection[3 - 1] = 0;
+                            cy_injection[4 - 1] = 0;
+                          }
+                          else if(phase_detect_enabled == PhaseDetectByFueling) {
+                            if(((phase_detect_fueling ^ 2) & (1 << i))) {
+                              cy_injection[i] *= phjase_detect_fueling_multiplier;
+                              cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
+                            }
+                            else {
+                              cy_injection[i] /= phjase_detect_fueling_multiplier;
+                              cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
+                            }
+                            phase_detect_fueling ^= (1 << i);
+                          }
+
+                          phase_detect_cycles++;
+                        }
+                      }
+                    }
+                    ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
+                    ecu_inject(ECU_CYLINDERS_COUNT, i_inv, cy_injection[i_inv]);
+                  }
+                }
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
               gLocalParams.ParametersAcceptLast = 0;
@@ -3335,6 +3385,9 @@ ITCM_FUNC void ecu_process(void)
 
     gParameters.CylinderIgnitionBitmask = 0;
     gParameters.CylinderInjectionBitmask = 0;
+    phase_detect_cycles = 0;
+    phase_detect_running_cycles = 0;
+    phase_detect_fueling = 0;
 
   }
 
