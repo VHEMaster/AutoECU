@@ -3466,7 +3466,7 @@ static void ecu_fan_process(void)
 
   GPIO_PinState out_fan_state = fan_pin_state;
   GPIO_PinState out_fan_sw_state = switch_state;
-  GPIO_PinState out_fan_sw_state_temp = GPIO_PIN_SET;
+  GPIO_PinState out_fan_sw_state_temp = switch_state;
 
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
@@ -3488,7 +3488,7 @@ static void ecu_fan_process(void)
   temp_high = gEcuParams.fanHighTemperature;
 
   if(!force_enabled) {
-    if(fan_pin_state && switch_state) {
+    if(/* fan_pin_state && */switch_state) {
       fan_state = 2;
     } else if(fan_pin_state && !switch_state) {
       fan_state = 1;
@@ -3506,8 +3506,11 @@ static void ecu_fan_process(void)
   status = sens_get_engine_temperature(&engine_temp);
 
   if(force_enabled) {
-    out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
-    out_fan_sw_state_temp = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    if(gForceParameters.Enable.FanRelay)
+      out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    if(gForceParameters.Enable.FanSwitch)
+      out_fan_sw_state_temp = gForceParameters.FanSwitch > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    else out_fan_sw_state_temp = out_fan_sw_state;
   } else if((!running && rotates && !can_shutdown) || !running_last || starter_state == GPIO_PIN_SET) {
     out_fan_state = GPIO_PIN_RESET;
     out_fan_sw_state_temp = GPIO_PIN_RESET;
@@ -3518,6 +3521,9 @@ static void ecu_fan_process(void)
   } else if(fan_state == 0) {
     if(engine_temp > temp_mid) {
       out_fan_state = GPIO_PIN_SET;
+      out_fan_sw_state_temp = GPIO_PIN_RESET;
+    } else {
+      out_fan_state = GPIO_PIN_RESET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 1) {
