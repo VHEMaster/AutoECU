@@ -368,7 +368,7 @@ static enum {
   PhaseDetectDisabled = 0,
   PhaseDetectByDisabling,
   PhaseDetectByFueling
-} gPhaseDetectEnabled = PhaseDetectDisabled;
+} gPhaseDetectEnabled = PhaseDetectByFueling;
 
 static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
@@ -2661,7 +2661,7 @@ ITCM_FUNC void ecu_process(void)
 
   static const uint8_t phjase_detect_cycles_wait = 8;
   static const uint8_t phjase_detect_cycles_threshold = 8;
-  static const float phjase_detect_fueling_multiplier = 1.5f;
+  static const float phjase_detect_fueling_multiplier = 1.85f;
   static uint8_t phase_detect_fueling = 0;
   static uint8_t phase_detect_running_cycles = 0;
   static uint8_t phase_detect_cycles = 0;
@@ -3274,7 +3274,7 @@ ITCM_FUNC void ecu_process(void)
                             cy_injection[4 - 1] = 0;
                           }
                           else if(phase_detect_enabled == PhaseDetectByFueling) {
-                            if(((phase_detect_fueling ^ 2) & (1 << i))) {
+                            if((phase_detect_fueling & (1 << i))) {
                               cy_injection[i] *= phjase_detect_fueling_multiplier;
                               cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
                             }
@@ -4850,13 +4850,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(PK_TableMemoryData.ErrorCode == 0)
       {
         memcpy(&PK_TableMemoryData.data[0], &((uint8_t*)&gEcuTable[table])[offset], size);
-        memset(&PK_TableMemoryData.data[size], 0, sizeof(PK_TableMemoryData.data) - size);
+        PK_TableMemoryData.PacketLength = sizeof(PK_TableMemoryData) - sizeof(PK_TableMemoryData.data) + PK_TableMemoryData.size;
       }
       else
       {
-        memset(&PK_TableMemoryData.data[0], 0, sizeof(PK_TableMemoryData.data));
+        PK_TableMemoryData.PacketLength = sizeof(PK_TableMemoryData) - sizeof(PK_TableMemoryData.data);
       }
-      PK_SendCommand(xChaSrc, &PK_TableMemoryData, sizeof(PK_TableMemoryData));
+      PK_SendCommand(xChaSrc, &PK_TableMemoryData, PK_TableMemoryData.PacketLength);
       break;
 
     case PK_TableMemoryDataID :
@@ -4906,13 +4906,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(PK_ConfigMemoryData.ErrorCode == 0)
       {
         memcpy(&PK_ConfigMemoryData.data[0], &((uint8_t*)&gEcuParams)[offset], size);
-        memset(&PK_ConfigMemoryData.data[size], 0, sizeof(PK_ConfigMemoryData.data) - size);
+        PK_ConfigMemoryData.PacketLength = sizeof(PK_ConfigMemoryData) - sizeof(PK_ConfigMemoryData.data) + PK_ConfigMemoryData.size;
       }
       else
       {
-        memset(&PK_ConfigMemoryData.data[0], 0, sizeof(PK_ConfigMemoryData.data));
+        PK_ConfigMemoryData.PacketLength = sizeof(PK_ConfigMemoryData) - sizeof(PK_ConfigMemoryData.data);
       }
-      PK_SendCommand(xChaSrc, &PK_ConfigMemoryData, sizeof(PK_ConfigMemoryData));
+      PK_SendCommand(xChaSrc, &PK_ConfigMemoryData, PK_ConfigMemoryData.PacketLength);
       break;
 
     case PK_ConfigMemoryDataID :
@@ -4958,13 +4958,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(PK_CriticalMemoryData.ErrorCode == 0)
       {
         memcpy(&PK_CriticalMemoryData.data[0], &((uint8_t*)&gEcuCriticalBackup)[offset], size);
-        memset(&PK_CriticalMemoryData.data[size], 0, sizeof(PK_CriticalMemoryData.data) - size);
+        PK_CriticalMemoryData.PacketLength = sizeof(PK_CriticalMemoryData) - sizeof(PK_CriticalMemoryData.data) + PK_CriticalMemoryData.size;
       }
       else
       {
-        memset(&PK_CriticalMemoryData.data[0], 0, sizeof(PK_CriticalMemoryData.data));
+        PK_CriticalMemoryData.PacketLength = sizeof(PK_CriticalMemoryData) - sizeof(PK_CriticalMemoryData.data);
       }
-      PK_SendCommand(xChaSrc, &PK_CriticalMemoryData, sizeof(PK_CriticalMemoryData));
+      PK_SendCommand(xChaSrc, &PK_CriticalMemoryData, PK_CriticalMemoryData.PacketLength);
       break;
 
     case PK_CriticalMemoryDataID :
@@ -5010,13 +5010,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(PK_CorrectionsMemoryData.ErrorCode == 0)
       {
         memcpy(&PK_CorrectionsMemoryData.data[0], &((uint8_t*)&gEcuCorrections)[offset], size);
-        memset(&PK_CorrectionsMemoryData.data[size], 0, sizeof(PK_CorrectionsMemoryData.data) - size);
+        PK_CorrectionsMemoryData.PacketLength = sizeof(PK_CorrectionsMemoryData) - sizeof(PK_CorrectionsMemoryData.data) + PK_CorrectionsMemoryData.size;
       }
       else
       {
-        memset(&PK_CorrectionsMemoryData.data[0], 0, sizeof(PK_CorrectionsMemoryData.data));
+        PK_CorrectionsMemoryData.PacketLength = sizeof(PK_CorrectionsMemoryData) - sizeof(PK_CorrectionsMemoryData.data);
       }
-      PK_SendCommand(xChaSrc, &PK_CorrectionsMemoryData, sizeof(PK_CorrectionsMemoryData));
+      PK_SendCommand(xChaSrc, &PK_CorrectionsMemoryData, PK_CorrectionsMemoryData.PacketLength);
       break;
 
     case PK_CorrectionsMemoryDataID :
