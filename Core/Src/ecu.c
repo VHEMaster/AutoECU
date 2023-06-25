@@ -2927,7 +2927,7 @@ ITCM_FUNC void ecu_process(void)
   }
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-    phased_angles[i] = csps_getphasedangle_cy(csps, i, angle);
+    phased_angles[i] = csps_getphasedangle_cy(csps_isphased(csps), i, angle);
   }
 
   non_phased_angles[0] = csps_getangle14(csps);

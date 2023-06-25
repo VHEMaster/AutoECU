@@ -15,6 +15,8 @@ static volatile float CspsAngleInitial = ANGLE_INITIAL;
 static const float CspsAngleInitial = ANGLE_INITIAL;
 #endif
 
+#define CSPS_ACCELERATION_FEATURE 1
+
 static const float csps_cors[CSPS_DATA_COUNT] = {
     2.68668088f, 0.719637128f, 1.132915204f, 0.93333743f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
     1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f, 1.01200111f, 0.987573024f,
@@ -59,6 +61,7 @@ static volatile float csps_tsps_rel_pos = 0;
 static volatile uint32_t csps_turns = 0;
 static volatile uint32_t csps_turns_phase = 0;
 static volatile uint32_t csps_halfturns = 0;
+static float csps_accelerations[ECU_CYLINDERS_COUNT] = { 0 };
 
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
@@ -223,6 +226,19 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   float adder = 0;
   float period_prev = 1000000.0f;
   static float period = 1000000.0f;
+
+#if defined(CSPS_ACCELERATION_FEATURE) && CSPS_ACCELERATION_FEATURE > 0
+  static float accels_time_start[ECU_CYLINDERS_COUNT] = { 0 };
+  static float accels_time_tdc[ECU_CYLINDERS_COUNT] = { 0 };
+  static float accels_time_end[ECU_CYLINDERS_COUNT] = { 0 };
+  static float accels_angle_start[ECU_CYLINDERS_COUNT] = { 0 };
+  static float accels_angle_tdc[ECU_CYLINDERS_COUNT] = { 0 };
+  static float accels_angle_end[ECU_CYLINDERS_COUNT] = { 0 };
+  static float acceleration_prev = 0;
+  float accel_time_start, accel_time_end;
+  float angles[ECU_CYLINDERS_COUNT];
+  float acceleration_temp = 0;
+#endif
 
   cur = timestamp;
 
@@ -409,6 +425,57 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
       }
     }
 
+#if defined(CSPS_ACCELERATION_FEATURE) && CSPS_ACCELERATION_FEATURE > 0
+    if (csps_phased) {
+      for (int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+        angles[i] = csps_getphasedangle_cy(data.PhasedActive, i, csps_angle_phased);
+      }
+    }
+    else {
+      angles[0] = angles[3] = csps_angle14;
+      angles[1] = angles[2] = csps_angle23;
+    }
+
+    for (int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      if (accels_time_start[i] == 0) {
+        if (angles[i] >= -91.5 && angles[i] < 0) {
+          accels_angle_start[i] = angles[i];
+          accels_time_start[i] = cur;
+        }
+      }
+      else if (accels_time_tdc[i] == 0) {
+        if (angles[i] >= -1.5) {
+          accels_angle_tdc[i] = angles[i];
+          accels_time_tdc[i] = cur;
+        }
+      }
+      else if (accels_time_end[i] == 0) {
+        if (angles[i] >= 88.5) {
+          accels_angle_end[i] = angles[i];
+          accels_time_end[i] = cur;
+        }
+      }
+
+      if (accels_angle_start[i] != 0 && accels_angle_tdc[i] != 0 && accels_angle_end[i] != 0) {
+        accel_time_start = accels_time_tdc[i] - accels_time_start[i];
+        accel_time_end = accels_time_end[i] - accels_time_tdc[i];
+
+        csps_accelerations[i] = accel_time_start / accel_time_end - 1.0f;
+        acceleration_temp = csps_accelerations[i];
+        csps_accelerations[i] += acceleration_prev / 3.0f;
+        acceleration_prev = acceleration_temp;
+
+        accels_time_start[i] = 0;
+        accels_time_tdc[i] = 0;
+        accels_time_end[i] = 0;
+        accels_angle_start[i] = 0;
+        accels_angle_tdc[i] = 0;
+        accels_angle_end[i] = 0;
+      }
+    }
+#endif
+
+
     data.PhasedActive = csps_phased;
     data.PhasedAngleCur = csps_angle_phased;
     data.PhasedAnglePrev = cs_phased_p;
@@ -493,9 +560,8 @@ ITCM_FUNC INLINE float csps_getangle23from14(float angle)
   return angle;
 }
 
-ITCM_FUNC INLINE float csps_getphasedangle_cy(sCspsData data, uint8_t cylinder, float angle)
+ITCM_FUNC INLINE float csps_getphasedangle_cy(uint8_t phased, uint8_t cylinder, float angle)
 {
-  uint8_t phased = csps_isphased(data);
   switch(cylinder) {
     case 0 :
       angle -= 360.0f;
@@ -564,49 +630,66 @@ ITCM_FUNC float csps_getphasedangle(sCspsData data)
   return angle;
 }
 
-ITCM_FUNC INLINE float csps_getrpm(sCspsData data)
+INLINE float csps_getrpm(sCspsData data)
 {
   return data.RPM;
 }
 
-ITCM_FUNC INLINE float csps_getuspa(sCspsData data)
+INLINE float csps_getuspa(sCspsData data)
 {
   return data.uSPA;
 }
 
-ITCM_FUNC INLINE float csps_getperiod(sCspsData data)
+INLINE float csps_getperiod(sCspsData data)
 {
   return data.Period;
 }
 
-ITCM_FUNC INLINE uint8_t csps_isrunning(void)
+INLINE uint8_t csps_isrunning(void)
 {
   return csps_running;
 }
 
-ITCM_FUNC INLINE uint8_t csps_isrotates(void)
+INLINE uint8_t csps_isrotates(void)
 {
   return csps_rotates;
 }
 
-ITCM_FUNC INLINE uint8_t csps_isphased(sCspsData data)
+INLINE uint8_t csps_isphased(sCspsData data)
 {
   return data.PhasedActive;
 }
 
-ITCM_FUNC INLINE uint8_t csps_isfound(void)
+INLINE uint8_t csps_isfound(void)
 {
   return csps_found;
 }
 
-ITCM_FUNC INLINE uint8_t csps_iserror(void)
+INLINE uint8_t csps_iserror(void)
 {
   return csps_errors > 5.0f;
 }
 
-ITCM_FUNC INLINE uint32_t csps_gethalfturns(void)
+INLINE uint32_t csps_gethalfturns(void)
 {
   return csps_halfturns;
+}
+
+ITCM_FUNC INLINE float csps_getacceleration_cy(int cylinder)
+{
+  if(cylinder >= ECU_CYLINDERS_COUNT)
+    return 0;
+  return csps_accelerations[cylinder];
+}
+
+ITCM_FUNC INLINE float csps_getacceleration(void)
+{
+  float result = 0;
+
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
+    result += csps_accelerations[i];
+
+  return result / ECU_CYLINDERS_COUNT;
 }
 
 ITCM_FUNC INLINE uint32_t csps_getturns(void)
@@ -650,6 +733,7 @@ void csps_loop(void)
     csps_phased = 0;
     csps_running = 0;
     csps_period = 1000000.0f;
+    memset(csps_accelerations, 0, sizeof(csps_accelerations));
     htim->Instance->PSC = 0xFFFF;
     if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_READY)
       HAL_TIM_PWM_Stop(htim, tim_channel);
