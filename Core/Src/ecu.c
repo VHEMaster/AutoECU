@@ -368,7 +368,7 @@ static enum {
   PhaseDetectDisabled = 0,
   PhaseDetectByDisabling,
   PhaseDetectByFueling
-} gPhaseDetectEnabled = PhaseDetectByFueling;
+} gPhaseDetectEnabled = PhaseDetectByDisabling;
 
 static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
@@ -2659,8 +2659,8 @@ ITCM_FUNC void ecu_process(void)
   float pressure_measurement_angle = 90 + pressure_measurement_time;
 #endif
 
-  static const uint8_t phjase_detect_cycles_wait = 8;
-  static const uint8_t phjase_detect_cycles_threshold = 8;
+  static const uint8_t phjase_detect_cycles_wait = 16;
+  static const uint8_t phjase_detect_cycles_threshold = 12;
   static const float phjase_detect_fueling_multiplier = 1.85f;
   static uint8_t phase_detect_fueling = 0;
   static uint8_t phase_detect_running_cycles = 0;
