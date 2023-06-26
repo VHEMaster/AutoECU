@@ -1258,8 +1258,12 @@ static void ecu_update(void)
   injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 1.00f);
 
   if(running) {
-    for(int ht = 0; ht < halfturns_performed; ht++) {
-      injection_phase = injection_phase * (1.0f - injection_phase_lpf) + injection_phase_table * injection_phase_lpf;
+    if(injection_phase_lpf >= 0.99f) {
+      injection_phase = injection_phase_table;
+    } else {
+      for(int ht = 0; ht < halfturns_performed; ht++) {
+        injection_phase = injection_phase * (1.0f - injection_phase_lpf) + injection_phase_table * injection_phase_lpf;
+      }
     }
   } else {
     injection_phase = injection_phase_start;
