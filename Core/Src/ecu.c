@@ -2827,11 +2827,11 @@ ITCM_FUNC void ecu_process(void)
   }
 
   //TODO: remove this filter when fixed the bug of incorrect injection pulses
-  inj_phase_koff = diff * 0.0001f;
+  inj_phase_koff = diff * 0.005f;
   if(inj_phase_koff > 0.8f)
     inj_phase_koff = 0.8f;
-  if(inj_phase_koff < 0.000001f)
-    inj_phase_koff = 0.000001f;
+  if(inj_phase_koff < 0.0001f)
+    inj_phase_koff = 0.0001f;
 
   uspa_koff = diff * 0.002f;
 

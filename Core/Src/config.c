@@ -643,8 +643,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->fillings_count = ITEMSOF(default_fillings);
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));
 
-  memcpy(table->injection_phase_lpf, default_injection_phase_lpf, sizeof(default_injection_phase_lpf));
-
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
   memcpy(table->fuel_mixtures, default_fuel_mixtures, sizeof(default_fuel_mixtures));
   memcpy(table->injection_phase, default_injection_phase, sizeof(default_injection_phase));
