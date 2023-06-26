@@ -3995,10 +3995,10 @@ static void ecu_phase_detect_process(void)
     }
 
     if(positives[0] > negatives[0] && positives[1] > negatives[1]) {
-      csps_tsps_simulate(1);
+      csps_tsps_simulate(0);
     }
     else if(positives[0] < negatives[0] && positives[1] < negatives[1]) {
-      csps_tsps_simulate(0);
+      csps_tsps_simulate(1);
     }
 
     gPhaseDetectCompleted = 0;
