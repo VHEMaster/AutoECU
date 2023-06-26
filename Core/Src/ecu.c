@@ -48,6 +48,7 @@
 #define IGNITION_ACCEPTION_FEATURE  1
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
+#define ACCELERATION_POINTS_COUNT   8
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -368,7 +369,12 @@ static enum {
   PhaseDetectDisabled = 0,
   PhaseDetectByDisabling,
   PhaseDetectByFueling
-} gPhaseDetectEnabled = PhaseDetectByDisabling;
+} gPhaseDetectMethod = PhaseDetectByDisabling;
+
+static volatile uint8_t gPhaseDetectCompleted = 0;
+static uint8_t gPhaseDetectActive = 0;
+static float gPhaseDetectAccelerations[ECU_CYLINDERS_COUNT][ACCELERATION_POINTS_COUNT] = {{0}};
+static uint8_t gPhaseDetectAccelerationsCount[ECU_CYLINDERS_COUNT] = {0};
 
 static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
@@ -908,6 +914,8 @@ static void ecu_update(void)
   period = csps_getperiod(csps);
   period_half = period * 0.5f;
   fuel_pressure = table->fuel_pressure;
+
+  use_tsps = phased;
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
@@ -2660,12 +2668,12 @@ ITCM_FUNC void ecu_process(void)
 #endif
 
   static const uint8_t phjase_detect_cycles_wait = 16;
-  static const uint8_t phjase_detect_cycles_threshold = 12;
+  static const uint8_t phjase_detect_cycles_threshold = ACCELERATION_POINTS_COUNT * ECU_CYLINDERS_COUNT_HALF;
   static const float phjase_detect_fueling_multiplier = 1.85f;
   static uint8_t phase_detect_fueling = 0;
   static uint8_t phase_detect_running_cycles = 0;
   static uint8_t phase_detect_cycles = 0;
-  uint8_t phase_detect_enabled = gPhaseDetectEnabled;
+  uint8_t phase_detect_enabled = gPhaseDetectMethod;
 
   float knock_lpf;
   float throttle;
@@ -2774,7 +2782,7 @@ ITCM_FUNC void ecu_process(void)
   injector_channel = table->inj_channel;
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
-  use_tsps = gEcuParams.useTSPS;
+  use_tsps = csps_isphased(csps); //gEcuParams.useTSPS;
   use_phased = use_tsps && is_phased;
   phased_injection = use_phased;
   phased_ignition = use_phased && individual_coils && !single_coil;
@@ -3269,22 +3277,28 @@ ITCM_FUNC void ecu_process(void)
                       } else {
                         if(phase_detect_cycles < phjase_detect_cycles_threshold) {
 
-                          if(phase_detect_enabled == PhaseDetectByDisabling) {
-                            cy_injection[3 - 1] = 0;
-                            cy_injection[4 - 1] = 0;
-                          }
-                          else if(phase_detect_enabled == PhaseDetectByFueling) {
-                            if((phase_detect_fueling & (1 << i))) {
-                              cy_injection[i] *= phjase_detect_fueling_multiplier;
-                              cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
+                          if(phase_detect_enabled && (gPhaseDetectActive || i != 0)) {
+                            gPhaseDetectActive = 1;
+                            if(phase_detect_enabled == PhaseDetectByDisabling) {
+                              cy_injection[3 - 1] = 0;
+                              cy_injection[4 - 1] = 0;
                             }
-                            else {
-                              cy_injection[i] /= phjase_detect_fueling_multiplier;
-                              cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
+                            else if(phase_detect_enabled == PhaseDetectByFueling) {
+                              if((phase_detect_fueling & (1 << i))) {
+                                cy_injection[i] *= phjase_detect_fueling_multiplier;
+                                cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
+                              }
+                              else {
+                                cy_injection[i] /= phjase_detect_fueling_multiplier;
+                                cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
+                              }
+                              phase_detect_fueling ^= (1 << i);
                             }
-                            phase_detect_fueling ^= (1 << i);
-                          }
 
+                            phase_detect_cycles++;
+                          }
+                        } else if(phase_detect_cycles == phjase_detect_cycles_threshold) {
+                          gPhaseDetectCompleted = 1;
                           phase_detect_cycles++;
                         }
                       }
@@ -3383,6 +3397,10 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ITEMSOF(gInjPorts); i++)
       gInjPorts[i]->BSRR = gInjPins[i];
 
+    memset(gPhaseDetectAccelerations, 0, sizeof(gPhaseDetectAccelerations));
+    memset(gPhaseDetectAccelerationsCount, 0, sizeof(gPhaseDetectAccelerationsCount));
+    gPhaseDetectActive = 0;
+    gPhaseDetectCompleted = 0;
     gParameters.CylinderIgnitionBitmask = 0;
     gParameters.CylinderInjectionBitmask = 0;
     phase_detect_cycles = 0;
@@ -3953,6 +3971,37 @@ static void ecu_specific_parameters_loop(void)
   }
 }
 
+float positives[ECU_CYLINDERS_COUNT] = {0};
+float negatives[ECU_CYLINDERS_COUNT] = {0};
+
+static void ecu_phase_detect_process(void)
+{
+
+  if(gPhaseDetectCompleted) {
+    memset(positives, 0, sizeof(positives));
+    memset(negatives, 0, sizeof(negatives));
+    for(int cy = 0; cy < ECU_CYLINDERS_COUNT; cy++) {
+      if(gPhaseDetectAccelerationsCount[cy] > 2) {
+        gPhaseDetectAccelerationsCount[cy] &= ~1;
+        for(int i = 2; i < gPhaseDetectAccelerationsCount[cy]; i += 2) {
+          positives[cy] += gPhaseDetectAccelerations[cy][i];
+          negatives[cy] += gPhaseDetectAccelerations[cy][i + 1];
+        }
+      }
+    }
+
+    if(positives[0] > negatives[0] && positives[1] > negatives[1]) {
+      csps_tsps_simulate(1);
+    }
+    else if(positives[0] < negatives[0] && positives[1] < negatives[1]) {
+      csps_tsps_simulate(0);
+    }
+
+    gPhaseDetectCompleted = 0;
+    gPhaseDetectActive = 0;
+  }
+}
+
 static void ecu_mem_process(void)
 {
   if(!Mem.lock)
@@ -4240,6 +4289,8 @@ static void ecu_config_process(void)
     Knock_SetGainValue(knock_gain);
     Knock_SetIntegratorTimeConstant(integrator_time);
   }
+
+  csps_tsps_enable(gEcuParams.useTSPS);
 }
 
 static void ecu_immo_init(void)
@@ -4678,6 +4729,15 @@ static void ecu_battery_charge_process(void)
   }
 }
 
+static void ecu_csps_acceleration_callback(uint8_t cylinder, float acceleration)
+{
+  if(gPhaseDetectActive && !gPhaseDetectCompleted) {
+    if(gPhaseDetectAccelerationsCount[cylinder] < ACCELERATION_POINTS_COUNT) {
+      gPhaseDetectAccelerations[cylinder][gPhaseDetectAccelerationsCount[cylinder]++] = acceleration;
+    }
+  }
+}
+
 void ecu_init(RTC_HandleTypeDef *_hrtc)
 {
   hrtc = _hrtc;
@@ -4706,16 +4766,20 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   gLocalParams.MapAcceptValue = 103000.0f;
   gLocalParams.MapAcceptLast = 0;
 #endif
+
+  csps_register_acceleration_callback(ecu_csps_acceleration_callback);
+
   gEcuInitialized = 1;
 
 }
 
-ITCM_FUNC void ecu_irq_fast_loop(void)
+void ecu_irq_fast_loop(void)
 {
   if(!gEcuInitialized)
     return;
 
   ecu_process();
+  ecu_phase_detect_process();
 
 #ifdef DEBUG
   float pressure;

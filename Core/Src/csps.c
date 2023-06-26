@@ -51,6 +51,8 @@ static volatile uint8_t csps_rotates = 0;
 static volatile uint8_t csps_running = 0;
 static volatile uint8_t csps_phased = 0;
 static volatile uint8_t csps_phase_found = 0;
+static volatile uint8_t csps_phase_simulated = 0;
+static volatile uint8_t csps_phase_is_simulating = 0;
 static volatile uint32_t csps_last = 0;
 static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
@@ -73,6 +75,7 @@ static sCspsData * volatile CspsDataPtr = &CspsData[0];
 static float csps_cors_avg = 1.0f;
 static float csps_cors_sum = 1.0f;
 static volatile uint32_t ticks = 0;
+static volatile uint8_t csps_tsps_enabled = 0;
 
 static void csps_handle(uint32_t timestamp);
 
@@ -84,6 +87,8 @@ volatile static uint32_t csps_irq_time = 0;
 volatile static float csps_irq_avg = 0;
 volatile static float csps_irq_max = 0;
 #endif
+
+static fCspsAccelerationCallback csps_acceleration_callback = NULL;
 
 INLINE void csps_exti(uint32_t timestamp)
 {
@@ -197,9 +202,21 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
 
 INLINE void csps_tsps_exti(uint32_t timestamp)
 {
-  if(csps_found && csps_rotates) {
+  if(csps_tsps_enabled && csps_found && csps_rotates) {
     csps_tsps_rel_pos = csps_getangle14(csps_data());
     csps_phase_found = 1;
+  }
+}
+
+INLINE void csps_tsps_simulate(uint8_t cy)
+{
+  if(csps_found && csps_rotates) {
+    if(cy == 0) {
+      csps_phase_simulated = 1;
+    } else {
+      csps_phase_simulated = 2;
+    }
+    csps_phase_is_simulating = 1;
   }
 }
 
@@ -238,6 +255,7 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   float accel_time_start, accel_time_end;
   float angles[ECU_CYLINDERS_COUNT];
   float acceleration_temp = 0;
+  uint8_t accels_cy_count;
 #endif
 
   cur = timestamp;
@@ -413,13 +431,23 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
     data.RPM = csps_rpm;
     data.uSPA = csps_uspa;
 
-    if(csps_phase_found) {
-      csps_phase_found = 0;
+    if(csps_phase_found || csps_phase_simulated) {
       csps_phased = 1;
       csps_turns_phase = csps_turns;
-      csps_angle_phased = csps_angle14;
-      cs_phased_p = cs14_p;
-    } else {
+      if(csps_phase_simulated == 2) {
+        csps_angle_phased = csps_angle14 + 360.0f;
+        cs_phased_p = cs14_p + 360.0f;
+        while(csps_angle_phased >= 360.0f)
+          csps_angle_phased -= 720.0f;
+        while(cs_phased_p >= 360.0f)
+          cs_phased_p -= 720.0f;
+      } else {
+        csps_angle_phased = csps_angle14;
+        cs_phased_p = cs14_p;
+      }
+      csps_phase_found = 0;
+      csps_phase_simulated = 0;
+    } else if(!csps_phase_is_simulating) {
       if(csps_turns - csps_turns_phase > 5) {
         csps_phased = 0;
       }
@@ -430,13 +458,15 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
       for (int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         angles[i] = csps_getphasedangle_cy(data.PhasedActive, i, csps_angle_phased);
       }
+      accels_cy_count = ECU_CYLINDERS_COUNT;
     }
     else {
       angles[0] = angles[3] = csps_angle14;
       angles[1] = angles[2] = csps_angle23;
+      accels_cy_count = ECU_CYLINDERS_COUNT_HALF;
     }
 
-    for (int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    for (int i = 0; i < accels_cy_count; i++) {
       if (accels_time_start[i] == 0) {
         if (angles[i] >= -91.5 && angles[i] < 0) {
           accels_angle_start[i] = angles[i];
@@ -471,6 +501,13 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
         accels_angle_start[i] = 0;
         accels_angle_tdc[i] = 0;
         accels_angle_end[i] = 0;
+
+        csps_acceleration_callback(i, csps_accelerations[i]);
+
+        if(accels_cy_count == ECU_CYLINDERS_COUNT_HALF) {
+          csps_acceleration_callback(ECU_CYLINDERS_COUNT - i - 1, csps_accelerations[i]);
+          csps_accelerations[i] = csps_accelerations[ECU_CYLINDERS_COUNT - i - 1];
+        }
       }
     }
 #endif
@@ -550,7 +587,7 @@ ITCM_FUNC INLINE float csps_getangle14(sCspsData data)
   return angle;
 }
 
-ITCM_FUNC INLINE float csps_getangle23from14(float angle)
+INLINE float csps_getangle23from14(float angle)
 {
   if(!csps_rotates)
     return 0.0f;
@@ -560,7 +597,7 @@ ITCM_FUNC INLINE float csps_getangle23from14(float angle)
   return angle;
 }
 
-ITCM_FUNC INLINE float csps_getphasedangle_cy(uint8_t phased, uint8_t cylinder, float angle)
+INLINE float csps_getphasedangle_cy(uint8_t phased, uint8_t cylinder, float angle)
 {
   switch(cylinder) {
     case 0 :
@@ -706,7 +743,7 @@ ITCM_FUNC INLINE sCspsData csps_data(void)
 
 ITCM_FUNC INLINE float csps_gettspsrelpos(void)
 {
-  if(csps_phased)
+  if(csps_phased && !csps_phase_is_simulating)
     return csps_tsps_rel_pos;
   return 0.0f;
 }
@@ -730,6 +767,8 @@ void csps_loop(void)
     csps_rpm = 0;
     csps_rotates = 0;
     csps_phase_found = 0;
+    csps_phase_simulated = 0;
+    csps_phase_is_simulating = 0;
     csps_phased = 0;
     csps_running = 0;
     csps_period = 1000000.0f;
@@ -755,4 +794,14 @@ void csps_loop(void)
     last_error_null = now;
   }
 
+}
+
+void csps_register_acceleration_callback(fCspsAccelerationCallback func)
+{
+  csps_acceleration_callback = func;
+}
+
+void csps_tsps_enable(uint8_t enabled)
+{
+  csps_tsps_enabled = enabled;
 }
