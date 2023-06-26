@@ -370,8 +370,8 @@ static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
-    42, 42, 42, 42, 42, 42, 42, 42,
-    42, 42, 42, 42, 42, 42, 42, 42,
+    41, 41, 41, 41, 41, 41, 41, 41,
+    41, 41, 41, 41, 41, 41, 41, 41,
 };
 
 static const float default_knock_gain[TABLE_ROTATES_MAX] = {
