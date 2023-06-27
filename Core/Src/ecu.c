@@ -2685,6 +2685,7 @@ ITCM_FUNC void ecu_process(void)
   static uint8_t phase_detect_fueling = 0;
   static uint8_t phase_detect_running_cycles = 0;
   static uint8_t phase_detect_cycles = 0;
+  uint8_t phase_need_clean = 0;
   uint8_t phase_detect_enabled = gPhaseDetectMethod;
 
   float knock_lpf;
@@ -3412,19 +3413,19 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ITEMSOF(gInjPorts); i++)
       gInjPorts[i]->BSRR = gInjPins[i];
 
-    memset(gPhaseDetectAccelerations, 0, sizeof(gPhaseDetectAccelerations));
-    memset(gPhaseDetectAccelerationsCount, 0, sizeof(gPhaseDetectAccelerationsCount));
-    gPhaseDetectActive = 0;
-    gPhaseDetectCompleted = 0;
     gParameters.CylinderIgnitionBitmask = 0;
     gParameters.CylinderInjectionBitmask = 0;
-    phase_detect_cycles = 0;
-    phase_detect_running_cycles = 0;
-    phase_detect_fueling = 0;
+
+    phase_need_clean = 1;
 
   }
 
   if(phase_detect_running_cycles && phased_mode != PhasedModeWithoutSensor) {
+    phase_need_clean = 1;
+  }
+
+
+  if(phase_need_clean) {
     memset(gPhaseDetectAccelerations, 0, sizeof(gPhaseDetectAccelerations));
     memset(gPhaseDetectAccelerationsCount, 0, sizeof(gPhaseDetectAccelerationsCount));
     gPhaseDetectActive = 0;
