@@ -109,7 +109,6 @@ typedef struct {
     HAL_StatusTypeDef O2TemperatureStatus;
     HAL_StatusTypeDef O2HeaterStatus;
     HAL_StatusTypeDef AdcStatus;
-    HAL_StatusTypeDef TspsSyncStatus;
     HAL_StatusTypeDef CanInitStatus;
     HAL_StatusTypeDef CanTestStatus;
     HAL_StatusTypeDef KlineProtocolStatus;
@@ -186,6 +185,11 @@ typedef struct {
         uint8_t is_running;
         uint32_t run_time;
     }BatteryCharge;
+    struct {
+        uint8_t sync_error;
+        uint32_t sync_error_time;
+        uint32_t sync_error_last;
+    }Tsps;
 }sStatus;
 
 typedef volatile struct {
@@ -880,7 +884,7 @@ static void ecu_update(void)
   uint8_t throttle_idle_flag;
   uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
-  uint8_t use_tsps = gEcuParams.useTSPS;
+  uint8_t phased_mode = gEcuParams.phasedMode;
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
   static uint8_t knock_running = 0;
@@ -914,8 +918,6 @@ static void ecu_update(void)
   period = csps_getperiod(csps);
   period_half = period * 0.5f;
   fuel_pressure = table->fuel_pressure;
-
-  use_tsps = phased;
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
@@ -1019,7 +1021,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Lambda = HAL_OK;
   }
 
-  if(use_tsps && phased) {
+  if(phased_mode != PhasedModeDisabled && phased) {
     enrichment_async_enabled = table->enrichment_ph_async_enabled;
     enrichment_sync_enabled = table->enrichment_ph_sync_enabled;
     enrichment_post_injection_enabled = table->enrichment_ph_post_injection_enabled;
@@ -1029,7 +1031,7 @@ static void ecu_update(void)
     enrichment_post_injection_enabled = table->enrichment_pp_post_injection_enabled;
   }
 
-  if(running && use_tsps && !phased) {
+  if(running && phased_mode == PhasedModeWithSensor && !phased) {
     if(DelayDiff(now, phased_last) > 500000) {
       gStatus.Sensors.Struct.Tsps = HAL_ERROR;
       phased_last = now;
@@ -1039,11 +1041,17 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Tsps = HAL_OK;
   }
 
-  if(running && use_tsps && phased && fabsf(tsps_rel_pos) >= tsps_desync_thr) {
-    gStatus.TspsSyncStatus = HAL_ERROR;
+  if(running && phased_mode == PhasedModeWithSensor && phased && fabsf(tsps_rel_pos) >= tsps_desync_thr) {
+    if(!gStatus.Tsps.sync_error) {
+      gStatus.Tsps.sync_error_time = 0;
+    } else {
+      gStatus.Tsps.sync_error_time += HAL_DelayDiff(hal_now, gStatus.Tsps.sync_error_last);
+    }
+    gStatus.Tsps.sync_error = 1;
   } else {
-    gStatus.TspsSyncStatus = HAL_OK;
+    gStatus.Tsps.sync_error = 0;
   }
+  gStatus.Tsps.sync_error_last = hal_now;
 
   if(gEcuParams.useKnockSensor) {
     gStatus.Sensors.Struct.Knock = knock_status;
@@ -2716,7 +2724,7 @@ ITCM_FUNC void ecu_process(void)
   uint8_t cy_count_injection;
   uint8_t individual_coils;
   uint8_t single_coil;
-  uint8_t use_tsps;
+  uint8_t phased_mode;
   uint8_t injector_channel;
   uint8_t start_allowed = gParameters.StartAllowed;
   uint8_t cutoff_inj_act, cutoff_ign_act;
@@ -2786,8 +2794,8 @@ ITCM_FUNC void ecu_process(void)
   injector_channel = table->inj_channel;
   single_coil = gEcuParams.isSingleCoil;
   individual_coils = gEcuParams.isIndividualCoils;
-  use_tsps = csps_isphased(csps); //gEcuParams.useTSPS;
-  use_phased = use_tsps && is_phased;
+  phased_mode = gEcuParams.phasedMode;
+  use_phased = phased_mode != PhasedModeDisabled && is_phased;
   phased_injection = use_phased;
   phased_ignition = use_phased && individual_coils && !single_coil;
   phased_knock = use_phased;
@@ -2809,7 +2817,7 @@ ITCM_FUNC void ecu_process(void)
   }
 
   if(last_start_triggered) {
-    if(found && use_tsps && !is_phased) {
+    if(found && phased_mode == PhasedModeWithSensor && !is_phased) {
       if(DelayDiff(now, last_start) < 1000000 && turns_count - turns_count_last < 3) {
         start_allowed = 0;
       } else {
@@ -3275,38 +3283,41 @@ ITCM_FUNC void ecu_process(void)
                   } else {
                     i_inv = ECU_CYLINDERS_COUNT - i - 1;
 
-                    if(phase_detect_enabled != PhaseDetectDisabled && gParameters.IdleFlag && running) {
-                      if(phase_detect_running_cycles < phjase_detect_cycles_wait) {
-                        phase_detect_running_cycles++;
-                      } else {
-                        if(phase_detect_cycles < phjase_detect_cycles_threshold) {
+                    if(phased_mode == PhasedModeWithoutSensor) {
+                      if(phase_detect_enabled != PhaseDetectDisabled && gParameters.IdleFlag && running) {
+                        if(phase_detect_running_cycles < phjase_detect_cycles_wait) {
+                          phase_detect_running_cycles++;
+                        } else {
+                          if(phase_detect_cycles < phjase_detect_cycles_threshold) {
 
-                          if(phase_detect_enabled && (gPhaseDetectActive || i != 0)) {
-                            gPhaseDetectActive = 1;
-                            if(phase_detect_enabled == PhaseDetectByDisabling) {
-                              cy_injection[3 - 1] = 0;
-                              cy_injection[4 - 1] = 0;
-                            }
-                            else if(phase_detect_enabled == PhaseDetectByFueling) {
-                              if((phase_detect_fueling & (1 << i))) {
-                                cy_injection[i] *= phjase_detect_fueling_multiplier;
-                                cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
+                            if(phase_detect_enabled && (gPhaseDetectActive || i != 0)) {
+                              gPhaseDetectActive = 1;
+                              if(phase_detect_enabled == PhaseDetectByDisabling) {
+                                cy_injection[3 - 1] = 0;
+                                cy_injection[4 - 1] = 0;
                               }
-                              else {
-                                cy_injection[i] /= phjase_detect_fueling_multiplier;
-                                cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
+                              else if(phase_detect_enabled == PhaseDetectByFueling) {
+                                if((phase_detect_fueling & (1 << i))) {
+                                  cy_injection[i] *= phjase_detect_fueling_multiplier;
+                                  cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
+                                }
+                                else {
+                                  cy_injection[i] /= phjase_detect_fueling_multiplier;
+                                  cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
+                                }
+                                phase_detect_fueling ^= (1 << i);
                               }
-                              phase_detect_fueling ^= (1 << i);
-                            }
 
+                              phase_detect_cycles++;
+                            }
+                          } else if(phase_detect_cycles == phjase_detect_cycles_threshold) {
+                            gPhaseDetectCompleted = 1;
                             phase_detect_cycles++;
                           }
-                        } else if(phase_detect_cycles == phjase_detect_cycles_threshold) {
-                          gPhaseDetectCompleted = 1;
-                          phase_detect_cycles++;
                         }
                       }
                     }
+
                     ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
                     ecu_inject(ECU_CYLINDERS_COUNT, i_inv, cy_injection[i_inv]);
                   }
@@ -3411,6 +3422,16 @@ ITCM_FUNC void ecu_process(void)
     phase_detect_running_cycles = 0;
     phase_detect_fueling = 0;
 
+  }
+
+  if(phase_detect_running_cycles && phased_mode != PhasedModeWithoutSensor) {
+    memset(gPhaseDetectAccelerations, 0, sizeof(gPhaseDetectAccelerations));
+    memset(gPhaseDetectAccelerationsCount, 0, sizeof(gPhaseDetectAccelerationsCount));
+    gPhaseDetectActive = 0;
+    gPhaseDetectCompleted = 0;
+    phase_detect_cycles = 0;
+    phase_detect_running_cycles = 0;
+    phase_detect_fueling = 0;
   }
 
   if(!running || !found) {
@@ -3698,8 +3719,8 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckKnockDetonationFound, (gStatus.Knock.GeneralStatus & KnockStatusStrongDedonation) > 0);
     CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0);
   }
-  if(gEcuParams.useTSPS) {
-    CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.TspsSyncStatus != HAL_OK);
+  if(gEcuParams.phasedMode == PhasedModeWithSensor) {
+    CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.Tsps.sync_error && gStatus.Tsps.sync_error_time > 100);
   }
   CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
 
@@ -3980,29 +4001,31 @@ float negatives[ECU_CYLINDERS_COUNT] = {0};
 
 static void ecu_phase_detect_process(void)
 {
-
-  if(gPhaseDetectCompleted) {
-    memset(positives, 0, sizeof(positives));
-    memset(negatives, 0, sizeof(negatives));
-    for(int cy = 0; cy < ECU_CYLINDERS_COUNT; cy++) {
-      if(gPhaseDetectAccelerationsCount[cy] > 2) {
-        gPhaseDetectAccelerationsCount[cy] &= ~1;
-        for(int i = 2; i < gPhaseDetectAccelerationsCount[cy]; i += 2) {
-          positives[cy] += gPhaseDetectAccelerations[cy][i];
-          negatives[cy] += gPhaseDetectAccelerations[cy][i + 1];
+  if(gEcuParams.phasedMode == PhasedModeWithoutSensor)
+  {
+    if(gPhaseDetectCompleted) {
+      memset(positives, 0, sizeof(positives));
+      memset(negatives, 0, sizeof(negatives));
+      for(int cy = 0; cy < ECU_CYLINDERS_COUNT; cy++) {
+        if(gPhaseDetectAccelerationsCount[cy] > 2) {
+          gPhaseDetectAccelerationsCount[cy] &= ~1;
+          for(int i = 2; i < gPhaseDetectAccelerationsCount[cy]; i += 2) {
+            positives[cy] += gPhaseDetectAccelerations[cy][i];
+            negatives[cy] += gPhaseDetectAccelerations[cy][i + 1];
+          }
         }
       }
-    }
 
-    if(positives[0] > negatives[0] && positives[1] > negatives[1]) {
-      csps_tsps_simulate(0);
-    }
-    else if(positives[0] < negatives[0] && positives[1] < negatives[1]) {
-      csps_tsps_simulate(1);
-    }
+      if(positives[0] > negatives[0] && positives[1] > negatives[1]) {
+        csps_tsps_simulate(0);
+      }
+      else if(positives[0] < negatives[0] && positives[1] < negatives[1]) {
+        csps_tsps_simulate(1);
+      }
 
-    gPhaseDetectCompleted = 0;
-    gPhaseDetectActive = 0;
+      gPhaseDetectCompleted = 0;
+      gPhaseDetectActive = 0;
+    }
   }
 }
 
@@ -4294,7 +4317,7 @@ static void ecu_config_process(void)
     Knock_SetIntegratorTimeConstant(integrator_time);
   }
 
-  csps_tsps_enable(gEcuParams.useTSPS);
+  csps_tsps_enable(gEcuParams.phasedMode == PhasedModeWithSensor);
 }
 
 static void ecu_immo_init(void)

@@ -764,7 +764,7 @@ void config_default_params(sEcuParams *table)
   table->speedOutputCorrection = 0.89f;
 
   table->useLambdaSensor = 1;
-  table->useTSPS = 0;
+  table->phasedMode = 0;
   table->useKnockSensor = 0;
   table->performAdaptation = 0;
   table->performIdleAdaptation = 0;

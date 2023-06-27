@@ -205,12 +205,14 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
   if(csps_tsps_enabled && csps_found && csps_rotates) {
     csps_tsps_rel_pos = csps_getangle14(csps_data());
     csps_phase_found = 1;
+    csps_phase_is_simulating = 0;
+    csps_phase_simulated = 0;
   }
 }
 
 INLINE void csps_tsps_simulate(uint8_t cy)
 {
-  if(csps_found && csps_rotates) {
+  if(!csps_tsps_enabled && csps_found && csps_rotates) {
     if(cy == 0) {
       csps_phase_simulated = 1;
     } else {
