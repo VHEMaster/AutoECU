@@ -39,6 +39,7 @@
 #include "xProFIFO.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <float.h>
 #include "arm_math.h"
 #include "math_fast.h"
@@ -48,7 +49,7 @@
 #define IGNITION_ACCEPTION_FEATURE  1
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
-#define ACCELERATION_POINTS_COUNT   8
+#define ACCELERATION_POINTS_COUNT   12
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -2679,7 +2680,7 @@ ITCM_FUNC void ecu_process(void)
   float pressure_measurement_angle = 90 + pressure_measurement_time;
 #endif
 
-  static const uint8_t phjase_detect_cycles_wait = 16;
+  static const uint8_t phjase_detect_cycles_wait = 32;
   static const uint8_t phjase_detect_cycles_threshold = ACCELERATION_POINTS_COUNT * ECU_CYLINDERS_COUNT_HALF;
   static const float phjase_detect_fueling_multiplier = 1.85f;
   static uint8_t phase_detect_fueling = 0;
@@ -3997,11 +3998,14 @@ static void ecu_specific_parameters_loop(void)
   }
 }
 
-float positives[ECU_CYLINDERS_COUNT] = {0};
-float negatives[ECU_CYLINDERS_COUNT] = {0};
+int8_t positives[ECU_CYLINDERS_COUNT] = {0};
+int8_t negatives[ECU_CYLINDERS_COUNT] = {0};
 
 static void ecu_phase_detect_process(void)
 {
+  int8_t diffs[ECU_CYLINDERS_COUNT] = {0};
+  int8_t msi = -1;
+
   if(gEcuParams.phasedMode == PhasedModeWithoutSensor)
   {
     if(gPhaseDetectCompleted) {
@@ -4010,18 +4014,35 @@ static void ecu_phase_detect_process(void)
       for(int cy = 0; cy < ECU_CYLINDERS_COUNT; cy++) {
         if(gPhaseDetectAccelerationsCount[cy] > 2) {
           gPhaseDetectAccelerationsCount[cy] &= ~1;
-          for(int i = 2; i < gPhaseDetectAccelerationsCount[cy]; i += 2) {
-            positives[cy] += gPhaseDetectAccelerations[cy][i];
-            negatives[cy] += gPhaseDetectAccelerations[cy][i + 1];
+          for(int i = 3; i < gPhaseDetectAccelerationsCount[cy]; i++) {
+            if(fabsf(gPhaseDetectAccelerations[cy][i - 1] - gPhaseDetectAccelerations[cy][i]) > 0.007f) {
+              if(gPhaseDetectAccelerations[cy][i - 1] - gPhaseDetectAccelerations[cy][i] > 0)
+                if((i & 1))
+                  positives[cy]++;
+                else negatives[cy]++;
+              else {
+                if((i & 1))
+                  negatives[cy]++;
+                else positives[cy]++;
+              }
+            }
           }
         }
+        diffs[cy] = abs(positives[cy] - negatives[cy]);
       }
 
-      if(positives[0] > negatives[0] && positives[1] > negatives[1]) {
-        csps_tsps_simulate(0);
-      }
-      else if(positives[0] < negatives[0] && positives[1] < negatives[1]) {
-        csps_tsps_simulate(1);
+      if(diffs[0] > diffs[1])
+        msi = 0;
+      else if(diffs[0] < diffs[1])
+        msi = 1;
+
+      if(msi >= 0) {
+        if(positives[msi] > negatives[msi]) {
+          csps_tsps_simulate(1);
+        }
+        else if(positives[msi] < negatives[msi]) {
+          csps_tsps_simulate(0);
+        }
       }
 
       gPhaseDetectCompleted = 0;
