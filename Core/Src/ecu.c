@@ -40,6 +40,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <float.h>
 #include "arm_math.h"
 #include "math_fast.h"
@@ -50,6 +51,7 @@
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
+#define LEARN_ENRICHMENT_POST_CYCLES_DELAY  16
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -800,6 +802,7 @@ static void ecu_update(void)
   uint8_t enrichment_triggered_once = 0;
   static uint8_t enrichment_triggered_async = 0;
   uint8_t enrichment_post_injection_enabled;
+  static uint32_t enrichment_post_cycles = 0;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -1460,6 +1463,15 @@ static void ecu_update(void)
         enrichment_triggered = 0;
       }
     }
+
+    if(enrichment_triggered || !running) {
+      enrichment_post_cycles = 0;
+    } else {
+      for(int ht = 0; enrichment_post_cycles < UINT_MAX && ht < halfturns_performed; ht++) {
+        enrichment_post_cycles++;
+      }
+    }
+
     ipEnrLoadStart = math_interpolate_input_limit(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
     ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
 
@@ -1863,8 +1875,7 @@ static void ecu_update(void)
         lpf_calculation = 0.1f;
 
       if(calibration && corr_math_interpolate_2d_set_func) {
-
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) && !enrichment_triggered) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) && enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
