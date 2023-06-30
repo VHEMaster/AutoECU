@@ -345,6 +345,9 @@ static sProFIFO fifoAsyncInjection = {0};
 static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
 static float enrichmentLoadStates[ENRICHMENT_LOAD_STATES_COUNT] = {0};
 
+static uint8_t gEcuImmoStartAllowed = 0;
+static uint8_t gEcuIgnStartAllowed = 0;
+
 volatile static uint32_t gSpecificParametersOverflow = 0;
 volatile static uint32_t gSpecificParametersReadPointer = 0;
 volatile static uint32_t gSpecificParametersWritePointer = 0;
@@ -4282,6 +4285,12 @@ static void ecu_ign_process(void)
       shutdown_process = 0;
     }
   }
+
+  if(shutdown_process || gIgnCanShutdown || gIgnShutdownReady) {
+    gEcuIgnStartAllowed = 0;
+  } else {
+    gEcuIgnStartAllowed = 1;
+  }
 }
 
 static int8_t ecu_shutdown_process(void)
@@ -4377,24 +4386,28 @@ static void ecu_immo_process(void)
 
   start_allowed = 1;
 
-  if(gParameters.StartAllowed != start_allowed) {
-    gParameters.StartAllowed = start_allowed;
+  if(gEcuImmoStartAllowed != start_allowed) {
+    gEcuImmoStartAllowed = start_allowed;
   }
 }
 
 static void ecu_starter_process(void)
 {
-  uint8_t start_allowed = gParameters.StartAllowed;
+  uint8_t start_allowed;
   uint8_t running = csps_isrunning();
   GPIO_PinState starter_state;
 
   starter_state = out_get_starter(NULL);
+
+  start_allowed = gEcuImmoStartAllowed && gEcuIgnStartAllowed;
 
   if(start_allowed && !running) {
     starter_state = GPIO_PIN_SET;
   } else {
     starter_state = GPIO_PIN_RESET;
   }
+
+  gParameters.StartAllowed = start_allowed;
 
   out_set_starter(starter_state);
 }
