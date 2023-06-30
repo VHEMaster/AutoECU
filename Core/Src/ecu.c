@@ -316,7 +316,7 @@ struct {
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
 
-    volatile float InjectionMapPressure;
+    volatile float InjectionDensityPressure;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -701,7 +701,7 @@ static void ecu_update(void)
 
   float rpm;
   float pressure;
-  float pressure_when_injected;
+  float density_when_injected;
   float fuel_ratio;
   float lambda_value;
   float lambda_temperature;
@@ -972,7 +972,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
 
-  pressure_when_injected = gLocalParams.InjectionMapPressure;
+  density_when_injected = gLocalParams.InjectionDensityPressure;
 
   if(found != was_found) {
     was_found = found;
@@ -1118,6 +1118,7 @@ static void ecu_update(void)
   filling = math_interpolate_2d(ipRpm, ipDensity, TABLE_ROTATES_MAX, table->fill_by_density);
 
   fill_correction_density = corr_math_interpolate_2d_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density);
+  idle_fill_correction_density = 0;
 
   filling *= fill_correction_density + 1.0f;
 
@@ -1360,6 +1361,10 @@ static void ecu_update(void)
   start_large_count = table->start_large_count;
   injection_start_mult = math_interpolate_1d(ipThr, table->start_tps_corrs);
   econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
+
+  if(econ_flag) {
+    idle_accelerate_post_cycles = 0;
+  }
 
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
@@ -1900,12 +1905,13 @@ static void ecu_update(void)
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK && !econ_flag) {
             fill_correction_density += filling_diff * lpf_calculation;
+            idle_fill_correction_density += filling_diff * lpf_calculation;
 
             if(use_idle_filling && idle_flag) {
               lpf_calculation *= 0.2f; // 5 sec
 
-              ipIdleFillingDensity = math_interpolate_input(pressure_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
-              corr_math_interpolate_2d_set_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density, fill_correction_density, -1.0f, 1.0f);
+              //ipIdleFillingDensity = math_interpolate_input(density_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
+              corr_math_interpolate_2d_set_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density, idle_fill_correction_density, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
               if(percentage > 1.0f) percentage = 1.0f / percentage;
@@ -1914,7 +1920,7 @@ static void ecu_update(void)
               corr_math_interpolate_2d_set_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density, calib_cur_progress, 0.0f, 1.0f);
 
             } else {
-              ipDensity = math_interpolate_input(pressure_when_injected, table->densities, table->densities_count);
+              //ipDensity = math_interpolate_input(density_when_injected, table->densities, table->densities_count);
               corr_math_interpolate_2d_set_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density, fill_correction_density, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
@@ -2697,6 +2703,7 @@ ITCM_FUNC void ecu_process(void)
 
   HAL_StatusTypeDef map_status = HAL_OK;
   float pressure = 0;
+  float density = 0;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
@@ -3354,7 +3361,8 @@ ITCM_FUNC void ecu_process(void)
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
               gLocalParams.ParametersAcceptLast = 0;
-              gLocalParams.InjectionMapPressure = pressure;
+              density = ecu_get_air_density(pressure, gParameters.AirTemp);
+              gLocalParams.InjectionDensityPressure = density;
               gParameters.CylinderInjectionBitmask ^= 1 << i;
               enrichment_triggered[i] = 0;
 
@@ -3389,7 +3397,7 @@ ITCM_FUNC void ecu_process(void)
               enrichment_time_saturation[i] += inj_lag;
               ecu_inject(cy_count_injection, i, enrichment_time_saturation[i]);
               enrichment_time_saturation[i] = 0;
-              gLocalParams.InjectionMapPressure = pressure;
+              gLocalParams.InjectionDensityPressure = pressure;
               gLocalParams.ParametersAcceptLast = 0;
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
