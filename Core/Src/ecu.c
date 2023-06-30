@@ -51,7 +51,8 @@
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
-#define LEARN_ENRICHMENT_POST_CYCLES_DELAY  16
+#define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 4)
+#define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 6)
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -803,6 +804,7 @@ static void ecu_update(void)
   static uint8_t enrichment_triggered_async = 0;
   uint8_t enrichment_post_injection_enabled;
   static uint32_t enrichment_post_cycles = 0;
+  static uint32_t idle_accelerate_post_cycles = 0;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -885,6 +887,7 @@ static void ecu_update(void)
   uint8_t running;
   uint8_t phased;
   uint8_t idle_flag;
+  static uint8_t was_idle = 0;
   uint8_t throttle_idle_flag;
   uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
@@ -1065,6 +1068,15 @@ static void ecu_update(void)
 
   throttle_idle_flag = throttle < 0.2f;
   idle_flag = throttle_idle_flag && running;
+
+  if(was_idle != idle_flag) {
+    was_idle = idle_flag;
+    idle_accelerate_post_cycles = 0;
+  } else {
+    for(int ht = 0; idle_accelerate_post_cycles < UINT_MAX && ht < halfturns_performed; ht++) {
+      idle_accelerate_post_cycles++;
+    }
+  }
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
     wish_fault_rpm = 1400.0f;
@@ -1875,7 +1887,8 @@ static void ecu_update(void)
         lpf_calculation = 0.1f;
 
       if(calibration && corr_math_interpolate_2d_set_func) {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) && enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) &&
+            enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
