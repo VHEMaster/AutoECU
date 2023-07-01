@@ -1907,7 +1907,7 @@ static void ecu_update(void)
             fill_correction_density += filling_diff * lpf_calculation;
             idle_fill_correction_density += filling_diff * lpf_calculation;
 
-            if(use_idle_filling && idle_flag) {
+            if(use_idle_filling && idle_corr_flag) {
               lpf_calculation *= 0.2f; // 5 sec
 
               //ipIdleFillingDensity = math_interpolate_input(density_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
