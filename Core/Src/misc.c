@@ -28,6 +28,7 @@
 #define O2_HEATUP_TEMP_THRESHOLD     600.0f
 #define O2_HEATUP_TEMP_TIMEOUT_MS    10000
 #define O2_DEFAULT_TEMP_TIMEOUT_MS    3000
+#define O2_HEATER_OPENLOAD_TIMEOUT_MS  500
 
 #define O2_MAX_VOLTAGE            11.0f // 13.0 by Datasheet
 #define O2_HEATUP_SLEW_RATE       0.3f  // 0.4 by Datasheet
@@ -451,7 +452,11 @@ static int8_t O2_Loop(void)
   eO2AmplificationFactor factor_tmp;
   static uint8_t need_reset_factor = 0;\
   static uint32_t temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
+  static uint32_t heater_openload_time = 0;
   uint8_t is_engine_running = 0;
+  uint8_t rotates = csps_isrotates();
+  uint8_t running = csps_isrunning();
+  uint8_t ignore_heater_error = 1;
   uint32_t now = Delay_Tick;
   uint32_t diff;
   int8_t status;
@@ -463,7 +468,7 @@ static int8_t O2_Loop(void)
   float engine_temperature;
   uint32_t heatup_time_diff;
 
-  is_engine_running = force || csps_isrunning();
+  is_engine_running = force || running;
   if(was_engine_running != is_engine_running) {
     was_engine_running = is_engine_running;
   }
@@ -544,11 +549,25 @@ static int8_t O2_Loop(void)
         }
 
         if(O2Status.Diag.Fields.DIAHGD != O2DiagOK) {
-          O2Status.HeaterStatus = HAL_ERROR;
-          O2Status.Valid = 0;
-          o2heater = 0.0f;
-          O2_SetHeaterVoltage(o2heater);
-          state = LambdaStateInitial;
+          if(O2Status.Diag.Fields.DIAHGD == O2DiagNoPower) {
+            if(heater_openload_time == 0 || (rotates && !running)) {
+              heater_openload_time = now;
+            } else if(DelayDiff(now, heater_openload_time) > O2_HEATER_OPENLOAD_TIMEOUT_MS) {
+              ignore_heater_error = 0;
+            }
+          } else {
+            heater_openload_time = 0;
+            ignore_heater_error = 0;
+          }
+          if(!ignore_heater_error) {
+            O2Status.HeaterStatus = HAL_ERROR;
+            O2Status.Valid = 0;
+            o2heater = 0.0f;
+            O2_SetHeaterVoltage(o2heater);
+            state = LambdaStateInitial;
+          }
+        } else {
+          heater_openload_time = 0;
         }
       }
       break;
