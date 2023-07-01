@@ -25,8 +25,14 @@
 #define O2_PID_I  -2.0f
 #define O2_PID_D  -0.01f
 
-#define O2_TEMP_THRESHOLD     600.0f
-#define O2_TEMP_TIMEOUT_MS    10000
+#define O2_HEATUP_TEMP_THRESHOLD     600.0f
+#define O2_HEATUP_TEMP_TIMEOUT_MS    10000
+#define O2_DEFAULT_TEMP_TIMEOUT_MS    3000
+
+#define O2_MAX_VOLTAGE            11.0f // 13.0 by Datasheet
+#define O2_HEATUP_SLEW_RATE       0.3f  // 0.4 by Datasheet
+#define O2_HEATUP_START_VOLTAGE   2.0f  // 8.5 by Datasheet
+#define O2_PREHEAT_VOLTAGE        1.5f
 
 #define O2_IDENT_DEVICE_CJ125 0x60
 #define O2_IDENT_MASK_DEVICE 0xF8
@@ -419,10 +425,23 @@ static void O2_CriticalLoop(void)
 
 }
 
+typedef enum {
+  LambdaStateInitial = 0,
+  LambdaStateDeviceCheck,
+  LambdaStateDiagCheck,
+  LambdaStatePollCalibrate,
+  LambdaStateSetCalibrate,
+  LambdaStatePollEnable,
+  LambdaStateWaitToHeat,
+  LambdaStateHeating,
+  LambdaStatePollFactor,
+  LambdaStateCheckTemperature
+}eLambdaState;
+
 static int8_t O2_Loop(void)
 {
   static uint8_t was_engine_running = 0;
-  static uint8_t state = 0;
+  static eLambdaState state = LambdaStateInitial;
   static uint32_t last_spi_check = 0;
   static uint32_t calibrate_timestamp = 0;
   static uint32_t temperature_wait_timestamp = 0;
@@ -430,7 +449,8 @@ static int8_t O2_Loop(void)
   static uint8_t device,diag;
   static eO2AmplificationFactor factor = 0;
   eO2AmplificationFactor factor_tmp;
-  static uint8_t need_reset_factor = 0;
+  static uint8_t need_reset_factor = 0;\
+  static uint32_t temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
   uint8_t is_engine_running = 0;
   uint32_t now = Delay_Tick;
   uint32_t diff;
@@ -441,6 +461,7 @@ static int8_t O2_Loop(void)
   float offset_voltage;
   float expected_voltage;
   float engine_temperature;
+  uint32_t heatup_time_diff;
 
   is_engine_running = force || csps_isrunning();
   if(was_engine_running != is_engine_running) {
@@ -462,24 +483,24 @@ static int8_t O2_Loop(void)
   }
 
   switch(state) {
-    case 0 :
+    case LambdaStateInitial :
       if(DelayDiff(now, last_spi_check) > 500000) {
         last_spi_check = now;
-        state = 1;
+        state = LambdaStateDeviceCheck;
       } else if(O2Status.Valid) {
-        state = 9;
+        state = LambdaStateCheckTemperature;
       } else if(O2Status.Available && is_engine_running) {
-        state = 3;
+        state = LambdaStatePollCalibrate;
       }
       else {
         if(O2Status.Valid && need_reset_factor) {
-          state = 8;
+          state = LambdaStatePollFactor;
         } else {
-          state = 0;
+          state = LambdaStateInitial;
         }
       }
       break;
-    case 1 :
+    case LambdaStateDeviceCheck :
       status = O2_GetDevice(&device);
       retvalue = 0;
       if(status == 1) {
@@ -488,7 +509,7 @@ static int8_t O2_Loop(void)
         O2Version = device & O2_IDENT_MASK_VERSION;
         if(O2Device == O2_IDENT_DEVICE_CJ125) {
           O2Status.Available = 1;
-          state++;
+          state = LambdaStateDiagCheck;
         } else {
           status = -1;
         }
@@ -499,10 +520,10 @@ static int8_t O2_Loop(void)
         O2Status.Working = 0;
         O2Status.Valid = 0;
         O2_SetHeaterVoltage(0);
-        state = 0;
+        state = LambdaStateInitial;
       }
       break;
-    case 2 :
+    case LambdaStateDiagCheck :
       status = O2_GetDiag(&diag);
       retvalue = 0;
       if(status) {
@@ -513,13 +534,13 @@ static int8_t O2_Loop(void)
           O2Status.Diag.Fields.IAIP = O2DiagOK;
           O2Status.Diag.Fields.UN = O2DiagOK;
           O2Status.Diag.Fields.VM = O2DiagOK;
-          state = 9;
+          state = LambdaStateCheckTemperature;
         }
         else if(force || is_engine_running) {
-          state++;
+          state = LambdaStatePollCalibrate;
         }
         else {
-          state = 0;
+          state = LambdaStateInitial;
         }
 
         if(O2Status.Diag.Fields.DIAHGD != O2DiagOK) {
@@ -527,22 +548,22 @@ static int8_t O2_Loop(void)
           O2Status.Valid = 0;
           o2heater = 0.0f;
           O2_SetHeaterVoltage(o2heater);
-          state = 0;
+          state = LambdaStateInitial;
         }
       }
       break;
-    case 3 :
-      O2_SetHeaterVoltage(1.5f);
+    case LambdaStatePollCalibrate :
+      O2_SetHeaterVoltage(O2_PREHEAT_VOLTAGE);
       status = O2_Calibrate(factor);
       retvalue = 0;
       if(status) {
         need_reset_factor = 0;
         retvalue = 1;
         calibrate_timestamp = now;
-        state++;
+        state = LambdaStateSetCalibrate;
       }
       break;
-    case 4 :
+    case LambdaStateSetCalibrate :
       diff = DelayDiff(now, calibrate_timestamp);
       if(diff > 100000) {
         O2Status.ReferenceVoltage = adc_get_voltage(AdcChO2UR);
@@ -553,27 +574,27 @@ static int8_t O2_Loop(void)
 
         O2Status.OffsetVoltage = expected_voltage - offset_voltage;
 
-        state++;
+        state = LambdaStatePollEnable;
       }
       break;
-    case 5 :
+    case LambdaStatePollEnable :
       status = O2_Enable(factor);
       retvalue = 0;
       if(status) {
         need_reset_factor = 0;
         retvalue = 1;
         calibrate_timestamp = now;
-        state++;
+        state = LambdaStateWaitToHeat;
       }
       break;
-    case 6 :
+    case LambdaStateWaitToHeat :
       if(!force && !is_engine_running) {
-        O2_SetHeaterVoltage(1.5f);
+        O2_SetHeaterVoltage(O2_PREHEAT_VOLTAGE);
         O2Status.Valid = 0;
-        state = 0;
+        state = LambdaStateInitial;
         break;
       }
-      O2_SetHeaterVoltage(1.5f);
+      O2_SetHeaterVoltage(O2_PREHEAT_VOLTAGE);
       sens_get_engine_temperature(&engine_temperature);
       diff = DelayDiff(now, calibrate_timestamp);
       if(diff > 32000000 ||
@@ -582,56 +603,56 @@ static int8_t O2_Loop(void)
           (engine_temperature > 30.0f && diff > 26000000) ||
           (engine_temperature > 20.0f && diff > 28000000) ||
           (engine_temperature > 10.0f && diff > 30000000)) {
-        o2heater = 2.0f; // 8.5 by Datasheet
+        o2heater = O2_HEATUP_START_VOLTAGE;
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
-        state++;
+        state = LambdaStateHeating;
       }
       break;
-    case 7 :
-      if(o2heater >= 11.0f) { // 13.0 by Datasheet
-        O2_SetHeaterVoltage(1.5f);
+    case LambdaStateHeating :
+      if(o2heater >= O2_MAX_VOLTAGE || O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
+        O2_SetHeaterVoltage(O2_PREHEAT_VOLTAGE);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
-        state++;
+        temperature_wait_timestamp = now;
+        state = LambdaStatePollFactor;
+        temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
       }
-      if(DelayDiff(now, calibrate_timestamp) > 100000) {
-        o2heater += 0.3f * 0.1f; // 0.4f by Datasheet
+      heatup_time_diff = DelayDiff(now, calibrate_timestamp);
+      if(heatup_time_diff > 100000) {
+        o2heater += O2_HEATUP_SLEW_RATE * ((float)heatup_time_diff * 0.000001f);
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
       }
       break;
-    case 8 :
+    case LambdaStatePollFactor :
       status = O2_Enable(factor);
       retvalue = 0;
       if(status) {
         need_reset_factor = 0;
         retvalue = 1;
-        state++;
+        state = LambdaStateCheckTemperature;
       }
       break;
-    case 9 :
-      temperature_wait_timestamp = now;
-      state = 10;
-      /* no break */
-    case 10 :
-      if(O2Status.Temperature > O2_TEMP_THRESHOLD) {
+    case LambdaStateCheckTemperature :
+      if(O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
         O2Status.Valid = 1;
         O2Status.TemperatureStatus = HAL_OK;
         temperature_wait_timestamp = now;
-        state = 0;
+        temperature_timeout = O2_DEFAULT_TEMP_TIMEOUT_MS;
+        state = LambdaStateInitial;
       } else {
-        if(DelayDiff(now, temperature_wait_timestamp) > O2_TEMP_TIMEOUT_MS * 1000) {
+        if(DelayDiff(now, temperature_wait_timestamp) > temperature_timeout * 1000) {
           O2Status.TemperatureStatus = HAL_ERROR;
           O2Status.Valid = 0;
           o2heater = 0.0f;
           O2_SetHeaterVoltage(o2heater);
-          state = 0;
+          state = LambdaStateInitial;
         }
       }
       break;
     default:
-      state = 0;
+      state = LambdaStateInitial;
       break;
   }
   return retvalue;
