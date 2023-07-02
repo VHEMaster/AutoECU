@@ -25,10 +25,11 @@
 #define O2_PID_I  -2.0f
 #define O2_PID_D  -0.01f
 
-#define O2_HEATUP_TEMP_THRESHOLD     600.0f
-#define O2_HEATUP_TEMP_TIMEOUT_MS    10000
-#define O2_DEFAULT_TEMP_TIMEOUT_MS    3000
-#define O2_HEATER_OPENLOAD_TIMEOUT_MS  500
+#define O2_HEATUP_TEMP_THRESHOLD        600
+#define O2_HEATUP_TEMP_TIMEOUT_MS       10000
+#define O2_DEFAULT_TEMP_TIMEOUT_MS      3000
+#define O2_HEATER_OPENLOAD_TIMEOUT_MS   1000
+#define O2_SPI_POLL_PERIOD_MS           200
 
 #define O2_MAX_VOLTAGE            11.0f // 13.0 by Datasheet
 #define O2_HEATUP_SLEW_RATE       0.3f  // 0.4 by Datasheet
@@ -489,7 +490,7 @@ static int8_t O2_Loop(void)
 
   switch(state) {
     case LambdaStateInitial :
-      if(DelayDiff(now, last_spi_check) > 500000) {
+      if(DelayDiff(now, last_spi_check) > O2_SPI_POLL_PERIOD_MS * 1000) {
         last_spi_check = now;
         state = LambdaStateDeviceCheck;
       } else if(O2Status.Valid) {
