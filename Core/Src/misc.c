@@ -560,7 +560,9 @@ static int8_t O2_Loop(void)
             heater_openload_time = 0;
             ignore_heater_error = 0;
           }
-          if(!ignore_heater_error) {
+          if(ignore_heater_error) {
+            O2Status.Diag.Fields.DIAHGD = O2DiagOK;
+          } else {
             O2Status.HeaterStatus = HAL_ERROR;
             O2Status.Valid = 0;
             o2heater = 0.0f;
