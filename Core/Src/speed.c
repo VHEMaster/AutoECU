@@ -9,7 +9,7 @@
 #include "delay.h"
 #include <string.h>
 
-#define IRQ_SIZE 4
+#define IRQ_SIZE 5
 
 typedef struct {
     float input_corrective;
@@ -73,17 +73,26 @@ void speed_exti(uint32_t timestamp)
   float average = 0;
 
   gSpeedCtx.pulse_last = timestamp;
+
+  // Set that we are speeding already
+  if(!gSpeedCtx.rotates) {
+    gSpeedCtx.speed = 1.0f;
+    gSpeedCtx.rotates = 1;
+  }
+
   for(i = 1; i < IRQ_SIZE; i++)
     gSpeedCtx.irq_data[i - 1] = gSpeedCtx.irq_data[i];
   gSpeedCtx.irq_data[IRQ_SIZE - 1] = timestamp;
   if(gSpeedCtx.irq_data[0] == 0) {
     return;
   }
-  gSpeedCtx.rotates = 1;
 
   for(i = 1; i < IRQ_SIZE; i++)
     average += DelayDiff(gSpeedCtx.irq_data[i], gSpeedCtx.irq_data[i - 1]);
   average /= (float)(IRQ_SIZE - 1);
+
+  // Since both edges are used
+  average *= 2.0f;
 
   gSpeedCtx.speed = 600000.0f / average; // 1000000.0f / (average / 3.6f * 6.0f)
   gSpeedCtx.speed *= gSpeedCtx.input_corrective;
@@ -104,7 +113,7 @@ void speed_loop(void)
 {
   uint32_t pulse_last = gSpeedCtx.pulse_last;
   uint32_t now = *gSpeedCtx.timebase;
-  if(gSpeedCtx.rotates && DelayDiff(now, pulse_last) > 1000000) {
+  if(gSpeedCtx.rotates && DelayDiff(now, pulse_last) > 200000) {
     for(int i = 0; i < IRQ_SIZE; i++) {
       gSpeedCtx.irq_data[i] = 0;
     }
