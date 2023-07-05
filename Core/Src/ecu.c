@@ -48,6 +48,7 @@
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define PRESSURE_ACCEPTION_FEATURE  0
 #define IGNITION_ACCEPTION_FEATURE  1
+#define KNOCK_DETONATION_INCREASING_ADVANCE 0
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
@@ -1978,11 +1979,13 @@ static void ecu_update(void)
 
                   math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 10.0f);
                 } else {
+#if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
                     lpf_calculation *= 0.2f; //5 sec
                     ignition_correction = -table->knock_ign_corr_max * knock_zone * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
                     corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
                   }
+#endif /* KNOCK_DETONATION_INCREASING_ADVANCE */
                   calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
                 }
                 corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
