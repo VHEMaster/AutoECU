@@ -350,7 +350,7 @@ static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
     10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f,
 };
 
-static const float default_idle_rpm_shift_speeds[TABLE_SPEEDS_MAX] = {
+static const float default_speeds[TABLE_SPEEDS_MAX] = {
     0, 3, 10, 20, 30, 40, 50, 60,
     70, 80, 90, 100, 110, 120, 130, 140
 };
@@ -572,6 +572,25 @@ static const float default_start_econ_delay[TABLE_TEMPERATURES_MAX] = {
     4.0f, 3.5f, 3.2f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
+static const float default_fan_advance_control[TABLE_TEMPERATURES_MAX][TABLE_SPEEDS_MAX] = {
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { -1.00f, -1.00f, -0.70f, -0.60f, -0.50f, -0.50f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { 0.00f, 0.00f, -0.15f, -0.20f, -0.30f, -0.30f, -0.40f, -0.70f, -0.90f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 0.70f, 0.70f, 0.50f, 0.25f, 0.25f, 0.25f, 0.15f, -0.10f, -0.10f, -0.10f, -0.10f, -0.10f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 0.90f, 0.80f, 0.70f, 0.50f, 0.30f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -714,8 +733,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_air_fan_low_corr = 0.5f;
   table->idle_air_fan_high_corr = 0.8f;
 
-  table->idle_speeds_shift_count = ITEMSOF(default_idle_rpm_shift_speeds);
-  memcpy(table->idle_rpm_shift_speeds, default_idle_rpm_shift_speeds, sizeof(default_idle_rpm_shift_speeds));
+  table->speeds_count = ITEMSOF(default_speeds);
+  memcpy(table->speeds, default_speeds, sizeof(default_speeds));
   memcpy(table->idle_rpm_shift, default_idle_rpm_shift, sizeof(default_idle_rpm_shift));
 
   table->knock_ign_corr_max = -5.0f;
@@ -739,6 +758,11 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_filling_rotates, default_idle_filling_rotates, sizeof(default_idle_filling_rotates));
   memcpy(table->idle_filling_densities, default_idle_filling_densities, sizeof(default_idle_filling_densities));
   memcpy(table->idle_filling_by_density, default_idle_filling_by_density, sizeof(default_idle_filling_by_density));
+
+  table->fan_advance_control_low  = -0.2f;
+  table->fan_advance_control_mid  =  0.0f;
+  table->fan_advance_control_high =  0.2f;
+  memcpy(table->fan_advance_control, default_fan_advance_control, sizeof(default_fan_advance_control));
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     table->cy_corr_injection[i] = 0;

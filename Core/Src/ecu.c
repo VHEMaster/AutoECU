@@ -1112,7 +1112,7 @@ static void ecu_update(void)
 
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
-  ipSpeed = math_interpolate_input(speed, table->idle_rpm_shift_speeds, table->idle_speeds_shift_count);
+  ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
   ipDensity = math_interpolate_input(air_density, table->densities, table->densities_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
@@ -1961,14 +1961,14 @@ static void ecu_update(void)
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
           calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
 
-          if(knock_zone > 0.05f) {
+          if(knock_zone > 0.05f && !idle_flag) {
             for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
               if(gStatus.Knock.UpdatedAdaptation[i]) {
                 memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
 
                 detonation_count_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
 
-                if(gStatus.Knock.AdaptationDetonate > 0.01f) {
+                if(gStatus.Knock.AdaptationDetonate > 0.05f) {
                   gStatus.Knock.AdaptationDetonate = 0;
                   detonation_count_table += 1.0f;
 
@@ -1977,7 +1977,7 @@ static void ecu_update(void)
                   ignition_correction = table->knock_ign_corr_max * knock_zone * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
                   corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
 
-                  math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 10.0f);
+                  math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
                 } else {
 #if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
@@ -3536,10 +3536,10 @@ static void ecu_fan_process(void)
   static uint32_t running_last = 0;
   static uint32_t high_start_time = 0;
 
-  float engine_temp;
+  uint32_t table_number = gParameters.CurrentTable;
+  sEcuTable *table = &gEcuTable[table_number];
   HAL_StatusTypeDef status;
   uint8_t fan_state;
-  float temp_low, temp_mid, temp_high;
   uint8_t force_enabled = gForceParameters.Enable.FanRelay || gForceParameters.Enable.FanSwitch;
   GPIO_PinState force = sens_get_fan_force_switch(NULL);
   GPIO_PinState fan_pin_state = out_get_fan(NULL);
@@ -3550,6 +3550,24 @@ static void ecu_fan_process(void)
   GPIO_PinState out_fan_state = fan_pin_state;
   GPIO_PinState out_fan_sw_state = switch_state;
   GPIO_PinState out_fan_sw_state_temp = switch_state;
+
+  sMathInterpolateInput ipEngineTemp = {0};
+  sMathInterpolateInput ipSpeed = {0};
+
+#ifdef SIMULATION
+  force = GPIO_PIN_RESET;
+#endif
+
+  float fan_advance_control;
+  float fan_advance_control_low = table->fan_advance_control_low;
+  float fan_advance_control_mid = table->fan_advance_control_mid;
+  float fan_advance_control_high = table->fan_advance_control_high;
+
+  status = gStatus.Sensors.Struct.EngineTemp;
+
+  ipEngineTemp = math_interpolate_input(gParameters.EngineTemp, table->engine_temps, table->engine_temp_count);
+  ipSpeed = math_interpolate_input(gParameters.Speed, table->speeds, table->speeds_count);
+  fan_advance_control = math_interpolate_2d(ipSpeed, ipEngineTemp, TABLE_SPEEDS_MAX, table->fan_advance_control);
 
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
@@ -3566,9 +3584,10 @@ static void ecu_fan_process(void)
     running_last = 0;
   }
 
-  temp_low = gEcuParams.fanLowTemperature;
-  temp_mid = gEcuParams.fanMidTemperature;
-  temp_high = gEcuParams.fanHighTemperature;
+  //fan_advance_control = gParameters.EngineTemp;
+  //fan_advance_control_low = gEcuParams.fanLowTemperature;
+  //fan_advance_control_mid = gEcuParams.fanMidTemperature;
+  //fan_advance_control_high = gEcuParams.fanHighTemperature;
 
   if(!force_enabled) {
     if(/* fan_pin_state && */switch_state) {
@@ -3586,8 +3605,6 @@ static void ecu_fan_process(void)
     }
   }
 
-  status = sens_get_engine_temperature(&engine_temp);
-
   if(force_enabled) {
     if(gForceParameters.Enable.FanRelay)
       out_fan_state = gForceParameters.FanRelay > 0 ? GPIO_PIN_SET : GPIO_PIN_RESET;
@@ -3602,7 +3619,7 @@ static void ecu_fan_process(void)
     out_fan_sw_state_temp = GPIO_PIN_SET;
     fan_state = 2;
   } else if(fan_state == 0) {
-    if(engine_temp > temp_mid) {
+    if(fan_advance_control > fan_advance_control_mid) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     } else {
@@ -3610,15 +3627,15 @@ static void ecu_fan_process(void)
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 1) {
-    if(engine_temp > temp_high) {
+    if(fan_advance_control > fan_advance_control_high) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_SET;
-    } else if(engine_temp < temp_low) {
+    } else if(fan_advance_control < fan_advance_control_low) {
       out_fan_state = GPIO_PIN_RESET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 2) {
-    if(engine_temp < temp_mid) {
+    if(fan_advance_control < fan_advance_control_mid) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
