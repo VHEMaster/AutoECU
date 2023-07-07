@@ -4200,10 +4200,13 @@ static void ecu_diagnostic_loop(void)
 
 static void ecu_corrections_loop(void)
 {
-  static uint8_t old_correction = 0;
+  static int8_t old_correction = -1;
   static uint32_t prev_conversion = 0;
   uint32_t now = Delay_Tick;
   uint8_t perform_correction = gEcuParams.performAdaptation;
+
+  if(old_correction < 0)
+    old_correction = perform_correction;
 
   if(perform_correction != old_correction) {
     old_correction = perform_correction;
