@@ -52,8 +52,8 @@
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
-#define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 4)
-#define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 6)
+#define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 8)
+#define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 8)
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
