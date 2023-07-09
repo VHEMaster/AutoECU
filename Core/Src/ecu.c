@@ -49,6 +49,7 @@
 #define PRESSURE_ACCEPTION_FEATURE  0
 #define IGNITION_ACCEPTION_FEATURE  1
 #define KNOCK_DETONATION_INCREASING_ADVANCE 0
+#define KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD 70.0f
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
@@ -1807,7 +1808,7 @@ static void ecu_update(void)
           gStatus.Knock.UpdatedInternally[i] = 0;
         }
       }
-      if(knock_low_noise_state >= 0.5f) {
+      if(knock_low_noise_state >= 0.5f && engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
         gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
         gStatus.Knock.LowNoiseLast = hal_now;
       }
@@ -1993,22 +1994,26 @@ static void ecu_update(void)
               }
             }
           } else if(idle_flag) {
-            for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-              if(gStatus.Knock.UpdatedAdaptation[i]) {
-                lpf_calculation *= 0.3f; //3 sec
+            if(engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
+              for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+                if(gStatus.Knock.UpdatedAdaptation[i]) {
+                  lpf_calculation *= 0.3f; //3 sec
 
-                knock_cy_level_diff = knock_noise_level;
-                knock_cy_level_diff /= gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
-                knock_cy_level_diff -= 1.0f;
+                  knock_cy_level_diff = knock_noise_level;
+                  knock_cy_level_diff /= gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
+                  knock_cy_level_diff -= 1.0f;
 
-                knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * lpf_calculation;
-                math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+                  knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * lpf_calculation;
+                  math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
 
-                calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
-                calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-                math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
-                gStatus.Knock.UpdatedAdaptation[i] = 0;
+                  calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
+                  calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+                  math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
+                  gStatus.Knock.UpdatedAdaptation[i] = 0;
+                }
               }
+            } else {
+              memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
             }
           }
 
