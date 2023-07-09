@@ -25,6 +25,7 @@
 #define O2_PID_I  -2.0f
 #define O2_PID_D  -0.01f
 
+#define O2_TEMP_OVERHEAT_THRESHOLD      1000
 #define O2_HEATUP_TEMP_THRESHOLD        600
 #define O2_HEATUP_TEMP_TIMEOUT_MS       10000
 #define O2_DEFAULT_TEMP_TIMEOUT_MS      3000
@@ -483,6 +484,15 @@ static int8_t O2_Loop(void)
   }
 
   if(O2InitState != HAL_OK || O2Status.TemperatureStatus != HAL_OK || O2Status.HeaterStatus != HAL_OK) {
+    o2heater = 0.0f;
+    O2_SetHeaterVoltage(o2heater);
+    return retvalue;
+  }
+
+  if(O2Status.Temperature > O2_TEMP_OVERHEAT_THRESHOLD) {
+    O2Status.TemperatureStatus = HAL_ERROR;
+    O2Status.HeaterStatus = HAL_ERROR;
+    O2Status.Valid = 0;
     o2heater = 0.0f;
     O2_SetHeaterVoltage(o2heater);
     return retvalue;
