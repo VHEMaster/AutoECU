@@ -2045,15 +2045,8 @@ static void ecu_update(void)
     }
   }
 
-  if(gEcuCorrections.long_term_correction > 0.25f)
-    gEcuCorrections.long_term_correction = 0.25f;
-  if(gEcuCorrections.long_term_correction < -0.25f)
-    gEcuCorrections.long_term_correction = -0.25f;
-
-  if(gEcuCorrections.idle_correction > 0.25f)
-    gEcuCorrections.idle_correction = 0.25f;
-  if(gEcuCorrections.idle_correction < -0.25f)
-    gEcuCorrections.idle_correction = -0.25f;
+  gEcuCorrections.long_term_correction = CLAMP(gEcuCorrections.long_term_correction, -10.0f, 10.0f);
+  gEcuCorrections.idle_correction = CLAMP(gEcuCorrections.idle_correction, -10.0f, 10.0f);
 
   gEcuCriticalBackup.idle_valve_position = idle_valve_position;
 
