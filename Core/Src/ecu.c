@@ -674,6 +674,7 @@ static void ecu_update(void)
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
+  uint8_t calibration_permitted_to_perform = 0;
   uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
@@ -1891,14 +1892,15 @@ static void ecu_update(void)
   if(adapt_diff >= period_half) {
     adaptation_last = now;
     if(running) {
+      calibration_permitted_to_perform = enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
 
       lpf_calculation = adapt_diff * 0.000001f;
       if(lpf_calculation > 0.1f)
         lpf_calculation = 0.1f;
 
       if(calibration && corr_math_interpolate_2d_set_func) {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && (idle_calibration || !idle_flag) &&
-            enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid &&
+            (idle_calibration || !idle_flag) && calibration_permitted_to_perform) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
@@ -2024,13 +2026,15 @@ static void ecu_update(void)
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !econ_flag) {
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
-            if(!idle_flag) {
-              lpf_calculation *= 0.0333f; //30 sec
-              gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
-            }
-            else if(idle_flag) {
-              lpf_calculation *= 0.3333f; //3 sec
-              gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
+            if(calibration_permitted_to_perform) {
+              if(!idle_flag) {
+                lpf_calculation *= 0.0333f; //30 sec
+                gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
+              }
+              else if(idle_flag && idle_rpm_flag) {
+                lpf_calculation *= 0.3333f; //3 sec
+                gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
+              }
             }
           } else {
             gEcuCorrections.long_term_correction = 0;
