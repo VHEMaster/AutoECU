@@ -59,6 +59,19 @@
 #define KNOCK_HOLD() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_RESET)
 #define KNOCK_INTEGRATE() HAL_GPIO_WritePin(KNOCK_INT_GPIO_Port, KNOCK_INT_Pin, GPIO_PIN_SET)
 
+typedef enum {
+  LambdaStateInitial = 0,
+  LambdaStateDeviceCheck,
+  LambdaStateDiagCheck,
+  LambdaStatePollCalibrate,
+  LambdaStateSetCalibrate,
+  LambdaStatePollEnable,
+  LambdaStateWaitToHeat,
+  LambdaStateHeating,
+  LambdaStatePollFactor,
+  LambdaStateCheckTemperature
+}eLambdaState;
+
 static const float o2_lambda[24] = { 0.65f, 0.7f, 0.75f, 0.8f, 0.822f, 0.85f, 0.9f, 0.95f, 0.97f, 0.99f, 1.003f, 1.01f, 1.05f, 1.1f, 1.132f, 1.179f, 1.429f, 1.701f, 1.99f, 2.434f, 3.413f, 5.391f, 7.506f, 10.119f };
 
 static const float o2_ua_voltage[O2AmplificationFactorCount][24] = {
@@ -427,19 +440,6 @@ static void O2_CriticalLoop(void)
 
 
 }
-
-typedef enum {
-  LambdaStateInitial = 0,
-  LambdaStateDeviceCheck,
-  LambdaStateDiagCheck,
-  LambdaStatePollCalibrate,
-  LambdaStateSetCalibrate,
-  LambdaStatePollEnable,
-  LambdaStateWaitToHeat,
-  LambdaStateHeating,
-  LambdaStatePollFactor,
-  LambdaStateCheckTemperature
-}eLambdaState;
 
 static int8_t O2_Loop(void)
 {
