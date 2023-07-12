@@ -335,6 +335,11 @@ static const float default_idle_valve_position[TABLE_TEMPERATURES_MAX] = {
     53, 50, 50, 50, 50, 50, 50, 50,
 };
 
+static const float default_idle_valve_econ_position[TABLE_ROTATES_MAX] = {
+    50, 50, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 50, 50, 50, 50,
+};
+
 static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
     35.0f, 35.0f, 35.0f, 35.0f, 33.1f, 30.9f, 29.2f, 26.7f,
     25.5f, 23.0f, 23.0f, 22.5f, 22.5f, 22.5f, 22.5f, 22.5f,
@@ -687,6 +692,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_wish_ignition_static, default_idle_wish_ignition_static, sizeof(default_idle_wish_ignition_static));
   memcpy(table->idle_wish_ignition, default_idle_wish_ignition, sizeof(default_idle_wish_ignition));
   memcpy(table->idle_valve_position, default_idle_valve_position, sizeof(default_idle_valve_position));
+  memcpy(table->idle_valve_econ_position, default_idle_valve_econ_position, sizeof(default_idle_valve_econ_position));
 
   memcpy(table->warmup_mixtures, default_warmup_mixtures, sizeof(default_warmup_mixtures));
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));

@@ -718,6 +718,7 @@ static void ecu_update(void)
   float speed;
   float acceleration;
   float idle_valve_position;
+  float idle_valve_econ_position;
   float uspa;
   float period;
   float period_half;
@@ -1214,7 +1215,7 @@ static void ecu_update(void)
   }
 
   if(!running) {
-    idle_rpm_flag = 0;
+    idle_rpm_flag = 1;
   } else {
     if(idle_rpm_flag) {
       if(rpm > idle_reg_rpm_2)
@@ -1604,6 +1605,8 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleValveRpm, idle_wish_rpm);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
+  idle_valve_econ_position = math_interpolate_1d(ipRpm, table->idle_valve_econ_position);
+
   if(running) {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
@@ -1626,6 +1629,11 @@ static void ecu_update(void)
   }
 
   idle_wish_valve_pos += idle_valve_pos_correction;
+
+  if(throttle_idle_flag && !idle_rpm_flag) {
+    idle_wish_valve_pos = idle_valve_econ_position;
+  }
+
   ignition_advance += idle_advance_correction;
 
   if(gForceParameters.Enable.IgnitionAdvance)
