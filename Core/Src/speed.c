@@ -51,7 +51,7 @@ void speed_emulate(uint32_t timestamp, float speed)
   static float time_prev = 0;
   uint32_t diff = DelayDiff(timestamp, time_last);
 
-  float time_needed = 1000000.0f / (speed / 3.6f * 6.0f);
+  float time_needed = 1000000.0f / (speed / 3.6f * 6.0f * 2.0f);
 
   if(speed == 0)
     time_prev = timestamp;
