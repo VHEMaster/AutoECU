@@ -1637,7 +1637,7 @@ static void ecu_update(void)
 
   idle_wish_valve_pos += idle_valve_pos_correction;
 
-  if(throttle_idle_flag && !idle_rpm_flag) {
+  if(/* throttle_idle_flag && */!idle_rpm_flag) {
     idle_wish_valve_pos = idle_valve_econ_position;
   }
 
