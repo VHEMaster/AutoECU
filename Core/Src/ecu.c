@@ -888,6 +888,7 @@ static void ecu_update(void)
   static uint8_t was_start_async = 1;
   static uint32_t start_halfturns = 0;
   HAL_StatusTypeDef knock_status;
+  HAL_StatusTypeDef injector_status;
   uint32_t start_large_count;
   uint8_t rotates;
   uint8_t found;
@@ -975,6 +976,12 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
+
+  if(gStatus.OutputDiagnostic.Injectors.Availability != HAL_OK || gStatus.OutputDiagnostic.Injectors.Diagnostic.Byte != HAL_OK) {
+    injector_status = HAL_ERROR;
+  } else {
+    injector_status = HAL_OK;
+  }
 
   density_when_injected = gLocalParams.InjectionDensityPressure;
 
@@ -1907,7 +1914,7 @@ static void ecu_update(void)
         lpf_calculation = 0.1f;
 
       if(calibration && corr_math_interpolate_2d_set_func) {
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid &&
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid &&
             (idle_calibration || !idle_flag) && calibration_permitted_to_perform) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
@@ -2031,7 +2038,7 @@ static void ecu_update(void)
       } else {
         gStatus.Knock.AdaptationDetonate = 0;
 
-        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && o2_valid && !econ_flag) {
+        if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid && !econ_flag) {
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
             if(calibration_permitted_to_perform) {
