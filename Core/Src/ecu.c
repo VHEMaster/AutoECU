@@ -2039,7 +2039,7 @@ static void ecu_update(void)
                 lpf_calculation *= 0.0333f; //30 sec
                 gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
               }
-              else if(idle_flag && idle_rpm_flag) {
+              else if(idle_corr_flag) {
                 lpf_calculation *= 0.3333f; //3 sec
                 gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
               }
@@ -2053,8 +2053,8 @@ static void ecu_update(void)
     }
   }
 
-  gEcuCorrections.long_term_correction = CLAMP(gEcuCorrections.long_term_correction, -10.0f, 10.0f);
-  gEcuCorrections.idle_correction = CLAMP(gEcuCorrections.idle_correction, -10.0f, 10.0f);
+  gEcuCorrections.long_term_correction = CLAMP(gEcuCorrections.long_term_correction, -20.0f, 20.0f);
+  gEcuCorrections.idle_correction = CLAMP(gEcuCorrections.idle_correction, -20.0f, 20.0f);
 
   gEcuCriticalBackup.idle_valve_position = idle_valve_position;
 
