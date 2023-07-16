@@ -234,3 +234,17 @@ INLINE float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathI
 
   return diff;
 }
+
+float math_interpolate_1d_offset(sMathInterpolateInput input, const float *table, uint32_t offset)
+{
+  float result;
+  float output[2];
+  uint32_t offset_items = offset / sizeof(*table);
+
+  output[0] = table[input.indexes[0] * offset_items];
+  output[1] = table[input.indexes[1] * offset_items];
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}

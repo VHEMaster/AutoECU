@@ -55,6 +55,7 @@
 #define ACCELERATION_POINTS_COUNT   12
 #define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 8)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 8)
+#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     32
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -394,10 +395,36 @@ static volatile uint8_t gIgnCanShutdown = 0;
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnShutdownReady = 0;
 
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+static sLearnParameters gLearnParamsBuffer[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0};
+static sLearnParameters *gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0};
+static uint8_t gLearnParamsUpdated = 0;
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+
 static int8_t ecu_shutdown_process(void);
 #endif
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+static sLearnParameters ecu_convert_learn_parameters(const sParameters * params);
+
+static sLearnParameters ecu_convert_learn_parameters(const sParameters * params)
+{
+  sLearnParameters ret;
+
+  ret.RPM = params->RPM;
+  ret.AirTemp = params->AirTemp;
+  ret.ManifoldAirPressure = params->ManifoldAirPressure;
+  ret.AirDensity = params->AirDensity;
+  ret.ThrottlePosition = params->ThrottlePosition;
+  ret.FuelRatio = params->FuelRatio;
+  ret.WishFuelRatio = params->WishFuelRatio;
+  ret.EngineTemp = params->EngineTemp;
+
+  return ret;
+}
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
 static void ecu_async_injection_init(void)
 {
@@ -697,6 +724,12 @@ static void ecu_update(void)
   sMathInterpolateInput ipIdleFillingDensity = {0};
 
   sMathInterpolateInput ipFilling = {0};
+  sMathInterpolateInput ipLearnRpm;
+  sMathInterpolateInput ipLearnDensity;
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+  sMathInterpolateInput ipLearmParamsIndex = {0};
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
@@ -872,6 +905,8 @@ static void ecu_update(void)
   float idle_econ_delay;
   float start_econ_delay;
   static float idle_econ_time = 0;
+
+  float learn_cycles_to_delay = ECU_CYLINDERS_COUNT * 2.5f;
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
@@ -1900,7 +1935,23 @@ static void ecu_update(void)
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
 
-  if(adapt_diff >= period_half) {
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+
+  if(gLearnParamsUpdated) {
+    gLearnParamsUpdated = 0;
+
+    ipLearmParamsIndex.size = LEARN_ACCEPT_CYCLES_BUFFER_SIZE;
+    ipLearmParamsIndex.indexes[0] = roundf(learn_cycles_to_delay);
+    ipLearmParamsIndex.indexes[1] = ipLearmParamsIndex.indexes[0] + 1;
+
+    ipLearmParamsIndex.mult = learn_cycles_to_delay - ipLearmParamsIndex.indexes[0];
+
+    ipLearmParamsIndex.indexes[0] = CLAMP(ipLearmParamsIndex.indexes[0], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
+    ipLearmParamsIndex.indexes[1] = CLAMP(ipLearmParamsIndex.indexes[1], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
+
+#else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+  if(halfturns_performed) {
+#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
     adaptation_last = now;
     if(running) {
       calibration_permitted_to_perform = enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
@@ -1917,6 +1968,11 @@ static void ecu_update(void)
           short_term_correction = 0.0f;
           short_term_correction_pid = 0.0f;
 
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+          ipLearnRpm = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
+          ipLearnDensity = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->AirDensity, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK && !econ_flag) {
             fill_correction_density += filling_diff * lpf_calculation;
@@ -1925,24 +1981,34 @@ static void ecu_update(void)
             if(use_idle_filling && idle_corr_flag) {
               lpf_calculation *= 0.2f; // 5 sec
 
-              //ipIdleFillingDensity = math_interpolate_input(density_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
-              corr_math_interpolate_2d_set_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density, idle_fill_correction_density, -1.0f, 1.0f);
+#if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
+              ipLearnRpm = ipIdleFillingRpm;
+              ipLearnDensity = ipIdleFillingDensity;
+#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+
+              //ipLearnDensity = math_interpolate_input(density_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density, idle_fill_correction_density, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
               if(percentage > 1.0f) percentage = 1.0f / percentage;
-              calib_cur_progress = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density, calib_cur_progress, 0.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density, calib_cur_progress, 0.0f, 1.0f);
 
             } else {
-              //ipDensity = math_interpolate_input(density_when_injected, table->densities, table->densities_count);
-              corr_math_interpolate_2d_set_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density, fill_correction_density, -1.0f, 1.0f);
+#if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
+              ipLearnRpm = ipRpm;
+              ipLearnDensity = ipDensity;
+#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+
+              //ipLearnDensity = math_interpolate_input(density_when_injected, table->densities, table->densities_count);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density, fill_correction_density, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
               if(percentage > 1.0f) percentage = 1.0f / percentage;
-              calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density, calib_cur_progress, 0.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density, calib_cur_progress, 0.0f, 1.0f);
             }
           }
         }
@@ -2272,6 +2338,16 @@ static void ecu_update(void)
   gDiagWorkingMode.Bits.is_lambda_teach = o2_valid && calibration;
   gDiagWorkingMode.Bits.is_not_running = !running;
   gDiagWorkingMode.Bits.is_use_lambda = o2_valid;
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+  if(halfturns_performed) {
+    for(int i = LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 2; i >= 0; i--) {
+      gLearnParamsPtrs[i + 1] = gLearnParamsPtrs[i];
+    }
+    *gLearnParamsPtrs[0] = ecu_convert_learn_parameters(&gParameters);
+    gLearnParamsUpdated = 1;
+  }
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
   updated_last = now;
 }
@@ -4888,6 +4964,7 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
 
   ecu_async_injection_init();
 
+
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
@@ -4896,6 +4973,13 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   gLocalParams.MapAcceptValue = 103000.0f;
   gLocalParams.MapAcceptLast = 0;
 #endif
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+  memset(gLearnParamsBuffer, 0, sizeof(gLearnParamsBuffer));
+  for(int i = 0; i < LEARN_ACCEPT_CYCLES_BUFFER_SIZE; i++) {
+    gLearnParamsPtrs[i] = &gLearnParamsBuffer[i];
+  }
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
   csps_register_acceleration_callback(ecu_csps_acceleration_callback);
 

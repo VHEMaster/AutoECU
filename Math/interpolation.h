@@ -36,4 +36,6 @@ float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpolateInp
 float math_interpolate_2d_set_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t x_size, float (*table)[x_size], float new_value, float limit_l, float limit_h);
 
+float math_interpolate_1d_offset(sMathInterpolateInput input, const float *table, uint32_t offset);
+
 #endif /* INTERPOLATION_H_ */
