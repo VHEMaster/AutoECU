@@ -4664,19 +4664,19 @@ static void ecu_kline_loop(void)
           } else if(rx_message.data[1] == 0x90) { //VIN(Vehicle Identification Number)
             string = "VINNOTSET012345";
           } else if(rx_message.data[1] == 0x91) { //vehicleManufacturerECUHardwareNumber
-            string = "AutoECU v0.1";
+            string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x92) { //systemSupplierECUHardwareNumber
-            string = "AutoECU v1.0";
+            string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x94) { //systemSupplierECUSoftwareNumber
-            string = "AutoECU v1.0";
+            string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x97) { //systemNameOrEngineType
-            string = "AutoECU v1.0";
+            string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x98) { //repairShopCode
-            string = "AutoECU v1.0";
+            string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x99) { //ProgrammingDate
-            string = "05.2022";
+            string = "07.2023";
           } else if(rx_message.data[1] == 0x9A) { //vehicleManufacturerECUIdentifier
-            string = "AutoECU v1.0";
+            string = "AutoECU v2.2";
           } else {
             kline_send_error(&tx_message, rx_message.data[0], 0x12);
             break;
