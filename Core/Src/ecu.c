@@ -395,14 +395,16 @@ static volatile uint8_t gIgnCanShutdown = 0;
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnShutdownReady = 0;
 
+static int8_t ecu_shutdown_process(void);
+#endif
+
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 static sLearnParameters gLearnParamsBuffer[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0};
 static sLearnParameters *gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0};
+static sLearnParameters *gLearnParamsPtrTmp = NULL;
+
 static uint8_t gLearnParamsUpdated = 0;
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
-
-static int8_t ecu_shutdown_process(void);
-#endif
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
 
@@ -2341,9 +2343,11 @@ static void ecu_update(void)
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   if(halfturns_performed) {
+    gLearnParamsPtrTmp = gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1];
     for(int i = LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 2; i >= 0; i--) {
       gLearnParamsPtrs[i + 1] = gLearnParamsPtrs[i];
     }
+    gLearnParamsPtrs[0] = gLearnParamsPtrTmp;
     *gLearnParamsPtrs[0] = ecu_convert_learn_parameters(&gParameters);
     gLearnParamsUpdated = 1;
   }
