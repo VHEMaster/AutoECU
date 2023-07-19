@@ -4854,6 +4854,7 @@ static void ecu_oil_pressure_process(void)
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   uint8_t is_running = csps_isrunning();
+  float rpm = csps_getrpm(csps_data());
 
 #ifdef SIMULATION
   GPIO_PinState pressure = is_running ? GPIO_PIN_SET : GPIO_PIN_RESET;
@@ -4879,9 +4880,16 @@ static void ecu_oil_pressure_process(void)
             pressure_last = now;
           }
         } else {
-          if(DelayDiff(now, pressure_last) > 100000) {
-            prev = pressure;
-            pressure_last = now;
+          if(rpm > 750) {
+            if(DelayDiff(now, pressure_last) > 100000) {
+              prev = pressure;
+              pressure_last = now;
+            }
+          } else {
+            if(DelayDiff(now, pressure_last) > 1000000) {
+              prev = pressure;
+              pressure_last = now;
+            }
           }
         }
       } else {
