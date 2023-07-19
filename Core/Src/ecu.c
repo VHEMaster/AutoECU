@@ -3921,7 +3921,7 @@ static void ecu_checkengine_loop(void)
   }
 
   if(was_error) {
-    if(HAL_DelayDiff(hal_now, hal_error_last) < 60000) {
+    if(HAL_DelayDiff(hal_now, hal_error_last) < 10000) {
       iserror = 1;
     } else {
       was_error = 0;
