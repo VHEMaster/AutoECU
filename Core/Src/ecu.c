@@ -2348,7 +2348,7 @@ static void ecu_update(void)
       gLearnParamsPtrs[i + 1] = gLearnParamsPtrs[i];
     }
     gLearnParamsPtrs[0] = gLearnParamsPtrTmp;
-    *gLearnParamsPtrs[0] = ecu_convert_learn_parameters(&gParameters);
+    *gLearnParamsPtrTmp = ecu_convert_learn_parameters(&gParameters);
     gLearnParamsUpdated = 1;
   }
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
@@ -4719,19 +4719,19 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[1]; //Слово флагов текущих неисправностей 2
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[2]; //Слово флагов текущих неисправностей 3
             tx_message.data[tx_message.length++] = gDiagErrors.Bytes.byte[3]; //Слово флагов текущих неисправностей 4
-            tx_message.data[tx_message.length++] = gSharedParameters.EngineTemp <= -40 ? 0 : gSharedParameters.EngineTemp + 40; //Температура охлаждающей жидкости
-            tx_message.data[tx_message.length++] = (gSharedParameters.FuelRatio < 7.5f ? 7.5f : gSharedParameters.FuelRatio > 21 ? 21 : gSharedParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
-            tx_message.data[tx_message.length++] = gSharedParameters.ThrottlePosition > 100 ? 100 : gSharedParameters.ThrottlePosition < 0 ? 0 : gSharedParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.EngineTemp, -40, 150) + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.FuelRatio, 7.5f, 21.0f) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.ThrottlePosition, 0, 100); //Положение дроссельной заслонки
             tx_message.data[tx_message.length++] = gSharedParameters.RPM / 40.0f; //Скорость вращения двигателя
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
-            tx_message.data[tx_message.length++] = gSharedParameters.WishIdleValvePosition > 255 ? 255 : gSharedParameters.WishIdleValvePosition < 0 ? 0 : gSharedParameters.WishIdleValvePosition; //Желаемое положение регулятора холостого хода
-            tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.WishIdleValvePosition, 0, 255); //Желаемое положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.IdleValvePosition, 0, 255); //Текущее положение регулятора холостого хода
             tx_message.data[tx_message.length++] = gSharedParameters.LongTermCorrection + gSharedParameters.ShortTermCorrection * 256.0f + 128; //Коэффициент коррекции времени впрыска
             tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAdvance * 2.0f); //Угол опережения зажигания
             tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
-            tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.PowerVoltage, 5.5f, 17.5f) - 5.2f) * 20.0f; //Напряжение бортсети
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Желаемые обороты холостого хода
-            tx_message.data[tx_message.length++] = (gSharedParameters.AdcLambdaUA > 4.9f ? 4.9f : gSharedParameters.AdcLambdaUA) / 5.0f * 256.0f; //Напряжение на датчике кислорода
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.AdcLambdaUA, 0.0f, 4.95f) / 5.0f * 256.0f; //Напряжение на датчике кислорода
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
             tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
             tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
@@ -4750,15 +4750,15 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = 0x18; //Слово комплектации 2
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[0]; //Слово режима работы 1
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bytes.byte[1]; //Слово режима работы 2
-            tx_message.data[tx_message.length++] = gSharedParameters.EngineTemp <= -40 ? 0 : gSharedParameters.EngineTemp + 40; //Температура охлаждающей жидкости
-            tx_message.data[tx_message.length++] = (gSharedParameters.FuelRatio < 7.5f ? 7.5f : gSharedParameters.FuelRatio > 21 ? 21 : gSharedParameters.FuelRatio) / 14.7f * 256 - 128; //Соотношение воздух/топливо
-            tx_message.data[tx_message.length++] = gSharedParameters.ThrottlePosition > 100 ? 100 : gSharedParameters.ThrottlePosition < 0 ? 0 : gSharedParameters.ThrottlePosition; //Положение дроссельной заслонки
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.EngineTemp, -40, 150) + 40; //Температура охлаждающей жидкости
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.FuelRatio, 7.5f, 21.0f) / 14.7f * 256 - 128; //Соотношение воздух/топливо
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.ThrottlePosition, 0, 100); //Положение дроссельной заслонки
             tx_message.data[tx_message.length++] = gSharedParameters.RPM / 40.0f; //Скорость вращения двигателя
             tx_message.data[tx_message.length++] = gSharedParameters.WishIdleRPM / 10.0f; //Скорость вращения двигателя на холостом ходу
-            tx_message.data[tx_message.length++] = gSharedParameters.IdleValvePosition > 255 ? 255 : gSharedParameters.IdleValvePosition < 0 ? 0 : gSharedParameters.IdleValvePosition; //Текущее положение регулятора холостого хода
+            tx_message.data[tx_message.length++] = CLAMP(gSharedParameters.IdleValvePosition, 0, 255); //Текущее положение регулятора холостого хода
             tx_message.data[tx_message.length++] = (int8_t)(gSharedParameters.IgnitionAdvance * 2.0f); //Угол опережения зажигания
             tx_message.data[tx_message.length++] = gSharedParameters.Speed; //Скорость автомобиля
-            tx_message.data[tx_message.length++] = ((gSharedParameters.PowerVoltage > 17.5f ? 17.5f : gSharedParameters.PowerVoltage < 5.5f ? 5.5f : gSharedParameters.PowerVoltage) - 5.2f) * 20.0f; //Напряжение бортсети
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.PowerVoltage, 5.5f, 17.5f) - 5.2f) * 20.0f; //Напряжение бортсети
             tx_message.data[tx_message.length++] = gDiagWorkingMode.Bits.is_use_lambda * 0xC0; //Флаги состояния датчика кислорода
             tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.InjectionPulse * 125.0f) & 0xFF; //Длительность импульса впрыска (младший байт)
             tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.InjectionPulse * 125.0f) >> 8) & 0xFF; //Длительность импульса впрыска (старший байт)
@@ -4771,12 +4771,12 @@ static void ecu_kline_loop(void)
             tx_message.data[tx_message.length++] = (uint32_t)(gSharedParameters.FuelConsumption * 128.0f) & 0xFF; //Путевой расход топлива(младший байт)
             tx_message.data[tx_message.length++] = ((uint32_t)(gSharedParameters.FuelConsumption * 128.0f) >> 8) & 0xFF; //Путевой расход топлива(старший байт)
           } else if(rx_message.data[1] == 0x03) { //  factoryTestRecordLocalIdentifier
-            tx_message.data[tx_message.length++] = (gSharedParameters.KnockSensor > 4.95f) ? 255 : (gSharedParameters.KnockSensor / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gSharedParameters.AdcEngineTemp > 4.95f) ? 255 : (gSharedParameters.AdcEngineTemp / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gSharedParameters.AdcManifoldAirPressure > 4.95f) ? 255 : (gSharedParameters.AdcManifoldAirPressure / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gSharedParameters.PowerVoltage > 4.95f) ? 255 : (gSharedParameters.PowerVoltage / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gSharedParameters.AdcLambdaUA > 4.95f) ? 255 : (gSharedParameters.AdcLambdaUA / 5.0f * 256);
-            tx_message.data[tx_message.length++] = (gSharedParameters.AdcThrottlePosition > 4.95f) ? 255 : (gSharedParameters.AdcThrottlePosition / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.KnockSensor, 0.0f, 4.95f) / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.AdcEngineTemp, 0.0f, 4.95f) / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.AdcManifoldAirPressure, 0.0f, 4.95f) / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.PowerVoltage, 0.0f, 4.95f) / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.AdcLambdaUA, 0.0f, 4.95f) / 5.0f * 256);
+            tx_message.data[tx_message.length++] = (CLAMP(gSharedParameters.AdcThrottlePosition, 0.0f, 4.95f) / 5.0f * 256);
             tx_message.data[tx_message.length++] = 0;
             tx_message.data[tx_message.length++] = 0;
             tx_message.data[tx_message.length++] = 0;
