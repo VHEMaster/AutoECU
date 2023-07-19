@@ -58,6 +58,9 @@ static uint32_t McuWritePos = 0;
 static AdcChannelEvent AdcStartSamplingEvent = NULL;
 static AdcChannelEvent AdcSamplingDoneEvent = NULL;
 
+static uint32_t AdcOldSamples[ADC_CHANNELS + MCU_CHANNELS];
+static uint32_t AdcOldTimestamps[ADC_CHANNELS + MCU_CHANNELS];
+
 void adc_set_events(AdcChannelEvent startEvent, AdcChannelEvent doneEvent)
 {
   AdcStartSamplingEvent = startEvent;
@@ -263,6 +266,9 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
       AdcBuffer[i][j] = 0x8000;
     }
   }
+
+  memset(AdcOldTimestamps, 0, sizeof(AdcOldTimestamps));
+  memset(AdcOldSamples, 0, sizeof(AdcOldSamples));
 
   DelayMs(10);
 
@@ -492,11 +498,15 @@ ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
   return result;
 }
 
-ITCM_FUNC HAL_StatusTypeDef adc_slow_loop(void)
+HAL_StatusTypeDef adc_slow_loop(void)
 {
+  const uint32_t failed_adc_mask = (1 << ADC_CHANNELS) - 1;
+  const uint32_t failed_mcu_mask = ((1 << MCU_CHANNELS) - 1) << ADC_CHANNELS;
   static HAL_StatusTypeDef result = HAL_OK;
+  HAL_StatusTypeDef status = HAL_OK;
   uint32_t data;
   uint32_t failed_channels = 0;
+  uint32_t now = Delay_Tick;
 
   if(adcInitStatus != HAL_OK)
     return adcInitStatus;
@@ -513,14 +523,24 @@ ITCM_FUNC HAL_StatusTypeDef adc_slow_loop(void)
     AdcVoltages[i] = ADC_Convert(i, ChData[i]) * ChDivider[i];
   }
 
-  for(int i = 0; i < ADC_CHANNELS; i++) {
-    if(ChData[i] == 0x0000 || ChData[i] == 0xFFFF)
-      failed_channels++;
-    else break;
+  for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
+    if(ChData[i] == AdcOldSamples[i] || ChData[i] == 0x0000 || ChData[i] == 0xFFFF) {
+      if(DelayDiff(now, AdcOldTimestamps[i]) > 1000000) {
+        failed_channels |= 1 << i;
+      }
+    } else {
+      AdcOldTimestamps[i] = now;
+    }
+    AdcOldSamples[i] = ChData[i];
   }
 
-  if(failed_channels == ADC_CHANNELS)
-    adcStatus = HAL_ERROR;
+  if((failed_channels & failed_adc_mask) == failed_adc_mask)
+    status |= HAL_ERROR;
+
+  if((failed_channels & failed_mcu_mask) == failed_mcu_mask)
+    status |= HAL_ERROR;
+
+  adcStatus = status;
 
   return result;
 }
