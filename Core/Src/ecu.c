@@ -1680,6 +1680,9 @@ static void ecu_update(void)
   if(!idle_corr_flag) {
     idle_valve_pos_correction = 0;
     idle_advance_correction = 0;
+  }
+
+  if(!idle_rpm_flag) {
     idle_wish_valve_pos = idle_valve_econ_position;
   }
 
