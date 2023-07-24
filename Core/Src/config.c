@@ -822,6 +822,7 @@ void config_default_params(sEcuParams *table)
   table->useLongTermCorr = 0;
 
   table->knockIntegratorTime = 22;
+  table->learn_cycles_delay_mult = 2.0f;
 
 }
 

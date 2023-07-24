@@ -908,7 +908,8 @@ static void ecu_update(void)
   float start_econ_delay;
   static float idle_econ_time = 0;
 
-  float learn_cycles_to_delay = ECU_CYLINDERS_COUNT * 2.5f;
+  float learn_cycles_to_delay;
+  float learn_cycles_delay_mult;
 
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
@@ -1194,6 +1195,12 @@ static void ecu_update(void)
   filling_relative = filling;
 
   effective_volume = filling * gEcuParams.engineVolume;
+
+  learn_cycles_delay_mult = gEcuParams.learn_cycles_delay_mult;
+
+  learn_cycles_to_delay = filling * air_density;
+  learn_cycles_to_delay *= learn_cycles_delay_mult;
+  learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
 
   cycle_air_flow = effective_volume * 0.25f * air_density;
   mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
