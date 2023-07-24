@@ -20,6 +20,7 @@
 #include "defines.h"
 #include "interpolation.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define O2_PID_P  -30.0f
 #define O2_PID_I  -2.0f
@@ -107,11 +108,15 @@ static const uint32_t StepPos[4] = {
 #define STEP_NORMAL() { IdleValveStepMode = 2; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 #define STEP_ACCELERATE() { IdleValveStepMode = 3; if(STEP_I0_GPIO_Port == STEP_I1_GPIO_Port) { STEP_I0_GPIO_Port->BSRR = STEP_I1_Pin | STEP_I0_Pin; } else { STEP_I0_GPIO_Port->BSRR = STEP_I0_Pin; STEP_I1_GPIO_Port->BSRR = STEP_I1_Pin; } }
 
-#define STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE    2.0f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_SLOW_ACCEL    2.0f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_MIDL_ACCEL    1.8f //in seconds
+#define STEP_MAX_SPEED_FROM_START_TO_END_FAST_ACCEL    1.5f //in seconds
 #define STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE     1.0f //in seconds
-#define STEP_MAX_FREQ_ACCELERATE  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_ACCELERATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
+#define STEP_MAX_FREQ_SLOW_ACCEL  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_SLOW_ACCEL * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
+#define STEP_MAX_FREQ_MIDL_ACCEL  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_MIDL_ACCEL * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
+#define STEP_MAX_FREQ_FAST_ACCEL  ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_FAST_ACCEL * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
 #define STEP_MAX_FREQ_CALIBRATE   ((uint32_t)(STEP_MAX_SPEED_FROM_START_TO_END_CALIBRATE * 1000000.0f / (float)IDLE_VALVE_POS_MAX))
-#define STEP_ACC_TO_NORM_DELAY    (STEP_MAX_FREQ_ACCELERATE * 5.0f)
+#define STEP_ACC_TO_NORM_DELAY    (STEP_MAX_FREQ_SLOW_ACCEL * 5.0f)
 
 #define SPI_NSS_INJ_ON() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_INJ_OFF() HAL_GPIO_WritePin(SPI4_NSS_INJ_GPIO_Port, SPI4_NSS_INJ_Pin, GPIO_PIN_SET)
@@ -452,7 +457,7 @@ static int8_t O2_Loop(void)
   static uint8_t device,diag;
   static eO2AmplificationFactor factor = 0;
   eO2AmplificationFactor factor_tmp;
-  static uint8_t need_reset_factor = 0;\
+  static uint8_t need_reset_factor = 0;
   static uint32_t temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
   static uint32_t heater_openload_time = 0;
   uint8_t is_engine_running = 0;
@@ -932,6 +937,8 @@ static void IdleValve_FastLoop(void)
   uint32_t now = Delay_Tick;
   uint8_t current = IdleValvePositionCurrent;
   uint8_t target = IdleValvePositionTarget;
+  uint32_t step_period = STEP_MAX_FREQ_SLOW_ACCEL;
+  uint32_t target_diff_abs;
   static uint8_t is_calibrating = 0;
   static uint16_t calibration_steps = 0;
   static uint8_t mode = 1;
@@ -941,7 +948,15 @@ static void IdleValve_FastLoop(void)
     if(!!IdleValveCalibrate == !!IdleValveCalibratedOk || !IdleValveCalibrate) {
       is_calibrating = 0;
       calibration_steps = 0;
-      if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_ACCELERATE) {
+      target_diff_abs = abs(current - target);
+      if(target_diff_abs > 30) {
+        step_period = STEP_MAX_FREQ_FAST_ACCEL;
+      } else if(target_diff_abs > 15) {
+        step_period = STEP_MAX_FREQ_MIDL_ACCEL;
+      } else {
+        step_period = STEP_MAX_FREQ_SLOW_ACCEL;
+      }
+      if(DelayDiff(now, last_tick) > step_period) {
         if(current != target) {
           STEP_ACCELERATE();
           last_tick = now;
@@ -989,7 +1004,8 @@ static void IdleValve_FastLoop(void)
         last_tick = now;
       } else {
         if(is_calibrating == 1) {
-          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
+          step_period = STEP_MAX_FREQ_CALIBRATE;
+          if(DelayDiff(now, last_tick) > step_period) {
             last_tick = now;
             STEP_DECREMENT();
             STEP_APPEND();
@@ -1002,7 +1018,8 @@ static void IdleValve_FastLoop(void)
             }
           }
         } else if(is_calibrating == 2) {
-          if(DelayDiff(now, last_tick) > STEP_MAX_FREQ_CALIBRATE) {
+          step_period = STEP_MAX_FREQ_CALIBRATE;
+          if(DelayDiff(now, last_tick) > step_period) {
             last_tick = now;
             STEP_INCREMENT();
             STEP_APPEND();
