@@ -32,6 +32,7 @@ typedef struct {
     float Temperature;
     volatile uint8_t Valid;
     eO2AmplificationFactor AmplificationFactor;
+    uint8_t PumpReferenceCurrent;
     uint8_t Available;
     uint8_t Working;
     HAL_StatusTypeDef TemperatureStatus;

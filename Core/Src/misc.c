@@ -50,6 +50,7 @@
 
 #define O2_REG1_CALIBR 0x9C
 #define O2_REG1_NORMAL 0x88
+#define O2_REG2_NORMAL 0x00
 
 #define KNOCK_CMD_GAIN      0x80
 #define KNOCK_CMD_BP_FREQ   0x00
@@ -67,9 +68,11 @@ typedef enum {
   LambdaStatePollCalibrate,
   LambdaStateSetCalibrate,
   LambdaStatePollEnable,
+  LambdaStatePollPumpReset,
   LambdaStateWaitToHeat,
   LambdaStateHeating,
-  LambdaStatePollFactor,
+  LambdaStatePollInit1,
+  LambdaStatePollInit2,
   LambdaStateCheckTemperature
 }eLambdaState;
 
@@ -411,14 +414,31 @@ static int8_t O2_GetDiag(uint8_t *diag)
   return O2_Read(O2_DIAG_REG_RD, diag);
 }
 
+static int8_t O2_SetInit1Reg(uint8_t reg)
+{
+  return O2_Write(O2_INIT_REG1_WR, reg);
+}
+
+static int8_t O2_SetInit2Reg(uint8_t reg)
+{
+  return O2_Write(O2_INIT_REG2_WR, reg);
+}
+
+static int8_t O2_SetPumpReferenceCurrent(uint8_t current)
+{
+  current &= 0x0F;
+
+  return O2_SetInit2Reg(O2_REG2_NORMAL + current);
+}
+
 static int8_t O2_Calibrate(eO2AmplificationFactor factor)
 {
-  return O2_Write(O2_INIT_REG1_WR, O2_REG1_CALIBR + factor);
+  return O2_SetInit1Reg(O2_REG1_CALIBR + factor);
 }
 
 static int8_t O2_Enable(eO2AmplificationFactor factor)
 {
-  return O2_Write(O2_INIT_REG1_WR, O2_REG1_NORMAL + factor);
+  return O2_SetInit1Reg(O2_REG1_NORMAL + factor);
 }
 
 static void O2_CriticalLoop(void)
@@ -456,8 +476,11 @@ static int8_t O2_Loop(void)
   static float o2heater = 0.0f;
   static uint8_t device,diag;
   static eO2AmplificationFactor factor = 0;
+  static uint8_t pump_ref_current = 0;
   eO2AmplificationFactor factor_tmp;
-  static uint8_t need_reset_factor = 0;
+  uint8_t pump_ref_current_tmp;
+  static uint8_t need_reset_init1 = 0;
+  static uint8_t need_reset_init2 = 0;
   static uint32_t temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
   static uint32_t heater_openload_time = 0;
   uint8_t is_engine_running = 0;
@@ -480,11 +503,19 @@ static int8_t O2_Loop(void)
     was_engine_running = is_engine_running;
   }
 
-  if(!need_reset_factor) {
+  if(!need_reset_init1) {
     factor_tmp = O2Status.AmplificationFactor;
     if(factor_tmp != factor) {
       factor = factor_tmp;
-      need_reset_factor = 1;
+      need_reset_init1 = 1;
+    }
+  }
+
+  if(!need_reset_init2) {
+    pump_ref_current_tmp = O2Status.PumpReferenceCurrent;
+    if(pump_ref_current_tmp != pump_ref_current) {
+      pump_ref_current = pump_ref_current_tmp;
+      need_reset_init2 = 1;
     }
   }
 
@@ -514,8 +545,10 @@ static int8_t O2_Loop(void)
         state = LambdaStatePollCalibrate;
       }
       else {
-        if(O2Status.Valid && need_reset_factor) {
-          state = LambdaStatePollFactor;
+        if(O2Status.Valid && need_reset_init1) {
+          state = LambdaStatePollInit1;
+        } else if(O2Status.Valid && need_reset_init2) {
+            state = LambdaStatePollInit2;
         } else {
           state = LambdaStateInitial;
         }
@@ -594,7 +627,8 @@ static int8_t O2_Loop(void)
       status = O2_Calibrate(factor);
       retvalue = 0;
       if(status) {
-        need_reset_factor = 0;
+        need_reset_init1 = 0;
+        need_reset_init2 = 0;
         retvalue = 1;
         calibrate_timestamp = now;
         state = LambdaStateSetCalibrate;
@@ -618,7 +652,17 @@ static int8_t O2_Loop(void)
       status = O2_Enable(factor);
       retvalue = 0;
       if(status) {
-        need_reset_factor = 0;
+        need_reset_init1 = 0;
+        retvalue = 1;
+        calibrate_timestamp = now;
+        state = LambdaStatePollEnable;
+      }
+      break;
+    case LambdaStatePollPumpReset :
+      status = O2_SetPumpReferenceCurrent(pump_ref_current);
+      retvalue = 0;
+      if(status) {
+        need_reset_init2 = 0;
         retvalue = 1;
         calibrate_timestamp = now;
         state = LambdaStateWaitToHeat;
@@ -651,7 +695,9 @@ static int8_t O2_Loop(void)
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         temperature_wait_timestamp = now;
-        state = LambdaStatePollFactor;
+        state = LambdaStatePollInit1;
+        need_reset_init1 = 1;
+        need_reset_init2 = 1;
         temperature_timeout = O2_HEATUP_TEMP_TIMEOUT_MS;
       }
       heatup_time_diff = DelayDiff(now, calibrate_timestamp);
@@ -661,12 +707,29 @@ static int8_t O2_Loop(void)
         calibrate_timestamp = now;
       }
       break;
-    case LambdaStatePollFactor :
-      status = O2_Enable(factor);
-      retvalue = 0;
-      if(status) {
-        need_reset_factor = 0;
-        retvalue = 1;
+    case LambdaStatePollInit1 :
+      if(need_reset_init1 && retvalue == 1) {
+        status = O2_Enable(factor);
+        retvalue = 0;
+        if(status) {
+          need_reset_init1 = 0;
+          retvalue = 1;
+          state = LambdaStatePollInit2;
+        }
+      } else {
+        state = LambdaStatePollInit2;
+      }
+      /* no break */
+    case LambdaStatePollInit2 :
+      if(need_reset_init2 && retvalue == 1) {
+        status = O2_SetPumpReferenceCurrent(pump_ref_current);
+        retvalue = 0;
+        if(status) {
+          need_reset_init2 = 0;
+          retvalue = 1;
+          state = LambdaStateCheckTemperature;
+        }
+      } else {
         state = LambdaStateCheckTemperature;
       }
       /* no break */
@@ -1156,6 +1219,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
   O2Status.Valid = 0;
   O2Status.Working = 0;
   O2Status.AmplificationFactor = O2AmplificationFactor8;
+  O2Status.PumpReferenceCurrent = 0;
   O2Status.TemperatureStatus = HAL_OK;
   O2Status.HeaterStatus = HAL_OK;
 
