@@ -2279,6 +2279,7 @@ static void ecu_update(void)
     gParameters.KnockCountCy[i] = gStatus.Knock.DetonationCountCy[i];
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
+  gParameters.CalculatedAirTemp = calculated_air_temp;
   gParameters.ManifoldAirPressure = pressure;
   gParameters.ThrottlePosition = throttle;
   gParameters.ReferenceVoltage = reference_voltage;
