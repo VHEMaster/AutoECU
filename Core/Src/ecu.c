@@ -584,7 +584,7 @@ static void ecu_config_init(void)
   }
 }
 
-static float ecu_get_air_density(float pressure, float temperature)
+STATIC_INLINE float ecu_get_air_density(float pressure, float temperature)
 {
   //Output in mg/cc
   const float M = 29.0f;
@@ -686,6 +686,7 @@ float gDebugPowerVoltage = 14.4f;
 
 static void ecu_update(void)
 {
+  static const float normal_density = 1.2055f;
   static uint32_t adaptation_last = 0;
   static uint32_t phased_last = 0;
   static uint32_t running_time_last = 0;
@@ -785,7 +786,7 @@ static void ecu_update(void)
   float injection_start_mult;
   float knock_threshold;
   float air_density;
-  float filling_relative;
+  float engine_load;
   float fuel_flow_per_us;
   float knock_noise_level;
   static float knock_zone = 0;
@@ -1196,7 +1197,8 @@ static void ecu_update(void)
     filling = idle_filling;
   }
 
-  filling_relative = filling;
+
+  engine_load = ((air_density / normal_density) * filling) * 100.0f;
 
   effective_volume = filling * gEcuParams.engineVolume;
 
@@ -2283,7 +2285,7 @@ static void ecu_update(void)
   gParameters.CyclicAirFlow = cycle_air_flow;
   gParameters.EffectiveVolume = effective_volume;
   gParameters.AirDensity = air_density;
-  gParameters.RelativeFilling = filling_relative;
+  gParameters.EngineLoad = engine_load;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
   gParameters.IdleRegThrRPM = idle_reg_rpm_1;
