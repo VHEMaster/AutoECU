@@ -1228,7 +1228,7 @@ static void ecu_update(void)
   learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
 
   cycle_air_flow = effective_volume * 0.25f * air_density;
-  mass_air_flow = rpm * 0.03333333f * cycle_air_flow * 0.001f * 3.6f; // rpm / 60 * 2
+  mass_air_flow = rpm * cycle_air_flow * 0.00012f;
 
   if(is_cold_start) {
     if(running) {
