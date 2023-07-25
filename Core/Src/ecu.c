@@ -1202,8 +1202,8 @@ static void ecu_update(void)
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
   air_density = ecu_get_air_density(pressure, air_temp);
 
-  calaulate_air_temp_kmin = 0.25f;
-  calaulate_air_temp_kmax = 0.99f;
+  calaulate_air_temp_kmin = gEcuParams.air_temp_corr_koff_min;
+  calaulate_air_temp_kmax = gEcuParams.air_temp_corr_koff_max;
   calaulate_air_cycle_air_flow_min = idle_wish_massair;
   calaulate_air_cycle_air_flow_max = gEcuParams.engineVolume * normal_density * 0.00003f * table->rotates[table->rotates_count - 1];
   calaulate_air_cycle_air_flow_temp = effective_volume * air_density * 0.00003f * rpm;

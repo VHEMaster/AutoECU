@@ -823,6 +823,8 @@ void config_default_params(sEcuParams *table)
 
   table->knockIntegratorTime = 22;
   table->learn_cycles_delay_mult = 2.0f;
+  table->air_temp_corr_koff_min = 0.25f;
+  table->air_temp_corr_koff_max = 0.9f;
 
 }
 
