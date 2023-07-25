@@ -319,7 +319,7 @@ struct {
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
 
-    volatile float InjectionDensityPressure;
+    volatile float InjectionPressure;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -418,7 +418,6 @@ static sLearnParameters ecu_convert_learn_parameters(const sParameters * params)
   ret.RPM = params->RPM;
   ret.AirTemp = params->AirTemp;
   ret.ManifoldAirPressure = params->ManifoldAirPressure;
-  ret.AirDensity = params->AirDensity;
   ret.ThrottlePosition = params->ThrottlePosition;
   ret.FuelRatio = params->FuelRatio;
   ret.WishFuelRatio = params->WishFuelRatio;
@@ -712,7 +711,7 @@ static void ecu_update(void)
   float diff_sec = diff * 0.000001f;
   sMathInterpolateInput ipRpm = {0};
   sMathInterpolateInput ipIdleRpm = {0};
-  sMathInterpolateInput ipDensity = {0};
+  sMathInterpolateInput ipPressure = {0};
   sMathInterpolateInput ipEngineTemp = {0};
   sMathInterpolateInput ipColdStartTemp = {0};
   sMathInterpolateInput ipAirTemp = {0};
@@ -723,11 +722,11 @@ static void ecu_update(void)
   sMathInterpolateInput ipEnrLoadDeriv = {0};
 
   sMathInterpolateInput ipIdleFillingRpm = {0};
-  sMathInterpolateInput ipIdleFillingDensity = {0};
+  sMathInterpolateInput ipIdleFillingPressure = {0};
 
   sMathInterpolateInput ipFilling = {0};
   sMathInterpolateInput ipLearnRpm;
-  sMathInterpolateInput ipLearnDensity;
+  sMathInterpolateInput ipLearnPressure;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   sMathInterpolateInput ipLearmParamsIndex = {0};
@@ -739,13 +738,15 @@ static void ecu_update(void)
 
   float rpm;
   float pressure;
-  float density_when_injected;
+  float pressure_when_injected;
   float fuel_ratio;
   float lambda_value;
   float lambda_temperature;
   float lambda_heatervoltage;
   float lambda_temperaturevoltage;
   float air_temp;
+  float calculated_air_temp;
+  float engine_to_air_temp_koff;
   float engine_temp;
   float throttle;
   float power_voltage;
@@ -763,7 +764,7 @@ static void ecu_update(void)
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
-  float idle_fill_correction_density;
+  float idle_fill_correction_pressure;
   float idle_filling;
   float filling;
   float pressure_from_throttle;
@@ -882,7 +883,7 @@ static void ecu_update(void)
   float filling_diff;
   float map_diff_thr;
   float lpf_calculation;
-  float fill_correction_density;
+  float fill_correction_pressure;
   float map_correction_thr;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
@@ -1021,7 +1022,7 @@ static void ecu_update(void)
     injector_status = HAL_OK;
   }
 
-  density_when_injected = gLocalParams.InjectionDensityPressure;
+  pressure_when_injected = gLocalParams.InjectionPressure;
 
   if(found != was_found) {
     was_found = found;
@@ -1156,33 +1157,36 @@ static void ecu_update(void)
     fuel_flow_per_us *= fast_rsqrt(fuel_pressure / fuel_abs_pressure);
   }
 
-  air_density = ecu_get_air_density(pressure, air_temp);
+  engine_to_air_temp_koff = 0.9f;
+  calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
+
+  air_density = ecu_get_air_density(pressure, calculated_air_temp);
 
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
   ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
-  ipDensity = math_interpolate_input(air_density, table->densities, table->densities_count);
+  ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
-  filling = math_interpolate_2d(ipRpm, ipDensity, TABLE_ROTATES_MAX, table->fill_by_density);
+  filling = math_interpolate_2d(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc);
 
-  fill_correction_density = corr_math_interpolate_2d_func(ipRpm, ipDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density);
-  idle_fill_correction_density = 0;
+  fill_correction_pressure = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc);
+  idle_fill_correction_pressure = 0;
 
-  filling *= fill_correction_density + 1.0f;
+  filling *= fill_correction_pressure + 1.0f;
 
 
   use_idle_filling = 0;
 
-  if(table->use_idle_filling && table->idle_filling_rotates_count >= 2 && table->idle_filling_densities_count >= 2) {
+  if(table->use_idle_filling && table->idle_filling_rotates_count >= 2 && table->idle_filling_pressures_count >= 2) {
     if(rpm > table->idle_filling_rotates[0] && rpm < table->idle_filling_rotates[table->idle_filling_rotates_count - 1] &&
-        pressure > table->idle_filling_densities[0] && pressure < table->idle_filling_densities[table->idle_filling_densities_count - 1]) {
+        pressure > table->idle_filling_pressures[0] && pressure < table->idle_filling_pressures[table->idle_filling_pressures_count - 1]) {
       ipIdleFillingRpm = math_interpolate_input(rpm, table->idle_filling_rotates, table->idle_filling_rotates_count);
-      ipIdleFillingDensity = math_interpolate_input(pressure, table->idle_filling_densities, table->idle_filling_densities_count);
-      idle_filling = math_interpolate_2d(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, table->idle_filling_by_density);
+      ipIdleFillingPressure = math_interpolate_input(pressure, table->idle_filling_pressures, table->idle_filling_pressures_count);
+      idle_filling = math_interpolate_2d(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, table->idle_filling_gbc);
 
-      idle_fill_correction_density = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density);
-      idle_filling *= idle_fill_correction_density + 1.0f;
+      idle_fill_correction_pressure = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc);
+      idle_filling *= idle_fill_correction_pressure + 1.0f;
 
       use_idle_filling = 1;
     }
@@ -1982,45 +1986,43 @@ static void ecu_update(void)
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
           ipLearnRpm = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
-          ipLearnDensity = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->AirDensity, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
+          ipLearnPressure = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
           filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gStatus.Sensors.Struct.Map == HAL_OK && !econ_flag) {
-            fill_correction_density += filling_diff * lpf_calculation;
-            idle_fill_correction_density += filling_diff * lpf_calculation;
+            fill_correction_pressure += filling_diff * lpf_calculation;
+            idle_fill_correction_pressure += filling_diff * lpf_calculation;
 
             if(use_idle_filling && idle_corr_flag) {
               lpf_calculation *= 0.2f; // 5 sec
 
 #if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
               ipLearnRpm = ipIdleFillingRpm;
-              ipLearnDensity = ipIdleFillingDensity;
+              ipLearnPressure = ipIdleFillingPressure;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-              //ipLearnDensity = math_interpolate_input(density_when_injected, table->idle_filling_densities, table->idle_filling_densities_count);
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_by_density, idle_fill_correction_density, -1.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc, idle_fill_correction_pressure, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
               if(percentage > 1.0f) percentage = 1.0f / percentage;
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_by_density, calib_cur_progress, 0.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc, calib_cur_progress, 0.0f, 1.0f);
 
             } else {
 #if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
               ipLearnRpm = ipRpm;
-              ipLearnDensity = ipDensity;
+              ipLearnPressure = ipPressure;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-              //ipLearnDensity = math_interpolate_input(density_when_injected, table->densities, table->densities_count);
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrections.fill_by_density, fill_correction_density, -1.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc, fill_correction_pressure, -1.0f, 1.0f);
 
               percentage = (filling_diff + 1.0f);
               if(percentage > 1.0f) percentage = 1.0f / percentage;
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnDensity, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_fill_by_density, calib_cur_progress, 0.0f, 1.0f);
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc, calib_cur_progress, 0.0f, 1.0f);
             }
           }
         }
@@ -2809,7 +2811,6 @@ ITCM_FUNC void ecu_process(void)
 
   HAL_StatusTypeDef map_status = HAL_OK;
   float pressure = 0;
-  float density = 0;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
   static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
@@ -3467,8 +3468,7 @@ ITCM_FUNC void ecu_process(void)
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
               gLocalParams.ParametersAcceptLast = 0;
-              density = ecu_get_air_density(pressure, gParameters.AirTemp);
-              gLocalParams.InjectionDensityPressure = density;
+              gLocalParams.InjectionPressure = pressure;
               gParameters.CylinderInjectionBitmask ^= 1 << i;
               enrichment_triggered[i] = 0;
 
@@ -3503,7 +3503,7 @@ ITCM_FUNC void ecu_process(void)
               enrichment_time_saturation[i] += inj_lag;
               ecu_inject(cy_count_injection, i, enrichment_time_saturation[i]);
               enrichment_time_saturation[i] = 0;
-              gLocalParams.InjectionDensityPressure = pressure;
+              gLocalParams.InjectionPressure = pressure;
               gLocalParams.ParametersAcceptLast = 0;
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
@@ -4336,18 +4336,18 @@ static void ecu_corrections_loop(void)
         gEcuCorrections.progress_ignitions[y][x] = value * 255.0f;
       }
     }
-    for(int y = 0; y < TABLE_DENSITIES_MAX; y++) {
+    for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_fill_by_density[y][x];
+        float value = gEcuCorrectionsProgress.progress_filling_gbc[y][x];
         if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_fill_by_density[y][x] = value * 255.0f;
+        gEcuCorrections.progress_filling_gbc[y][x] = value * 255.0f;
       }
     }
-    for(int y = 0; y < TABLE_DENSITIES_MAX; y++) {
+    for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
       for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_idle_filling_by_density[y][x];
+        float value = gEcuCorrectionsProgress.progress_idle_filling_gbc[y][x];
         if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_idle_filling_by_density[y][x] = value * 255.0f;
+        gEcuCorrections.progress_idle_filling_gbc[y][x] = value * 255.0f;
       }
     }
     for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
