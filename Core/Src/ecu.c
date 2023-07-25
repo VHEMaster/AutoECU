@@ -715,7 +715,7 @@ static void ecu_update(void)
   sMathInterpolateInput ipPressure = {0};
   sMathInterpolateInput ipEngineTemp = {0};
   sMathInterpolateInput ipColdStartTemp = {0};
-  sMathInterpolateInput ipAirTemp = {0};
+  sMathInterpolateInput ipCalcAirTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
   sMathInterpolateInput ipThr = {0};
   sMathInterpolateInput ipVoltages = {0};
@@ -1165,7 +1165,6 @@ static void ecu_update(void)
   }
 
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
-  ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
   ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
   ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
@@ -1216,6 +1215,7 @@ static void ecu_update(void)
   engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calaulate_air_temp_kmin, calaulate_air_temp_kmax);
 
   calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
+  ipCalcAirTemp = math_interpolate_input(calculated_air_temp, table->air_temps, table->air_temp_count);
 
   air_density = ecu_get_air_density(pressure, calculated_air_temp);
 
@@ -1256,7 +1256,7 @@ static void ecu_update(void)
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
 
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
-  air_temp_ign_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
+  air_temp_ign_corr = math_interpolate_2d(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
   engine_temp_ign_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
@@ -1359,7 +1359,7 @@ static void ecu_update(void)
   injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
   injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
-  air_temp_mix_corr = math_interpolate_2d(ipFilling, ipAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
+  air_temp_mix_corr = math_interpolate_2d(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
   engine_temp_mix_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
   injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
   injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 1.00f);
