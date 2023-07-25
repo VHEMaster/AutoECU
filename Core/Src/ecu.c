@@ -910,6 +910,12 @@ static void ecu_update(void)
   float start_econ_delay;
   static float idle_econ_time = 0;
 
+  float calaulate_air_temp_kmin;
+  float calaulate_air_temp_kmax;
+  float calaulate_air_cycle_air_flow_min;
+  float calaulate_air_cycle_air_flow_max;
+  float calaulate_air_cycle_air_flow_temp;
+
   float learn_cycles_to_delay;
   float learn_cycles_delay_mult;
 
@@ -1158,11 +1164,6 @@ static void ecu_update(void)
     fuel_flow_per_us *= fast_rsqrt(fuel_pressure / fuel_abs_pressure);
   }
 
-  engine_to_air_temp_koff = 0.9f;
-  calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
-
-  air_density = ecu_get_air_density(pressure, calculated_air_temp);
-
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipAirTemp = math_interpolate_input(air_temp, table->air_temps, table->air_temp_count);
   ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
@@ -1197,10 +1198,28 @@ static void ecu_update(void)
     filling = idle_filling;
   }
 
+  effective_volume = filling * gEcuParams.engineVolume;
+  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
+  air_density = ecu_get_air_density(pressure, air_temp);
+
+  calaulate_air_temp_kmin = 0.25f;
+  calaulate_air_temp_kmax = 0.99f;
+  calaulate_air_cycle_air_flow_min = idle_wish_massair;
+  calaulate_air_cycle_air_flow_max = gEcuParams.engineVolume * normal_density * 0.00003f * table->rotates[table->rotates_count - 1];
+  calaulate_air_cycle_air_flow_temp = effective_volume * air_density * 0.00003f * rpm;
+
+  calaulate_air_cycle_air_flow_temp = CLAMP(calaulate_air_cycle_air_flow_temp, calaulate_air_cycle_air_flow_min, calaulate_air_cycle_air_flow_max);
+
+  engine_to_air_temp_koff = calaulate_air_cycle_air_flow_temp - calaulate_air_cycle_air_flow_min / (calaulate_air_cycle_air_flow_max - calaulate_air_cycle_air_flow_min);
+  engine_to_air_temp_koff *= calaulate_air_temp_kmax - calaulate_air_temp_kmin;
+  engine_to_air_temp_koff += calaulate_air_temp_kmin;
+  engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calaulate_air_temp_kmin, calaulate_air_temp_kmax);
+
+  calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
+
+  air_density = ecu_get_air_density(pressure, calculated_air_temp);
 
   engine_load = ((air_density / normal_density) * filling) * 100.0f;
-
-  effective_volume = filling * gEcuParams.engineVolume;
 
   learn_cycles_delay_mult = gEcuParams.learn_cycles_delay_mult;
 
@@ -1241,7 +1260,6 @@ static void ecu_update(void)
   engine_temp_ign_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
-  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
   idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
   idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
   idle_valve_pos_adaptation = math_interpolate_1d(ipEngineTemp, gEcuCorrections.idle_valve_position);
