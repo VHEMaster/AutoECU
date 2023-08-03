@@ -93,8 +93,6 @@ extern UART_HandleTypeDef huart8;
 
 static sGetterHandle xHandles[] = {
 #ifdef VIRTUALCOMPORT
-    {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrNone}, 1,0,0,0,0,0, etrNone },
-    {{0},{0},{0},{0},{0},{0}, &huart8, {etrBT,etrNone}, 1,0,0,0,0,0, etrNone },
     {{0},{0},{0},{0},{0},{0}, NULL, {etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
 #else
     {{0},{0},{0},{0},{0},{0}, &huart5, {etrCTRL,etrPC,etrNone}, 1,0,0,0,0,0, etrNone },
