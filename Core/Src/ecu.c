@@ -787,6 +787,8 @@ static void ecu_update(void)
   float knock_threshold;
   float air_density;
   float engine_load;
+  float estimated_power_hp;
+  float estimated_torque_nm;
   float fuel_flow_per_us;
   float knock_noise_level;
   static float knock_zone = 0;
@@ -1810,12 +1812,17 @@ static void ecu_update(void)
     effective_volume = 0;
     fuel_consumption_per_distance = 0;
     fuel_consumption_hourly = 0;
+    estimated_power_hp = 0;
+    estimated_torque_nm = 0;
   } else {
     fuel_consumption = fuel_amount_per_cycle / table->fuel_mass_per_cc * (diff / period) * 0.001f * 2.0f;
     fuel_consumed += fuel_consumption;
 
     fuel_consumption_per_distance = fuel_consumption / km_drive * 100.0f;
     fuel_consumption_hourly = fuel_consumption * 3600000.0f;
+
+    estimated_power_hp = mass_air_flow * 0.34722222f; // mass_air_flow / 3.6f * 1.25f
+    estimated_torque_nm = estimated_power_hp / (rpm * 0.0001404156f);
   }
 
   if(!running) {
@@ -2305,6 +2312,8 @@ static void ecu_update(void)
   gParameters.EffectiveVolume = effective_volume;
   gParameters.AirDensity = air_density;
   gParameters.EngineLoad = engine_load;
+  gParameters.EstimatedPower = estimated_power_hp;
+  gParameters.EstimatedTorque = estimated_torque_nm;
   gParameters.WishFuelRatio = wish_fuel_ratio;
   gParameters.IdleValvePosition = idle_valve_position;
   gParameters.IdleRegThrRPM = idle_reg_rpm_1;
