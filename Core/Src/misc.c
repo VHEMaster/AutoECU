@@ -655,7 +655,7 @@ static int8_t O2_Loop(void)
         need_reset_init1 = 0;
         retvalue = 1;
         calibrate_timestamp = now;
-        state = LambdaStatePollEnable;
+        state = LambdaStatePollPumpReset;
       }
       break;
     case LambdaStatePollPumpReset :
@@ -678,12 +678,12 @@ static int8_t O2_Loop(void)
       O2_SetHeaterVoltage(O2_PREHEAT_VOLTAGE);
       sens_get_engine_temperature(&engine_temperature);
       diff = DelayDiff(now, calibrate_timestamp);
-      if(diff > 32000000 ||
-          (engine_temperature > 75.0f && diff > 1500000) ||
-          (engine_temperature > 50.0f && diff > 2000000) ||
-          (engine_temperature > 30.0f && diff > 26000000) ||
-          (engine_temperature > 20.0f && diff > 28000000) ||
-          (engine_temperature > 10.0f && diff > 30000000)) {
+      if(diff > 28000000 ||
+          (engine_temperature > 75.0f && diff > 5000000) ||
+          (engine_temperature > 50.0f && diff > 8000000) ||
+          (engine_temperature > 30.0f && diff > 20000000) ||
+          (engine_temperature > 20.0f && diff > 24000000) ||
+          (engine_temperature > 10.0f && diff > 26000000)) {
         o2heater = O2_HEATUP_START_VOLTAGE;
         O2_SetHeaterVoltage(o2heater);
         calibrate_timestamp = now;
