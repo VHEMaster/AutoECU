@@ -55,7 +55,7 @@
 #define ACCELERATION_POINTS_COUNT   12
 #define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 8)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 8)
-#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     32
+#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -2013,7 +2013,7 @@ static void ecu_update(void)
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
           ipLearnRpm = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
-          ipLearnPressure = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
+          ipLearnPressure = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters)), table->pressures, table->pressures_count);
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
           filling_diff = (fuel_ratio_diff) - 1.0f;
