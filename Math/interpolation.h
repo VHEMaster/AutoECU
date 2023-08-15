@@ -25,6 +25,8 @@ sMathInterpolateInput math_interpolate_input_limit(float value, const float *tab
 float math_interpolate_1d(sMathInterpolateInput input, const float *table);
 float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t x_size, const float (*table)[x_size]);
+float math_interpolate_2d_limit(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const float (*table)[x_size]);
 float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t x_size, const float (*table)[x_size]);
 float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,

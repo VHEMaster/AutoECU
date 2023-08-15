@@ -1150,7 +1150,7 @@ static void ecu_update(void)
   ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
   ipThr = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
-  pressure_from_throttle = math_interpolate_2d(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
+  pressure_from_throttle = math_interpolate_2d_limit(ipRpm, ipThr, TABLE_ROTATES_MAX, table->map_by_thr);
   map_correction_thr = corr_math_interpolate_2d_func(ipRpm, ipThr, TABLE_ROTATES_MAX, gEcuCorrections.map_by_thr);
 
   pressure_from_throttle *= map_correction_thr + 1.0f;
@@ -1171,12 +1171,13 @@ static void ecu_update(void)
   ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
-  filling = math_interpolate_2d(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc);
+  filling = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc);
 
   fill_correction_pressure = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc);
   idle_fill_correction_pressure = 0;
 
   filling *= fill_correction_pressure + 1.0f;
+  filling = MAX(filling, 0.0f);
 
 
   use_idle_filling = 0;
@@ -1186,7 +1187,7 @@ static void ecu_update(void)
         pressure > table->idle_filling_pressures[0] && pressure < table->idle_filling_pressures[table->idle_filling_pressures_count - 1]) {
       ipIdleFillingRpm = math_interpolate_input(rpm, table->idle_filling_rotates, table->idle_filling_rotates_count);
       ipIdleFillingPressure = math_interpolate_input(pressure, table->idle_filling_pressures, table->idle_filling_pressures_count);
-      idle_filling = math_interpolate_2d(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, table->idle_filling_gbc);
+      idle_filling = math_interpolate_2d_limit(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, table->idle_filling_gbc);
 
       idle_fill_correction_pressure = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc);
       idle_filling *= idle_fill_correction_pressure + 1.0f;
@@ -1222,6 +1223,7 @@ static void ecu_update(void)
   air_density = ecu_get_air_density(pressure, calculated_air_temp);
 
   engine_load = ((air_density / normal_density) * filling) * 100.0f;
+  engine_load = MAX(engine_load, 0);
 
   learn_cycles_delay_mult = gEcuParams.learn_cycles_delay_mult;
 
@@ -1252,14 +1254,14 @@ static void ecu_update(void)
   ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
 
   start_ignition_advance = math_interpolate_1d(ipEngineTemp, table->start_ignition);
-  ignition_advance = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
+  ignition_advance = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThr, table->idle_ignition_time_by_tps);
   idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
 
   ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
-  air_temp_ign_corr = math_interpolate_2d(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
-  engine_temp_ign_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
+  air_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
+  engine_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
@@ -1275,7 +1277,7 @@ static void ecu_update(void)
   if(gForceParameters.Enable.WishIdleRPM)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
 
-  if(idle_wish_rpm < wish_fault_rpm) {
+  if(idle_wish_rpm < wish_fault_rpm && running) {
     idle_wish_rpm = wish_fault_rpm;
     idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
   }
@@ -1311,7 +1313,7 @@ static void ecu_update(void)
 
   ignition_corr_final = ignition_correction;
 
-  idle_rpm_flag_koff = diff_sec * 0.25f; // 0.25 sec
+  idle_rpm_flag_koff = diff_sec * 4.0f; // 0.25 sec
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
 
@@ -1326,7 +1328,7 @@ static void ecu_update(void)
     idle_wish_ignition = start_ignition_advance;
     idle_ignition_time_by_tps_value = 0;
   } else {
-    idle_wish_ignition = idle_wish_ignition_static * idle_rpm_flag_value + idle_wish_ignition_table * (1.0f - idle_rpm_flag_value);
+    idle_wish_ignition = idle_wish_ignition_table * idle_rpm_flag_value + idle_wish_ignition_static * (1.0f - idle_rpm_flag_value);
     idle_ignition_time_by_tps_value = idle_flag * idle_ignition_time_by_tps_lpf + idle_ignition_time_by_tps_value * (1.0f - idle_ignition_time_by_tps_lpf);
   }
 
@@ -1357,12 +1359,12 @@ static void ecu_update(void)
   ignition_advance += engine_temp_ign_corr;
   ignition_advance += ignition_corr_final;
 
-  wish_fuel_ratio = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
-  injection_phase_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+  wish_fuel_ratio = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
+  injection_phase_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
   injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
-  air_temp_mix_corr = math_interpolate_2d(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
-  engine_temp_mix_corr = math_interpolate_2d(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
+  air_temp_mix_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
+  engine_temp_mix_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
   injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
   injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 1.00f);
 
@@ -1576,10 +1578,10 @@ static void ecu_update(void)
     ipEnrLoadStart = math_interpolate_input_limit(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
     ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
 
-    enrichment_rate = math_interpolate_2d(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
+    enrichment_rate = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
     enrichment_rate *= enrichment_temp_mult + 1.0f;
 
-    enrichment_ign_corr = math_interpolate_2d(ipEnrLoadStart, ipRpm, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_ign_corr);
+    enrichment_ign_corr = math_interpolate_2d_limit(ipEnrLoadStart, ipRpm, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_ign_corr);
 
     if(enrichment_sync_enabled) {
       enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
@@ -2087,7 +2089,7 @@ static void ecu_update(void)
               if(gStatus.Knock.UpdatedAdaptation[i]) {
                 memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
 
-                detonation_count_table = math_interpolate_2d(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
+                detonation_count_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
 
                 if(gStatus.Knock.AdaptationDetonate > 0.05f) {
                   gStatus.Knock.AdaptationDetonate = 0;
@@ -3700,7 +3702,7 @@ static void ecu_fan_process(void)
 
   ipEngineTemp = math_interpolate_input(gParameters.EngineTemp, table->engine_temps, table->engine_temp_count);
   ipSpeed = math_interpolate_input(gParameters.Speed, table->speeds, table->speeds_count);
-  fan_advance_control = math_interpolate_2d(ipSpeed, ipEngineTemp, TABLE_SPEEDS_MAX, table->fan_advance_control);
+  fan_advance_control = math_interpolate_2d_limit(ipSpeed, ipEngineTemp, TABLE_SPEEDS_MAX, table->fan_advance_control);
 
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
