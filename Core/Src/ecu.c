@@ -55,7 +55,7 @@
 #define ACCELERATION_POINTS_COUNT   12
 #define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 8)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 8)
-#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
+#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     32
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -403,7 +403,7 @@ static sLearnParameters gLearnParamsBuffer[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0
 static sLearnParameters *gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0};
 static sLearnParameters *gLearnParamsPtrTmp = NULL;
 
-static uint8_t gLearnParamsUpdated = 0;
+static volatile uint8_t gLearnParamsUpdated = 0;
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
@@ -2385,18 +2385,6 @@ static void ecu_update(void)
   gDiagWorkingMode.Bits.is_not_running = !running;
   gDiagWorkingMode.Bits.is_use_lambda = o2_valid;
 
-#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
-  if(halfturns_performed) {
-    gLearnParamsPtrTmp = gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1];
-    for(int i = LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 2; i >= 0; i--) {
-      gLearnParamsPtrs[i + 1] = gLearnParamsPtrs[i];
-    }
-    gLearnParamsPtrs[0] = gLearnParamsPtrTmp;
-    *gLearnParamsPtrTmp = ecu_convert_learn_parameters(&gParameters);
-    gLearnParamsUpdated = 1;
-  }
-#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
-
   updated_last = now;
 }
 
@@ -2912,6 +2900,10 @@ ITCM_FUNC void ecu_process(void)
   GPIO_PinState clutch_pin;
   uint32_t clutch_time;
   uint32_t turns_count = csps_getturns();
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+  uint8_t injection_performed = 0;
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
@@ -3502,6 +3494,9 @@ ITCM_FUNC void ecu_process(void)
               gLocalParams.ParametersAcceptLast = 0;
               gLocalParams.InjectionPressure = pressure;
               gParameters.CylinderInjectionBitmask ^= 1 << i;
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+              injection_performed = 1 << i;
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
               enrichment_triggered[i] = 0;
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
@@ -3617,6 +3612,18 @@ ITCM_FUNC void ecu_process(void)
       knock_process[i] = 0;
     }
   }
+
+#if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
+  if(injection_performed) {
+    gLearnParamsPtrTmp = gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1];
+    for(int i = LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 2; i >= 0; i--) {
+      gLearnParamsPtrs[i + 1] = gLearnParamsPtrs[i];
+    }
+    gLearnParamsPtrs[0] = gLearnParamsPtrTmp;
+    *gLearnParamsPtrTmp = ecu_convert_learn_parameters(&gParameters);
+    gLearnParamsUpdated = 1;
+  }
+#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 }
 
 static void ecu_fuelpump_process(void)
