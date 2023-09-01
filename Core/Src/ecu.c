@@ -1681,12 +1681,13 @@ static void ecu_update(void)
     math_pid_set_clamp(&gPidIdleValveAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     math_pid_set_clamp(&gPidIdleValveRpm, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-    if(use_idle_valve) {
+    if(use_idle_valve && gStatus.Sensors.Struct.Map == HAL_OK) {
       idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
       idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
     } else {
       math_pid_reset(&gPidIdleValveAirFlow);
       math_pid_reset(&gPidIdleValveRpm);
+      idle_valve_pos_correction = 0;
     }
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
