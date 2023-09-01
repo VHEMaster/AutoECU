@@ -1172,10 +1172,10 @@ static void ecu_update(void)
   filling_map = MAX(filling_map, 0.0f);
 
   filling_select_koff_tps = math_interpolate_1d(ipRpm, table->filling_select_koff_tps);
+  filling_select_koff_tps = CLAMP(filling_select_koff_tps, 0.0f, 1.0f);
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    // TODO
-    filling_koff = filling_select_koff_tps; //math_interpolate_1d(ipRpm, table->idle_wish_massair);
+    filling_koff = filling_select_koff_tps;
     filling = filling_map * (1.0f - filling_koff) + filling_tps * filling_koff;
   } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     filling_koff = 1.0f;
