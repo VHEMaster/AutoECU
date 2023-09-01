@@ -48,6 +48,11 @@ static const float default_fillings[TABLE_FILLING_MAX] = {
     293, 325, 358, 390, 423, 455, 488, 520,
 };
 
+static const float default_filling_select_koff_tps[TABLE_FILLING_MAX] = {
+    0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+    0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+};
+
 static const float default_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.599f, 0.598f, 0.599f, 0.605f, 0.622f, 0.712f, 0.716f, 0.688f, 0.707f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.599f, 0.597f, 0.595f, 0.595f, 0.600f, 0.616f, 0.718f, 0.726f, 0.685f, 0.705f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
@@ -623,6 +628,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->filling_gbc_map, default_filling_gbc_map, sizeof(default_filling_gbc_map));
   memcpy(table->filling_gbc_tps, default_filling_gbc_tps, sizeof(default_filling_gbc_tps));
+  memcpy(table->filling_select_koff_tps, default_filling_select_koff_tps, sizeof(default_filling_select_koff_tps));
 
   table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
   memcpy(table->enrichment_rate_start_load, default_enrichment_rate_start_load, sizeof(default_enrichment_rate_start_load));

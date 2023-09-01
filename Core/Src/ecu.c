@@ -763,6 +763,7 @@ static void ecu_update(void)
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
+  float filling_select_koff_tps;
   float filling_map;
   float filling_tps;
   float filling_map_correction;
@@ -1169,10 +1170,11 @@ static void ecu_update(void)
   filling_map *= filling_map_correction + 1.0f;
   filling_map = MAX(filling_map, 0.0f);
 
+  filling_select_koff_tps = math_interpolate_1d(ipRpm, table->filling_select_koff_tps);
 
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     // TODO
-    filling_koff = 0.5f; //math_interpolate_1d(ipRpm, table->idle_wish_massair);
+    filling_koff = filling_select_koff_tps; //math_interpolate_1d(ipRpm, table->idle_wish_massair);
     filling = filling_map * (1.0f - filling_koff) + filling_tps * filling_koff;
   } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     filling_koff = 1.0f;
