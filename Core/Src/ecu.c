@@ -764,6 +764,7 @@ static void ecu_update(void)
   float fuel_ratio_diff;
   float wish_fuel_ratio;
   float filling_select_koff_tps;
+  float map_tps_relation;
   float filling_map;
   float filling_tps;
   float filling_map_correction;
@@ -2150,7 +2151,7 @@ static void ecu_update(void)
   if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
     if(running &&
         ((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 80.0f)))) {
-      float map_tps_relation = pressure / filling_tps;
+      map_tps_relation = filling_map / filling_tps;
       if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
         if(gStatus.MapTpsRelation.is_error) {
           gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
