@@ -58,7 +58,7 @@ static const float default_idle_filling_pressures[TABLE_PRESSURES_MAX] = {
     56000, 57500, 59000, 61000, 63000, 65000, 67000, 69000,
 };
 
-static const float default_idle_filling_gbc[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_idle_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
@@ -77,7 +77,7 @@ static const float default_idle_filling_gbc[TABLE_PRESSURES_MAX][TABLE_ROTATES_M
     { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
 };
 
-static const float default_filling_gbc[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.599f, 0.598f, 0.599f, 0.605f, 0.622f, 0.712f, 0.716f, 0.688f, 0.707f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.599f, 0.597f, 0.595f, 0.595f, 0.600f, 0.616f, 0.718f, 0.726f, 0.685f, 0.705f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.598f, 0.594f, 0.590f, 0.589f, 0.596f, 0.630f, 0.745f, 0.740f, 0.685f, 0.720f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
@@ -96,23 +96,23 @@ static const float default_filling_gbc[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] =
     { 0.776f, 0.793f, 0.791f, 0.787f, 0.789f, 0.800f, 0.900f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 1.000f, 1.000f, 1.000f, },
 };
 
-static const float default_map_by_thr[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX] = {
-    { 67702, 67139, 61491, 54597, 60169, 41285, 38840, 28556, 29683, 27197, 20363, 23272, 16742, 34111, 18139, 6000, },
-    { 52915, 48535, 68739, 59470, 54909, 52422, 49914, 37590, 35359, 31213, 25633, 23203, 21804, 22112, 14883, 13000, },
-    { 71711, 64400, 76230, 63041, 57308, 52174, 52809, 40778, 39923, 37307, 28713, 25758, 25123, 29547, 21080, 19000, },
-    { 70308, 68530, 82424, 70007, 70486, 64015, 64740, 53102, 46470, 41566, 30854, 29337, 26894, 34070, 27129, 25000, },
-    { 64495, 66634, 82027, 90304, 83192, 78667, 75112, 59900, 58219, 51336, 41029, 34655, 33704, 39573, 34411, 32000, },
-    { 60190, 62815, 106791, 79772, 89262, 81705, 84211, 70189, 66033, 61473, 50613, 41204, 40140, 43062, 40789, 38000, },
-    { 65000, 61973, 62825, 82567, 96554, 97023, 89391, 84688, 77925, 75847, 63797, 53551, 47568, 48884, 46609, 44000, },
-    { 70000, 65000, 55000, 63112, 79610, 87454, 96525, 91277, 87974, 85827, 76421, 66370, 57210, 55025, 53583, 51000, },
-    { 80000, 70000, 60000, 58528, 66381, 88044, 91640, 91242, 92239, 92230, 85520, 77859, 68844, 59997, 59619, 57000, },
-    { 90000, 80000, 70000, 63928, 66416, 78092, 86699, 98364, 97026, 96531, 91590, 87713, 83000, 65461, 65196, 63000, },
-    { 100000, 90000, 75000, 70335, 71533, 71118, 80651, 97565, 98086, 99165, 97637, 93603, 89454, 72318, 72383, 70000, },
-    { 100000, 90000, 80031, 77309, 76327, 76253, 80626, 90534, 99658, 99862, 99139, 98264, 91869, 79636, 77963, 76000, },
-    { 100000, 95000, 90063, 82862, 82108, 82013, 86939, 100255, 98066, 100814, 100557, 99663, 98796, 92302, 83658, 82000, },
-    { 100000, 97000, 95000, 89000, 89000, 89000, 90746, 101708, 101863, 100846, 100463, 101102, 100380, 96378, 89934, 89000, },
-    { 100000, 100000, 100000, 95000, 95000, 95000, 95682, 102713, 101052, 100538, 100695, 101137, 101513, 100101, 94904, 95000, },
-    { 101000, 101000, 101000, 101000, 101000, 100599, 97228, 99678, 104075, 100900, 100147, 101240, 100194, 100365, 96743, 101000, },
+static const float default_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX] = {
+    { 0.599f, 0.604f, 0.591f, 0.591f, 0.569f, 0.596f, 0.624f, 0.753f, 0.751f, 0.653f, 0.715f, 1.000f, 0.700f, 0.789f, 0.700f, 0.700f,  },
+    { 0.603f, 0.604f, 0.562f, 0.581f, 0.568f, 0.596f, 0.643f, 0.762f, 0.756f, 0.639f, 0.727f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f,  },
+    { 0.601f, 0.601f, 0.607f, 0.579f, 0.566f, 0.595f, 0.618f, 0.760f, 0.759f, 0.657f, 0.733f, 1.000f, 0.700f, 0.715f, 0.700f, 0.700f,  },
+    { 0.600f, 0.608f, 0.674f, 0.593f, 0.603f, 0.587f, 0.669f, 0.760f, 0.760f, 0.693f, 0.736f, 1.000f, 0.700f, 0.788f, 0.700f, 0.700f,  },
+    { 0.598f, 0.603f, 0.669f, 0.749f, 0.739f, 0.744f, 0.728f, 0.760f, 0.760f, 0.716f, 0.750f, 1.000f, 0.725f, 0.800f, 0.700f, 0.700f,  },
+    { 0.600f, 0.602f, 0.791f, 0.681f, 0.753f, 0.749f, 0.771f, 0.788f, 0.762f, 0.746f, 0.758f, 1.000f, 0.773f, 0.800f, 0.797f, 0.700f,  },
+    { 0.598f, 0.602f, 0.577f, 0.693f, 0.775f, 0.787f, 0.785f, 0.800f, 0.800f, 0.800f, 0.799f, 1.000f, 0.881f, 0.827f, 0.800f, 0.700f,  },
+    { 0.600f, 0.601f, 0.590f, 0.579f, 0.711f, 0.762f, 0.799f, 0.811f, 0.858f, 0.900f, 0.877f, 1.000f, 0.900f, 0.900f, 0.803f, 0.761f,  },
+    { 0.645f, 0.612f, 0.608f, 0.583f, 0.613f, 0.764f, 0.790f, 0.810f, 0.900f, 0.900f, 0.900f, 1.000f, 0.900f, 0.900f, 0.900f, 0.800f,  },
+    { 0.700f, 0.647f, 0.570f, 0.579f, 0.613f, 0.742f, 0.777f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 0.900f, 0.900f, 0.900f, 0.855f,  },
+    { 0.739f, 0.700f, 0.599f, 0.594f, 0.601f, 0.684f, 0.762f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 0.982f, 0.900f, 0.900f, 0.900f,  },
+    { 0.739f, 0.700f, 0.642f, 0.664f, 0.670f, 0.729f, 0.762f, 0.800f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 0.900f, 0.900f, 0.900f,  },
+    { 0.739f, 0.740f, 0.700f, 0.694f, 0.730f, 0.749f, 0.778f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 1.000f, 0.900f, 0.900f,  },
+    { 0.739f, 0.758f, 0.748f, 0.738f, 0.752f, 0.767f, 0.788f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 1.000f, 0.989f, 0.974f,  },
+    { 0.739f, 0.776f, 0.780f, 0.762f, 0.770f, 0.782f, 0.798f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 1.000f, 1.000f, 1.000f,  },
+    { 0.751f, 0.781f, 0.784f, 0.780f, 0.785f, 0.795f, 0.807f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.000f, 1.000f, 1.000f, 1.000f,  },
 };
 
 static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -650,8 +650,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));
 
-  memcpy(table->filling_gbc, default_filling_gbc, sizeof(default_filling_gbc));
-  memcpy(table->map_by_thr, default_map_by_thr, sizeof(default_map_by_thr));
+  memcpy(table->filling_gbc_map, default_filling_gbc_map, sizeof(default_filling_gbc_map));
+  memcpy(table->filling_gbc_tps, default_filling_gbc_tps, sizeof(default_filling_gbc_tps));
 
   table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
   memcpy(table->enrichment_rate_start_load, default_enrichment_rate_start_load, sizeof(default_enrichment_rate_start_load));
@@ -763,7 +763,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_filling_pressures_count = ITEMSOF(default_idle_filling_pressures);
   memcpy(table->idle_filling_rotates, default_idle_filling_rotates, sizeof(default_idle_filling_rotates));
   memcpy(table->idle_filling_pressures, default_idle_filling_pressures, sizeof(default_idle_filling_pressures));
-  memcpy(table->idle_filling_gbc, default_idle_filling_gbc, sizeof(default_idle_filling_gbc));
+  memcpy(table->idle_filling_gbc_map, default_idle_filling_gbc_map, sizeof(default_idle_filling_gbc_map));
 
   table->fan_advance_control_low  = -0.2f;
   table->fan_advance_control_mid  =  0.0f;
@@ -839,15 +839,15 @@ void config_default_corrections(sEcuCorrections *table)
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->filling_gbc[i][j] = 0.0f;
+      table->filling_gbc_map[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->idle_filling_gbc[i][j] = 0.0f;
+      table->idle_filling_gbc_map[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->map_by_thr[i][j] = 0.0f;
+      table->filling_gbc_tps[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++)
     table->idle_valve_position[i] = 0.0f;
@@ -918,21 +918,21 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
   } else if(state == 1) {
     for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->filling_gbc[i][j] = CLAMP(roundf(corr->filling_gbc[i][j] * 125.0f), -128, 127);
+        backup->filling_gbc_map[i][j] = CLAMP(roundf(corr->filling_gbc_map[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
   } else if(state == 2) {
     for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->idle_filling_gbc[i][j] = CLAMP(roundf(corr->idle_filling_gbc[i][j] * 125.0f), -128, 127);
+        backup->idle_filling_gbc_map[i][j] = CLAMP(roundf(corr->idle_filling_gbc_map[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
   } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->map_by_thr[i][j] = CLAMP(roundf(corr->map_by_thr[i][j] * 125.0f), -128, 127);
+        backup->filling_gbc_tps[i][j] = CLAMP(roundf(corr->filling_gbc_tps[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
@@ -979,21 +979,21 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
   } else if(state == 1) {
     for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->filling_gbc[i][j] = (float)backup->filling_gbc[i][j] * 0.008f;
+        corr->filling_gbc_map[i][j] = (float)backup->filling_gbc_map[i][j] * 0.008f;
       }
     }
     state++;
   } else if(state == 2) {
     for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->idle_filling_gbc[i][j] = (float)backup->idle_filling_gbc[i][j] * 0.008f;
+        corr->idle_filling_gbc_map[i][j] = (float)backup->idle_filling_gbc_map[i][j] * 0.008f;
       }
     }
     state++;
   } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->map_by_thr[i][j] = (float)backup->map_by_thr[i][j] * 0.008f;
+        corr->filling_gbc_tps[i][j] = (float)backup->filling_gbc_tps[i][j] * 0.008f;
       }
     }
     state++;
