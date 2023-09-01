@@ -44,6 +44,9 @@ GPIO_PinState sens_get_fan_force_switch(uint32_t *time);
 GPIO_PinState sens_get_clutch(uint32_t *time);
 GPIO_PinState sens_get_ign(uint32_t *time);
 
+void sens_configure_map(float gain, float offset);
+void sens_configure_tps(float min, float max);
+
 void sensors_init(void);
 HAL_StatusTypeDef sensors_register(eSensor sensor, GPIO_TypeDef *port, uint16_t pin, uint8_t inverted);
 void sensors_loop(void);

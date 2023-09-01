@@ -4523,6 +4523,9 @@ static void ecu_config_process(void)
   }
 
   csps_tsps_enable(gEcuParams.phasedMode == PhasedModeWithSensor);
+
+  sens_configure_map(gEcuParams.map_pressure_gain, gEcuParams.map_pressure_offset);
+  sens_configure_tps(gEcuParams.tps_voltage_low, gEcuParams.tps_voltage_high);
 }
 
 static void ecu_immo_init(void)

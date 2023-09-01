@@ -24,6 +24,12 @@ static sSensor Sensors[SensorCount] = {{0}};
 
 #define SENS_ERROR_DELAY 300000
 
+static volatile float gSensTpsMin = 0.200f;
+static volatile float gSensTpsMax = 4.800f;
+
+static volatile float gSensMapGain = 19000.0f;
+static volatile float gSensMapOffset = 10000.0f;
+
 void sensors_init(void)
 {
 
@@ -99,12 +105,21 @@ inline GPIO_PinState sens_get_ign(uint32_t *time)
   return Sensors[SensorIgn].state;
 }
 
+void sens_configure_map(float gain, float offset)
+{
+  gSensMapGain = gain;
+  gSensMapOffset = offset;
+}
+
+void sens_configure_tps(float min, float max)
+{
+  gSensTpsMin = min;
+  gSensTpsMax = max;
+}
+
 STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
 {
-  if(map < 0.07f)
-    return HAL_ERROR;
-
-  *pressure = map * 19000.0f + 10000.0f;
+  *pressure = map * gSensMapGain + gSensMapOffset;
 
   return HAL_OK;
 }
@@ -415,8 +430,8 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   float result = result_old;
   float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float value = adc_get_voltage(AdcChThrottlePosition);
-  float voltage_from = power_voltage * 0.103;
-  float voltage_to = power_voltage * 0.91f;
+  float voltage_from = gSensTpsMin;
+  float voltage_to = gSensTpsMax;
 
   if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
     status = HAL_ERROR;

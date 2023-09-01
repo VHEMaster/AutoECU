@@ -797,6 +797,12 @@ void config_default_params(sEcuParams *table)
   table->air_temp_corr_koff_min = 0.25f;
   table->air_temp_corr_koff_max = 0.9f;
 
+  table->tps_voltage_low = 0.525f;
+  table->tps_voltage_high = 4.641f;
+
+  table->map_pressure_gain = 19000.0f;
+  table->map_pressure_offset = 10000.0f;
+
 }
 
 void config_default_corrections(sEcuCorrections *table)
