@@ -722,9 +722,6 @@ static void ecu_update(void)
   sMathInterpolateInput ipEnrLoadStart = {0};
   sMathInterpolateInput ipEnrLoadDeriv = {0};
 
-  sMathInterpolateInput ipIdleFillingRpm = {0};
-  sMathInterpolateInput ipIdleFillingPressure = {0};
-
   sMathInterpolateInput ipFilling = {0};
   sMathInterpolateInput ipLearnRpm;
   sMathInterpolateInput ipLearnThrottle;
@@ -766,9 +763,6 @@ static void ecu_update(void)
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
-  float idle_fill_correction_pressure;
-  float idle_fill_correction_throttle;
-  float idle_filling;
   float filling_map;
   float filling_tps;
   float filling_map_correction;
@@ -890,7 +884,6 @@ static void ecu_update(void)
 
   float calib_cur_progress;
   float percentage;
-  float map_diff_thr;
   float lpf_calculation;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
@@ -928,8 +921,6 @@ static void ecu_update(void)
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
   uint8_t enrichment_sync_enabled;
-
-  uint8_t use_idle_filling;
 
   static uint8_t idle_rpm_flag = 0;
   float idle_rpm_flag_koff = 0;
@@ -1174,8 +1165,6 @@ static void ecu_update(void)
   filling_map = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc_map);
 
   filling_map_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map);
-  idle_fill_correction_pressure = 0;
-  idle_fill_correction_throttle = 0;
 
   filling_map *= filling_map_correction + 1.0f;
   filling_map = MAX(filling_map, 0.0f);
@@ -1194,28 +1183,6 @@ static void ecu_update(void)
   } else {
     filling_koff = 0.5f;
     filling = 0;
-  }
-
-  use_idle_filling = 0;
-
-  if(table->use_idle_filling && table->idle_filling_rotates_count >= 2 && table->idle_filling_pressures_count >= 2) {
-    if(rpm > table->idle_filling_rotates[0] && rpm < table->idle_filling_rotates[table->idle_filling_rotates_count - 1] &&
-        pressure > table->idle_filling_pressures[0] && pressure < table->idle_filling_pressures[table->idle_filling_pressures_count - 1]) {
-      ipIdleFillingRpm = math_interpolate_input(rpm, table->idle_filling_rotates, table->idle_filling_rotates_count);
-      ipIdleFillingPressure = math_interpolate_input(pressure, table->idle_filling_pressures, table->idle_filling_pressures_count);
-      idle_filling = math_interpolate_2d_limit(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, table->idle_filling_gbc_map);
-
-      idle_fill_correction_pressure = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc_map);
-      //idle_fill_correction_throttle = corr_math_interpolate_2d_func(ipIdleFillingRpm, ipIdleFillingPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc_map);
-      idle_filling *= idle_fill_correction_pressure + 1.0f;
-      idle_filling *= idle_fill_correction_throttle + 1.0f;
-
-      use_idle_filling = 1;
-    }
-  }
-
-  if(use_idle_filling && idle_flag) {
-    filling = idle_filling;
   }
 
   effective_volume = filling * gEcuParams.engineVolume;
@@ -2044,53 +2011,26 @@ static void ecu_update(void)
 
             filling_map_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
             filling_tps_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
-            //idle_fill_correction_pressure += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
-            //idle_fill_correction_throttle += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
-
-            if(use_idle_filling && idle_corr_flag) {
-              lpf_calculation *= 0.2f; // 5 sec
 
 #if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
-              ipLearnRpm = ipIdleFillingRpm;
-              ipLearnPressure = ipIdleFillingPressure;
-              ipLearnThrottle = ipIdleFillingThrottle;
+            ipLearnRpm = ipRpm;
+            ipLearnPressure = ipPressure;
+            ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc_map, idle_fill_correction_pressure, -1.0f, 1.0f);
-              //corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.idle_filling_gbc_tps, idle_fill_correction_throttle, -1.0f, 1.0f);
+            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map, filling_map_correction, -1.0f, 1.0f);
+            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps, filling_tps_correction, -1.0f, 1.0f);
 
-              percentage = fuel_ratio_diff;
-              if(percentage > 1.0f) percentage = 1.0f / percentage;
+            percentage = fuel_ratio_diff;
+            if(percentage > 1.0f) percentage = 1.0f / percentage;
 
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc_map);
-              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
+            calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
+            calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
 
-              //calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc_tps);
-              //calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              //corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_idle_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
-
-            } else {
-#if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
-              ipLearnRpm = ipRpm;
-              ipLearnPressure = ipPressure;
-              ipLearnThrottle = ipThrottle;
-#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
-
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map, filling_map_correction, -1.0f, 1.0f);
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps, filling_tps_correction, -1.0f, 1.0f);
-
-              percentage = fuel_ratio_diff;
-              if(percentage > 1.0f) percentage = 1.0f / percentage;
-
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
-              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
-
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
-              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
-            }
+            calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
+            calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
           }
         }
 
@@ -2170,16 +2110,15 @@ static void ecu_update(void)
         gStatus.Knock.AdaptationDetonate = 0;
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid && !econ_flag) {
-          filling_diff = (fuel_ratio_diff) - 1.0f;
           if(gEcuParams.useLongTermCorr) {
             if(calibration_permitted_to_perform) {
               if(!idle_flag) {
                 lpf_calculation *= 0.0333f; //30 sec
-                gEcuCorrections.long_term_correction += (filling_diff + short_term_correction) * lpf_calculation;
+                gEcuCorrections.long_term_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
               }
               else if(idle_corr_flag) {
                 lpf_calculation *= 0.3333f; //3 sec
-                gEcuCorrections.idle_correction += (filling_diff + short_term_correction) * lpf_calculation;
+                gEcuCorrections.idle_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
               }
             }
           } else {
@@ -4406,13 +4345,6 @@ static void ecu_corrections_loop(void)
         float value = gEcuCorrectionsProgress.progress_filling_gbc_map[y][x];
         if(value > 1.0f) value = 1.0f;
         gEcuCorrections.progress_filling_gbc_map[y][x] = value * 255.0f;
-      }
-    }
-    for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_idle_filling_gbc_map[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_idle_filling_gbc_map[y][x] = value * 255.0f;
       }
     }
     for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {

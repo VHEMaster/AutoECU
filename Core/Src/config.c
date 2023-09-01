@@ -48,35 +48,6 @@ static const float default_fillings[TABLE_FILLING_MAX] = {
     293, 325, 358, 390, 423, 455, 488, 520,
 };
 
-static const float default_idle_filling_rotates[TABLE_ROTATES_MAX] = {
-    860, 930, 990, 1030, 1060, 1080, 1100, 1120,
-    1140, 1170, 1200, 1240, 1290, 1350, 1400, 1450,
-};
-
-static const float default_idle_filling_pressures[TABLE_PRESSURES_MAX] = {
-    40000, 43000, 46000, 48500, 50500, 52500, 54000, 55000,
-    56000, 57500, 59000, 61000, 63000, 65000, 67000, 69000,
-};
-
-static const float default_idle_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-    { 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, },
-};
-
 static const float default_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
     { 0.600f, 0.600f, 0.599f, 0.598f, 0.599f, 0.605f, 0.622f, 0.712f, 0.716f, 0.688f, 0.707f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
     { 0.600f, 0.599f, 0.597f, 0.595f, 0.595f, 0.600f, 0.616f, 0.718f, 0.726f, 0.685f, 0.705f, 1.000f, 0.700f, 0.700f, 0.700f, 0.700f, },
@@ -758,13 +729,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_econ_delay, default_idle_econ_delay, sizeof(default_idle_econ_delay));
   memcpy(table->start_econ_delay, default_start_econ_delay, sizeof(default_start_econ_delay));
 
-  table->use_idle_filling = 0;
-  table->idle_filling_rotates_count = ITEMSOF(default_idle_filling_rotates);
-  table->idle_filling_pressures_count = ITEMSOF(default_idle_filling_pressures);
-  memcpy(table->idle_filling_rotates, default_idle_filling_rotates, sizeof(default_idle_filling_rotates));
-  memcpy(table->idle_filling_pressures, default_idle_filling_pressures, sizeof(default_idle_filling_pressures));
-  memcpy(table->idle_filling_gbc_map, default_idle_filling_gbc_map, sizeof(default_idle_filling_gbc_map));
-
   table->fan_advance_control_low  = -0.2f;
   table->fan_advance_control_mid  =  0.0f;
   table->fan_advance_control_high =  0.2f;
@@ -840,10 +804,6 @@ void config_default_corrections(sEcuCorrections *table)
   for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
       table->filling_gbc_map[i][j] = 0.0f;
-
-  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->idle_filling_gbc_map[i][j] = 0.0f;
 
   for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
     for(int j = 0; j < TABLE_ROTATES_MAX; j++)
@@ -923,32 +883,25 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
-      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->idle_filling_gbc_map[i][j] = CLAMP(roundf(corr->idle_filling_gbc_map[i][j] * 125.0f), -128, 127);
-      }
-    }
-    state++;
-  } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         backup->filling_gbc_tps[i][j] = CLAMP(roundf(corr->filling_gbc_tps[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
-  } else if(state == 4) {
+  } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       backup->idle_valve_position[i] = CLAMP(roundf(corr->idle_valve_position[i] * 125.0f), -128, 127);
     }
     state++;
-  } else if(state == 5) {
+  } else if(state == 4) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         backup->knock_cy_level_multiplier[i][j] = CLAMP(roundf(corr->knock_cy_level_multiplier[i][j] * 125.0f), -128, 127);
       }
     }
     state++;
-  } else if(state == 6) {
+  } else if(state == 5) {
     backup->long_term_correction = corr->long_term_correction;
     backup->idle_correction = corr->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
@@ -984,34 +937,27 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     }
     state++;
   } else if(state == 2) {
-    for(int i = 0; i < TABLE_PRESSURES_MAX; i++) {
-      for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->idle_filling_gbc_map[i][j] = (float)backup->idle_filling_gbc_map[i][j] * 0.008f;
-      }
-    }
-    state++;
-  } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->filling_gbc_tps[i][j] = (float)backup->filling_gbc_tps[i][j] * 0.008f;
       }
     }
     state++;
-  } else if(state == 4) {
+  } else if(state == 3) {
     for(int i = 0; i < TABLE_THROTTLES_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->idle_valve_position[i] = (float)backup->idle_valve_position[i] * 0.008f;
       }
     }
     state++;
-  } else if(state == 5) {
+  } else if(state == 4) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
         corr->knock_cy_level_multiplier[i][j] = (float)backup->knock_cy_level_multiplier[i][j] * 0.008f;
       }
     }
     state++;
-  } else if(state == 6) {
+  } else if(state == 5) {
     corr->long_term_correction = backup->long_term_correction;
     corr->idle_correction = backup->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
