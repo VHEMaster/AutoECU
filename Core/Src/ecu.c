@@ -705,6 +705,7 @@ static void ecu_update(void)
   uint8_t calibration = gEcuParams.performAdaptation;
   uint8_t calibration_permitted_to_perform = 0;
   uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
+  uint8_t use_idle_valve = gEcuParams.useIdleValve;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
@@ -1680,8 +1681,13 @@ static void ecu_update(void)
     math_pid_set_clamp(&gPidIdleValveAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     math_pid_set_clamp(&gPidIdleValveRpm, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-    idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
-    idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+    if(use_idle_valve) {
+      idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
+      idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+    } else {
+      math_pid_reset(&gPidIdleValveAirFlow);
+      math_pid_reset(&gPidIdleValveRpm);
+    }
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
   }
@@ -3856,8 +3862,10 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckFanRelayShortToGND, gStatus.OutputDiagnostic.Outs2.Diagnostic.Data.FanRelay == OutputDiagShortToGnd);
   CHECK_STATUS(iserror, CheckOutputs2CommunicationFailure, gStatus.OutputDiagnostic.Outs2.Availability != HAL_OK);
 
-  CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
-  CHECK_STATUS(iserror, CheckIdleValveDriverFailure, gStatus.IdleValvePosition != HAL_OK);
+  if(gEcuParams.useIdleValve) {
+    CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
+    CHECK_STATUS(iserror, CheckIdleValveDriverFailure, gStatus.IdleValvePosition != HAL_OK);
+  }
   CHECK_STATUS(iserror, CheckInjectionUnderflow, gStatus.InjectionUnderflow.is_error && gStatus.InjectionUnderflow.error_time > 1000);
   CHECK_STATUS(iserror, CheckAdcFailure, gStatus.AdcStatus != HAL_OK);
 

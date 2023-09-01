@@ -788,6 +788,7 @@ void config_default_params(sEcuParams *table)
   table->shiftAdvance = 3.0f;
   table->shiftMixture = 12.1f;
 
+  table->useIdleValve = 1;
   table->useShortTermCorr = 0;
   table->useLongTermCorr = 0;
 
