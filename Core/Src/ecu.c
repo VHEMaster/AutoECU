@@ -55,7 +55,7 @@
 #define ACCELERATION_POINTS_COUNT   12
 #define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 8)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 8)
-#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     32
+#define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
