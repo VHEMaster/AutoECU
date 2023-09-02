@@ -2015,7 +2015,7 @@ static void ecu_update(void)
           ipLearnThrottle = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ThrottlePosition, sizeof(sLearnParameters)), table->throttles, table->throttles_count);
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-          if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !econ_flag) {
+          if((gStatus.Sensors.Struct.Map == HAL_OK || gStatus.Sensors.Struct.ThrottlePos == HAL_OK) && !econ_flag) {
 
             filling_corrected = filling * fuel_ratio_diff;
 
@@ -2023,32 +2023,35 @@ static void ecu_update(void)
               lpf_calculation *= 0.2f; // 5 sec
             }
 
-            filling_map_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
-            filling_tps_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
-
 #if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
             ipLearnRpm = ipRpm;
             ipLearnPressure = ipPressure;
             ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map, filling_map_correction, -1.0f, 1.0f);
-            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps, filling_tps_correction, -1.0f, 1.0f);
-
             percentage = fuel_ratio_diff;
             if(percentage > 1.0f) percentage = 1.0f / percentage;
 
-            calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
-            calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
+            if(gStatus.Sensors.Struct.Map == HAL_OK) {
+              filling_map_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map, filling_map_correction, -1.0f, 1.0f);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
+              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
+            }
 
-            calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
-            calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-            corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
+            if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+              filling_tps_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps, filling_tps_correction, -1.0f, 1.0f);
+              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
+              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
+            }
           }
         }
 
-        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !gForceParameters.Enable.WishIdleValvePosition) {
+        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK &&
+            !gForceParameters.Enable.WishIdleValvePosition && !gForceParameters.Enable.WishIdleMassAirFlow && use_idle_valve) {
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
