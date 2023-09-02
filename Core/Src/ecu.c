@@ -718,7 +718,7 @@ static void ecu_update(void)
   sMathInterpolateInput ipColdStartTemp = {0};
   sMathInterpolateInput ipCalcAirTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
-  sMathInterpolateInput ipTps = {0};
+  sMathInterpolateInput ipThrottle = {0};
   sMathInterpolateInput ipVoltages = {0};
   sMathInterpolateInput ipEnrLoadStart = {0};
   sMathInterpolateInput ipEnrLoadDeriv = {0};
@@ -1146,10 +1146,10 @@ static void ecu_update(void)
     wish_fault_rpm = 0.0f;
   }
   ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
-  ipTps = math_interpolate_input(throttle, table->throttles, table->throttles_count);
+  ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
-  filling_tps = math_interpolate_2d_limit(ipRpm, ipTps, TABLE_ROTATES_MAX, table->filling_gbc_tps);
-  filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipTps, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
+  filling_tps = math_interpolate_2d_limit(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->filling_gbc_tps);
+  filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
 
   filling_tps *= filling_tps_correction + 1.0f;
 
@@ -1244,7 +1244,7 @@ static void ecu_update(void)
 
   start_ignition_advance = math_interpolate_1d(ipEngineTemp, table->start_ignition);
   ignition_advance = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  idle_ignition_time_by_tps = math_interpolate_1d(ipTps, table->idle_ignition_time_by_tps);
+  idle_ignition_time_by_tps = math_interpolate_1d(ipThrottle, table->idle_ignition_time_by_tps);
   idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
 
@@ -1431,7 +1431,7 @@ static void ecu_update(void)
   }
 
   start_large_count = table->start_large_count;
-  injection_start_mult = math_interpolate_1d(ipTps, table->start_tps_corrs);
+  injection_start_mult = math_interpolate_1d(ipThrottle, table->start_tps_corrs);
   econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
 
   if(econ_flag) {
@@ -2017,8 +2017,11 @@ static void ecu_update(void)
 
           if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK && !econ_flag) {
 
-
             filling_corrected = filling * fuel_ratio_diff;
+
+            if(idle_corr_flag) {
+              lpf_calculation *= 0.2f; // 5 sec
+            }
 
             filling_map_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
             filling_tps_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
