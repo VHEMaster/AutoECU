@@ -404,6 +404,12 @@ static sLearnParameters *gLearnParamsPtrs[LEARN_ACCEPT_CYCLES_BUFFER_SIZE] = {0}
 static sLearnParameters *gLearnParamsPtrTmp = NULL;
 
 static volatile uint8_t gLearnParamsUpdated = 0;
+
+#ifdef DEBUG
+static volatile float gLearnRpm = 0;
+static volatile float gLearnMap = 0;
+static volatile float gLearnTps = 0;
+#endif /* DEBUG */
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
@@ -1990,6 +1996,9 @@ static void ecu_update(void)
     ipLearmParamsIndex.indexes[0] = CLAMP(ipLearmParamsIndex.indexes[0], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
     ipLearmParamsIndex.indexes[1] = CLAMP(ipLearmParamsIndex.indexes[1], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
 
+    wish_fuel_ratio = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->WishFuelRatio, sizeof(sLearnParameters));
+    fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
+
 #else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
   if(halfturns_performed) {
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
@@ -2010,10 +2019,25 @@ static void ecu_update(void)
           short_term_correction_pid = 0.0f;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
-          ipLearnRpm = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters)), table->rotates, table->rotates_count);
-          ipLearnPressure = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters)), table->pressures, table->pressures_count);
-          ipLearnThrottle = math_interpolate_input(math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ThrottlePosition, sizeof(sLearnParameters)), table->throttles, table->throttles_count);
-#endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+          float learn_rpm = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters));
+          float learn_map = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters));
+          float learn_tps = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ThrottlePosition, sizeof(sLearnParameters));
+
+#ifdef DEBUG
+          gLearnRpm = learn_rpm;
+          gLearnMap = learn_map;
+          gLearnTps = learn_tps;
+#endif /* DEBUG */
+
+          ipLearnRpm = math_interpolate_input(learn_rpm, table->rotates, table->rotates_count);
+          ipLearnPressure = math_interpolate_input(learn_map, table->pressures, table->pressures_count);
+          ipLearnThrottle = math_interpolate_input(learn_tps, table->throttles, table->throttles_count);
+
+#else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+          ipLearnRpm = ipRpm;
+          ipLearnPressure = ipPressure;
+          ipLearnThrottle = ipThrottle;
+#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
           if((gStatus.Sensors.Struct.Map == HAL_OK || gStatus.Sensors.Struct.ThrottlePos == HAL_OK) && !econ_flag) {
 
@@ -2022,12 +2046,6 @@ static void ecu_update(void)
             if(idle_corr_flag) {
               lpf_calculation *= 0.2f; // 5 sec
             }
-
-#if !defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) || LEARN_ACCEPT_CYCLES_BUFFER_SIZE <= 0
-            ipLearnRpm = ipRpm;
-            ipLearnPressure = ipPressure;
-            ipLearnThrottle = ipThrottle;
-#endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
             percentage = fuel_ratio_diff;
             if(percentage > 1.0f) percentage = 1.0f / percentage;
