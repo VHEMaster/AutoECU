@@ -65,7 +65,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define ENRICHMENT_LOAD_STATES_COUNT     (64)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
 #define FAN_HIGH_SWITCH_TIME        (500 * 1000)
-#define FUEL_PUMP_TIMEOUT           (1 * 1000 * 1000)
+#define FUEL_PUMP_TIMEOUT           (2 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 
 typedef enum {
