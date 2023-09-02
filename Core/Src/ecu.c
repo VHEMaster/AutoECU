@@ -1705,8 +1705,12 @@ static void ecu_update(void)
   idle_wish_valve_pos += idle_valve_pos_correction;
   ignition_advance += idle_advance_correction;
 
-  if(!idle_rpm_flag) {
-    idle_wish_valve_pos = idle_valve_econ_position;
+  if (running) {
+    idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, table->idle_valve_pos_min, table->idle_valve_pos_max);
+
+    if(!idle_rpm_flag) {
+      idle_wish_valve_pos = idle_valve_econ_position;
+    }
   }
 
   if(gForceParameters.Enable.IgnitionAdvance)
@@ -1737,10 +1741,7 @@ static void ecu_update(void)
 
   fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
 
-  if(idle_wish_valve_pos > IDLE_VALVE_POS_MAX)
-    idle_wish_valve_pos = IDLE_VALVE_POS_MAX;
-  else if(idle_wish_valve_pos < 0.0f)
-    idle_wish_valve_pos = 0.0f;
+  idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
 
   if(!gIgnCanShutdown)
 	  out_set_idle_valve(roundf(idle_wish_valve_pos));

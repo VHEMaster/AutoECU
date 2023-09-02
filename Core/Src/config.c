@@ -608,6 +608,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->enrichment_end_injection_final_phase = 540;
   table->enrichment_end_injection_final_amount = 1.0f;
 
+  table->idle_valve_pos_min = 20;
+  table->idle_valve_pos_max = 100;
+
   table->cylinders_count = ITEMSOF(default_cylinders);
   memcpy(table->cylinders, default_cylinders, sizeof(default_cylinders));
 
