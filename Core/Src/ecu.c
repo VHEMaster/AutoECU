@@ -1048,9 +1048,14 @@ static void ecu_update(void)
     was_rotating = rotates;
   }
 
-  if(!rotates && DelayDiff(now, rotates_last) > 3000000) {
-    if(pressure < 70000 && (idle_valve_position > 10 || throttle > 2.0f))
-      gStatus.Sensors.Struct.Map = HAL_ERROR;
+  if(!rotates) {
+    if(DelayDiff(now, rotates_last) > 3000000) {
+      if(pressure < 85000 && (idle_valve_position > 10 || throttle > 2.0f)) {
+        gStatus.Sensors.Struct.Map = HAL_ERROR;
+      } else if(pressure > 90000) {
+        gStatus.Sensors.Struct.Map = HAL_OK;
+      }
+    }
   }
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
@@ -2829,7 +2834,7 @@ ITCM_FUNC void ecu_process(void)
   float enrichment_end_injection_final_phase = table->enrichment_end_injection_final_phase;
   float enrichment_end_injection_final_amount = table->enrichment_end_injection_final_amount;
 
-  HAL_StatusTypeDef map_status = HAL_OK;
+  HAL_StatusTypeDef map_status = gStatus.Sensors.Struct.Map;
   float pressure = 0;
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
   static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
@@ -2930,7 +2935,8 @@ ITCM_FUNC void ecu_process(void)
   throttle = gDebugThrottle;
 #endif
 
-  map_status = sens_get_map_urgent(&pressure);
+  //map_status = sens_get_map_urgent(&pressure);
+  sens_get_map_urgent(&pressure);
   if(map_status != HAL_OK)
     pressure = gParameters.ManifoldAirPressure;
 
