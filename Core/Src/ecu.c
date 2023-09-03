@@ -2044,7 +2044,7 @@ static void ecu_update(void)
             filling_corrected = filling * fuel_ratio_diff;
 
             if(idle_corr_flag) {
-              lpf_calculation *= 0.2f; // 5 sec
+              lpf_calculation *= 0.4f; // 2.5 sec
             }
 
             percentage = fuel_ratio_diff;
