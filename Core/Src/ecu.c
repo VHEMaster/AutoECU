@@ -335,6 +335,7 @@ static RTC_HandleTypeDef *hrtc = NULL;
 static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
 static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
+static sEcuCorrections gEcuTempCorrections;
 static sEcuCorrectionsProgress gEcuCorrectionsProgress;
 static sEcuCriticalBackup gEcuCriticalBackup;
 static uint8_t volatile gStatusReset = 0;
@@ -534,6 +535,7 @@ static void ecu_config_init(void)
   memset(gEcuTable, 0, sizeof(gEcuTable));
   memset(&gEcuParams, 0, sizeof(gEcuParams));
   memset(&gEcuCorrections, 0, sizeof(gEcuCorrections));
+  memset(&gEcuTempCorrections, 0, sizeof(gEcuTempCorrections));
   memset(&gEcuCriticalBackup, 0, sizeof(gEcuCriticalBackup));
   memset(&gStatus, 0, sizeof(gStatus));
 
@@ -775,7 +777,9 @@ static void ecu_update(void)
   float filling_map;
   float filling_tps;
   float filling_map_correction;
+  float filling_map_temp_correction;
   float filling_tps_correction;
+  float filling_tps_temp_correction;
   float filling_corrected;
   float filling;
   float filling_koff;
@@ -861,6 +865,7 @@ static void ecu_update(void)
   uint8_t enrichment_post_injection_enabled;
   static uint32_t enrichment_post_cycles = 0;
   static uint32_t idle_accelerate_post_cycles = 0;
+  static uint32_t last_temp_correction = 0;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -1161,6 +1166,8 @@ static void ecu_update(void)
 
   filling_tps = math_interpolate_2d_limit(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->filling_gbc_tps);
   filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
+  filling_tps_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps);
+  filling_tps_correction += filling_tps_temp_correction;
 
   filling_tps *= filling_tps_correction + 1.0f;
 
@@ -1179,6 +1186,8 @@ static void ecu_update(void)
   filling_map = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc_map);
 
   filling_map_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map);
+  filling_map_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map);
+  filling_map_correction += filling_map_temp_correction;
 
   filling_map *= filling_map_correction + 1.0f;
   filling_map = MAX(filling_map, 0.0f);
@@ -2056,16 +2065,16 @@ static void ecu_update(void)
             if(percentage > 1.0f) percentage = 1.0f / percentage;
 
             if(gStatus.Sensors.Struct.Map == HAL_OK) {
-              filling_map_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map, filling_map_correction, -1.0f, 1.0f);
+              filling_map_temp_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map, filling_map_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
             }
 
             if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-              filling_tps_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps, filling_tps_correction, -1.0f, 1.0f);
+              filling_tps_temp_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
+              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps, filling_tps_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
@@ -2166,6 +2175,30 @@ static void ecu_update(void)
             gEcuCorrections.idle_correction = 0;
           }
         }
+      }
+    }
+  }
+
+  if(DelayDiff(now, last_temp_correction) >= 200000) {
+    last_temp_correction = now;
+
+    for(int y = 0; y < table->pressures_count; y++) {
+      for(int x = 0; x < table->rotates_count; x++) {
+        filling_map_correction = gEcuCorrections.filling_gbc_map[y][x];
+        filling_map_correction += gEcuTempCorrections.filling_gbc_map[y][x];
+        filling_map_correction = CLAMP(filling_map_correction, 0.0f, 1.0f);
+        gEcuCorrections.filling_gbc_map[y][x] = filling_map_correction;
+        gEcuTempCorrections.filling_gbc_map[y][x] = 0;
+      }
+    }
+
+    for(int y = 0; y < table->throttles_count; y++) {
+      for(int x = 0; x < table->rotates_count; x++) {
+        filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
+        filling_tps_correction += gEcuTempCorrections.filling_gbc_tps[y][x];
+        filling_tps_correction = CLAMP(filling_tps_correction, 0.0f, 1.0f);
+        gEcuCorrections.filling_gbc_tps[y][x] = filling_tps_correction;
+        gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
       }
     }
   }
@@ -4370,6 +4403,7 @@ static void ecu_corrections_loop(void)
     if(perform_correction) {
       memset(&gEcuCorrectionsProgress, 0, sizeof(gEcuCorrectionsProgress));
       memset(&gEcuCorrections, 0, sizeof(gEcuCorrections));
+      memset(&gEcuTempCorrections, 0, sizeof(gEcuTempCorrections));
     }
     prev_conversion = now;
   }
