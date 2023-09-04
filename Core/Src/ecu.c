@@ -1221,7 +1221,7 @@ static void ecu_update(void)
 
   calaulate_air_cycle_air_flow_temp = CLAMP(calaulate_air_cycle_air_flow_temp, calaulate_air_cycle_air_flow_min, calaulate_air_cycle_air_flow_max);
 
-  engine_to_air_temp_koff = calaulate_air_cycle_air_flow_temp - calaulate_air_cycle_air_flow_min / (calaulate_air_cycle_air_flow_max - calaulate_air_cycle_air_flow_min);
+  engine_to_air_temp_koff = (calaulate_air_cycle_air_flow_temp - calaulate_air_cycle_air_flow_min) / (calaulate_air_cycle_air_flow_max - calaulate_air_cycle_air_flow_min);
   engine_to_air_temp_koff *= calaulate_air_temp_kmax - calaulate_air_temp_kmin;
   engine_to_air_temp_koff += calaulate_air_temp_kmin;
   engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calaulate_air_temp_kmin, calaulate_air_temp_kmax);
