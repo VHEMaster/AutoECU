@@ -2162,11 +2162,11 @@ static void ecu_update(void)
           if(gEcuParams.useLongTermCorr) {
             if(calibration_permitted_to_perform) {
               if(!idle_flag) {
-                lpf_calculation *= 0.0333f; //30 sec
+                lpf_calculation *= 0.1f * fast_sqrt(2.0f); //10 sec
                 gEcuCorrections.long_term_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
               }
               else if(idle_corr_flag) {
-                lpf_calculation *= 0.3333f; //3 sec
+                lpf_calculation *= 0.3333f * fast_sqrt(2.0f); //3 sec
                 gEcuCorrections.idle_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
               }
             }
