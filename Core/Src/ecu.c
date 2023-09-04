@@ -4768,7 +4768,7 @@ static void ecu_kline_loop(void)
           } else if(rx_message.data[1] == 0x98) { //repairShopCode
             string = "AutoECU v2.2";
           } else if(rx_message.data[1] == 0x99) { //ProgrammingDate
-            string = "07.2023";
+            string = "09.2023";
           } else if(rx_message.data[1] == 0x9A) { //vehicleManufacturerECUIdentifier
             string = "AutoECU v2.2";
           } else {
