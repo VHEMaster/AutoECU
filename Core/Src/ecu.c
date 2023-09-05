@@ -913,7 +913,6 @@ static void ecu_update(void)
   float ignition_corr_final;
   float fan_ign_corr;
   float fan_air_corr;
-  float wish_fault_rpm;
   float tsps_rel_pos = 0;
   float tsps_desync_thr;
   float start_async_filling;
@@ -1172,13 +1171,6 @@ static void ecu_update(void)
     }
   }
 
-  if(use_map_sensor && !use_tps_sensor) {
-    wish_fault_rpm = 1400.0f;
-  } else if(!use_map_sensor && use_tps_sensor) {
-    wish_fault_rpm = 1700.0f;
-  } else {
-    wish_fault_rpm = 0.0f;
-  }
   ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
   ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
@@ -1329,11 +1321,6 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.WishIdleRPM)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
-
-  if(idle_wish_rpm < wish_fault_rpm && running) {
-    idle_wish_rpm = wish_fault_rpm;
-    idle_wish_massair *= wish_fault_rpm / idle_wish_rpm;
-  }
 
   idle_wish_to_rpm_relation = rpm / idle_wish_rpm;
 
@@ -1742,8 +1729,8 @@ static void ecu_update(void)
   if(running) {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
-    math_pid_set_clamp(&gPidIdleValveAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
-    math_pid_set_clamp(&gPidIdleValveRpm, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
+    math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
+    math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     if(use_idle_valve && use_map_sensor) {
       idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
