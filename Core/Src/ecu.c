@@ -965,6 +965,7 @@ static void ecu_update(void)
   uint8_t throttle_idle_flag;
   uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
+  uint8_t lambda_force = gEcuParams.isLambdaForceEnabled;
   uint8_t phased_mode = gEcuParams.phasedMode;
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
@@ -2085,7 +2086,7 @@ static void ecu_update(void)
           ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-          if((use_map_sensor || use_tps_sensor) && !econ_flag && engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD) {
+          if((use_map_sensor || use_tps_sensor) && !econ_flag && (engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD || lambda_force)) {
 
             filling_map_corrected = fuel_ratio_diff;
 
