@@ -33,7 +33,8 @@
 #define O2_HEATER_OPENLOAD_TIMEOUT_MS   1000
 #define O2_SPI_POLL_PERIOD_MS           200
 
-#define O2_MAX_VOLTAGE            11.0f // 13.0 by Datasheet
+#define O2_MAX_VOLTAGE            12.6f // 13.0 by Datasheet
+#define O2_HEATUP_MAX_VOLTAGE     11.0f // 13.0 by Datasheet
 #define O2_HEATUP_SLEW_RATE       0.3f  // 0.4 by Datasheet
 #define O2_HEATUP_START_VOLTAGE   2.0f  // 8.5 by Datasheet
 #define O2_PREHEAT_VOLTAGE        1.5f
@@ -454,12 +455,14 @@ static void O2_CriticalLoop(void)
   O2Status.TemperatureVoltage = temperaturevoltage;
 
   if(O2Status.Available && O2Status.Working && O2Status.Valid) {
+    math_pid_set_clamp(&o2_pid, 0.0f, O2_MAX_VOLTAGE);
     if(DelayDiff(now, last_process) >= 5000) {
       last_process = now;
       o2heater = math_pid_update(&o2_pid, temperaturevoltage, now);
       O2_SetHeaterVoltage(o2heater);
     }
   } else {
+    math_pid_set_clamp(&o2_pid, 0.0f, O2_HEATUP_MAX_VOLTAGE);
     last_process = now;
   }
 
@@ -691,7 +694,7 @@ static int8_t O2_Loop(void)
       }
       break;
     case LambdaStateHeating :
-      if(o2heater >= O2_MAX_VOLTAGE || O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
+      if(o2heater >= O2_HEATUP_MAX_VOLTAGE || O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         temperature_wait_timestamp = now;
@@ -1225,7 +1228,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
 
   math_pid_init(&o2_pid);
   math_pid_set_koffs(&o2_pid, O2_PID_P, O2_PID_I, O2_PID_D);
-  math_pid_set_clamp(&o2_pid, 0.0f, 11.0f);
+  math_pid_set_clamp(&o2_pid, 0.0f, O2_HEATUP_MAX_VOLTAGE);
 
   while(!O2_GetDevice(&device)) {};
 
