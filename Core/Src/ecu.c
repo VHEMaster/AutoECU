@@ -431,6 +431,7 @@ static sLearnParameters ecu_convert_learn_parameters(const sParameters * params)
   ret.FuelRatio = params->FuelRatio;
   ret.WishFuelRatio = params->WishFuelRatio;
   ret.EngineTemp = params->EngineTemp;
+  ret.Timestamp = Delay_Tick;
 
   return ret;
 }
