@@ -592,12 +592,11 @@ static void ecu_config_init(void)
   }
 }
 
-STATIC_INLINE float ecu_get_air_density(float pressure, float temperature)
+STATIC_INLINE float ecu_recalculate_air_density(float temperature)
 {
   //Output in mg/cc
-  const float M = 29.0f;
-  const float R = 8314.46261815324f;
-  float mg_cc3 = (pressure * M) / (R * (temperature + 273.15f));
+  float mg_cc3 = 1.2047f;
+  mg_cc3 *= (273.0f + 20.0f) / (273.0f + temperature);
   return mg_cc3;
 }
 
@@ -694,7 +693,7 @@ float gDebugPowerVoltage = 14.4f;
 
 static void ecu_update(void)
 {
-  static const float normal_density = 1.2055f;
+  static const float normal_density = 1.2047f;
   static uint32_t adaptation_last = 0;
   static uint32_t phased_last = 0;
   static uint32_t running_time_last = 0;
@@ -714,24 +713,26 @@ static void ecu_update(void)
   uint8_t calibration_permitted_to_perform = 0;
   uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
   uint8_t use_idle_valve = gEcuParams.useIdleValve;
+  uint8_t use_map_sensor = 1;
+  uint8_t use_tps_sensor = 1;
   uint32_t now = Delay_Tick;
   uint32_t hal_now = HAL_GetTick();
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
   float diff_sec = diff * 0.000001f;
-  sMathInterpolateInput ipRpm = {0};
-  sMathInterpolateInput ipIdleRpm = {0};
-  sMathInterpolateInput ipPressure = {0};
-  sMathInterpolateInput ipEngineTemp = {0};
-  sMathInterpolateInput ipColdStartTemp = {0};
-  sMathInterpolateInput ipCalcAirTemp = {0};
-  sMathInterpolateInput ipSpeed = {0};
-  sMathInterpolateInput ipThrottle = {0};
-  sMathInterpolateInput ipVoltages = {0};
-  sMathInterpolateInput ipEnrLoadStart = {0};
-  sMathInterpolateInput ipEnrLoadDeriv = {0};
+  sMathInterpolateInput ipRpm;
+  sMathInterpolateInput ipIdleRpm;
+  sMathInterpolateInput ipPressure;
+  sMathInterpolateInput ipEngineTemp;
+  sMathInterpolateInput ipColdStartTemp;
+  sMathInterpolateInput ipCalcAirTemp;
+  sMathInterpolateInput ipSpeed;
+  sMathInterpolateInput ipThrottle;
+  sMathInterpolateInput ipVoltages;
+  sMathInterpolateInput ipEnrLoadStart;
+  sMathInterpolateInput ipEnrLoadDeriv;
 
-  sMathInterpolateInput ipFilling = {0};
+  sMathInterpolateInput ipFilling;
   sMathInterpolateInput ipLearnRpm;
   sMathInterpolateInput ipLearnThrottle;
   sMathInterpolateInput ipLearnPressure;
@@ -774,22 +775,27 @@ static void ecu_update(void)
   float wish_fuel_ratio;
   float filling_select_koff_tps;
   float map_tps_relation;
-  float filling_map;
+  float filling;
   float filling_tps;
+  float filling_map;
   float filling_map_correction;
   float filling_map_temp_correction;
   float filling_tps_correction;
   float filling_tps_temp_correction;
-  float filling_corrected;
-  float filling;
-  float filling_koff;
+  float filling_map_corrected;
+  float filling_gbc_tps_corrected;
+  float filling_nmap_tps_koff;
   float effective_volume;
   float ignition_advance;
   float start_ignition_advance;
   float ignition_time;
   float injector_lag;
   float injector_lag_mult;
+  float cycle_air_flow_map;
+  float cycle_air_flow_tps;
   float cycle_air_flow;
+  float relative_cycle_air_flow_relation;
+  float air_temp_recalc_mult;
   float cycle_air_flow_injection;
   float cycle_air_flow_injection_startup;
   float mass_air_flow;
@@ -875,8 +881,6 @@ static void ecu_update(void)
   float engine_temp_mix_corr;
   float engine_temp_ign_corr;
 
-  float fuel_pressure;
-  float fuel_abs_pressure;
   float fuel_consumption_per_distance;
   float fuel_consumption_hourly;
   float km_drive = 0;
@@ -923,11 +927,13 @@ static void ecu_update(void)
   float start_econ_delay;
   static float idle_econ_time = 0;
 
-  float calaulate_air_temp_kmin;
-  float calaulate_air_temp_kmax;
-  float calaulate_air_cycle_air_flow_min;
-  float calaulate_air_cycle_air_flow_max;
-  float calaulate_air_cycle_air_flow_temp;
+  float calculate_air_temp_kmin;
+  float calculate_air_temp_kmax;
+  float calculate_air_flow_min;
+  float calculate_air_flow_max;
+  float calculate_air_flow_temp;
+  float calculate_cycle_air_flow_max;
+  float calculate_cycle_air_flow_temp;
 
   float learn_cycles_to_delay;
   float learn_cycles_delay_mult;
@@ -989,7 +995,6 @@ static void ecu_update(void)
   uspa = csps_getuspa(csps);
   period = csps_getperiod(csps);
   period_half = period * 0.5f;
-  fuel_pressure = table->fuel_pressure;
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
@@ -1034,6 +1039,14 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
 
+  if(use_map_sensor && gStatus.Sensors.Struct.Map != HAL_OK) {
+    use_map_sensor = 0;
+  }
+
+  if(use_tps_sensor && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+    use_tps_sensor = 0;
+  }
+
   if(gStatus.OutputDiagnostic.Injectors.Availability != HAL_OK || gStatus.OutputDiagnostic.Injectors.Diagnostic.Byte != HAL_OK) {
     injector_status = HAL_ERROR;
   } else {
@@ -1053,7 +1066,7 @@ static void ecu_update(void)
     was_rotating = rotates;
   }
 
-  if(!rotates) {
+  if(!rotates && use_map_sensor && use_tps_sensor) {
     if(DelayDiff(now, rotates_last) > 3000000) {
       if(pressure < 85000 && (idle_valve_position > 10 || throttle > 2.0f)) {
         gStatus.Sensors.Struct.Map = HAL_ERROR;
@@ -1064,7 +1077,7 @@ static void ecu_update(void)
   }
 
 #if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  if(gStatus.Sensors.Struct.Map == HAL_OK && running) {
+  if(use_map_sensor && running) {
     if(DelayDiff(now, params_map_accept_last) < 100000) {
       pressure = gLocalParams.MapAcceptValue;
     }
@@ -1154,93 +1167,119 @@ static void ecu_update(void)
     }
   }
 
-  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+  if(use_map_sensor && !use_tps_sensor) {
     wish_fault_rpm = 1400.0f;
-  } else if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+  } else if(!use_map_sensor && use_tps_sensor) {
     wish_fault_rpm = 1700.0f;
   } else {
     wish_fault_rpm = 0.0f;
   }
   ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
   ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
-
-  filling_tps = math_interpolate_2d_limit(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->filling_gbc_tps);
-  filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
-  filling_tps_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps);
-  filling_tps_correction += filling_tps_temp_correction;
-
-  filling_tps *= filling_tps_correction + 1.0f;
-
-  fuel_abs_pressure = fuel_pressure;
-  fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
-  if(table->is_fuel_pressure_const) {
-    fuel_abs_pressure += (1.0f - pressure * 0.00001f);
-    fuel_flow_per_us *= fast_rsqrt(fuel_pressure / fuel_abs_pressure);
-  }
-
   ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
   ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
-  ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
-  filling_map = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc_map);
+  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
 
-  filling_map_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map);
-  filling_map_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map);
-  filling_map_correction += filling_map_temp_correction;
+  if(use_tps_sensor) {
+    ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
 
-  filling_map *= filling_map_correction + 1.0f;
-  filling_map = MAX(filling_map, 0.0f);
+    filling_tps = math_interpolate_2d_limit(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->filling_gbc_tps);
+    filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
+    filling_tps_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps);
+    filling_tps_correction += filling_tps_temp_correction;
+    filling_tps *= filling_tps_correction + 1.0f;
+    filling_tps = MAX(filling_tps, 0.0f);
+  } else {
+    filling_tps = 0;
+    filling_tps_correction = 0;
+    filling_tps_temp_correction = 0;
+  }
+
+  if(use_map_sensor) {
+    ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
+
+    filling_map = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc_map);
+    filling_map_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map);
+    filling_map_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map);
+    filling_map_correction += filling_map_temp_correction;
+    filling_map *= filling_map_correction + 1.0f;
+    filling_map = MAX(filling_map, 0.0f);
+  } else {
+    filling_map = 0;
+    filling_map_correction = 0;
+    filling_map_temp_correction = 0;
+  }
 
   filling_select_koff_tps = math_interpolate_1d(ipRpm, table->filling_select_koff_tps);
   filling_select_koff_tps = CLAMP(filling_select_koff_tps, 0.0f, 1.0f);
 
-  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    filling_koff = filling_select_koff_tps;
-    filling = filling_map * (1.0f - filling_koff) + filling_tps * filling_koff;
-  } else if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-    filling_koff = 1.0f;
-    filling = filling_tps;
-  } else if(gStatus.Sensors.Struct.Map == HAL_OK) {
-    filling_koff = 0.0f;
-    filling = filling_map;
+  fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
+
+  air_density = ecu_recalculate_air_density(air_temp);
+  calculate_cycle_air_flow_max = gEcuParams.engineVolume * normal_density * 0.25f;
+
+  if(use_map_sensor) {
+    effective_volume = filling_map * gEcuParams.engineVolume;
+  } else if(use_tps_sensor) {
+    effective_volume = filling_tps * gEcuParams.engineVolume;
   } else {
-    filling_koff = 0.5f;
-    filling = 0;
+    effective_volume = 0;
   }
 
-  effective_volume = filling * gEcuParams.engineVolume;
-  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
-  air_density = ecu_get_air_density(pressure, air_temp);
+  calculate_cycle_air_flow_temp = effective_volume * air_density * 0.25f;
 
-  calaulate_air_temp_kmin = gEcuParams.air_temp_corr_koff_min;
-  calaulate_air_temp_kmax = gEcuParams.air_temp_corr_koff_max;
-  calaulate_air_cycle_air_flow_min = idle_wish_massair;
-  calaulate_air_cycle_air_flow_max = gEcuParams.engineVolume * normal_density * 0.00003f * table->rotates[table->rotates_count - 1];
-  calaulate_air_cycle_air_flow_temp = effective_volume * air_density * 0.00003f * rpm;
+  calculate_air_temp_kmin = gEcuParams.air_temp_corr_koff_min;
+  calculate_air_temp_kmax = gEcuParams.air_temp_corr_koff_max;
+  calculate_air_flow_min = idle_wish_massair;
+  calculate_air_flow_max = calculate_cycle_air_flow_max * 0.00012f * table->rotates[table->rotates_count - 1];
+  calculate_air_flow_temp = calculate_cycle_air_flow_temp * 0.00012f * rpm;
 
-  calaulate_air_cycle_air_flow_temp = CLAMP(calaulate_air_cycle_air_flow_temp, calaulate_air_cycle_air_flow_min, calaulate_air_cycle_air_flow_max);
+  calculate_air_flow_temp = CLAMP(calculate_air_flow_temp, calculate_air_flow_min, calculate_air_flow_max);
 
-  engine_to_air_temp_koff = (calaulate_air_cycle_air_flow_temp - calaulate_air_cycle_air_flow_min) / (calaulate_air_cycle_air_flow_max - calaulate_air_cycle_air_flow_min);
-  engine_to_air_temp_koff *= calaulate_air_temp_kmax - calaulate_air_temp_kmin;
-  engine_to_air_temp_koff += calaulate_air_temp_kmin;
-  engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calaulate_air_temp_kmin, calaulate_air_temp_kmax);
+  engine_to_air_temp_koff = (calculate_air_flow_temp - calculate_air_flow_min) / (calculate_air_flow_max - calculate_air_flow_min);
+  engine_to_air_temp_koff *= calculate_air_temp_kmax - calculate_air_temp_kmin;
+  engine_to_air_temp_koff += calculate_air_temp_kmin;
+  engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calculate_air_temp_kmin, calculate_air_temp_kmax);
 
   calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
   ipCalcAirTemp = math_interpolate_input(calculated_air_temp, table->air_temps, table->air_temp_count);
 
-  air_density = ecu_get_air_density(pressure, calculated_air_temp);
+  air_density = ecu_recalculate_air_density(calculated_air_temp);
+
+  learn_cycles_delay_mult = gEcuParams.learn_cycles_delay_mult;
+
+  air_temp_recalc_mult = (273.0f + 20.0f) / (273.0f + calculated_air_temp);
+
+  cycle_air_flow_map = filling_map;
+  cycle_air_flow_map *= calculate_cycle_air_flow_max;
+  cycle_air_flow_map *= air_temp_recalc_mult;
+
+  cycle_air_flow_tps = filling_tps;
+  cycle_air_flow_tps *= calculate_cycle_air_flow_max;
+  cycle_air_flow_tps *= air_temp_recalc_mult;
+
+  if(use_map_sensor && use_tps_sensor) {
+    filling_nmap_tps_koff = filling_select_koff_tps;
+  } else if(use_tps_sensor) {
+    filling_nmap_tps_koff = 1.0f;
+  } else if(use_map_sensor) {
+    filling_nmap_tps_koff = 0.0f;
+  } else {
+    filling_nmap_tps_koff = 0.5f;
+  }
+
+  cycle_air_flow = cycle_air_flow_map * (1.0f - filling_nmap_tps_koff) + cycle_air_flow_tps * filling_nmap_tps_koff;
+
+  filling = cycle_air_flow / calculate_cycle_air_flow_max;
+  learn_cycles_to_delay = filling;
+  learn_cycles_to_delay *= learn_cycles_delay_mult;
+  learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
 
   engine_load = ((air_density / normal_density) * filling) * 100.0f;
   engine_load = MAX(engine_load, 0);
 
-  learn_cycles_delay_mult = gEcuParams.learn_cycles_delay_mult;
-
-  learn_cycles_to_delay = filling * air_density;
-  learn_cycles_to_delay *= learn_cycles_delay_mult;
-  learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
-
-  cycle_air_flow = effective_volume * 0.25f * air_density;
   mass_air_flow = rpm * cycle_air_flow * 0.00012f;
 
   if(is_cold_start) {
@@ -1524,8 +1563,8 @@ static void ecu_update(void)
 
   enrichment_detect_duration *= 1000.0f;
 
-  if(enrichment_load_type == 0 && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) enrichment_load_value = throttle;
-  else if(enrichment_load_type == 1 && gStatus.Sensors.Struct.Map == HAL_OK) enrichment_load_value = pressure;
+  if(enrichment_load_type == 0 && use_tps_sensor) enrichment_load_value = throttle;
+  else if(enrichment_load_type == 1 && use_map_sensor) enrichment_load_value = pressure;
   else enrichment_load_type = -1;
 
   if(enrichment_load_values_count > 4 && enrichment_load_type >= 0) {
@@ -1701,7 +1740,7 @@ static void ecu_update(void)
     math_pid_set_clamp(&gPidIdleValveAirFlow, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     math_pid_set_clamp(&gPidIdleValveRpm, -idle_table_valve_pos, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-    if(use_idle_valve && gStatus.Sensors.Struct.Map == HAL_OK) {
+    if(use_idle_valve && use_map_sensor) {
       idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
       idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
     } else {
@@ -1813,7 +1852,7 @@ static void ecu_update(void)
     gLocalParams.RequestFillLast = now;
   }
 
-  if(gStatus.Sensors.Struct.Map != HAL_OK && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+  if(!use_map_sensor && !use_tps_sensor) {
     running = 0;
     rotates = 0;
   }
@@ -1845,7 +1884,7 @@ static void ecu_update(void)
 
   if(!running) {
     ignition_advance = start_ignition_advance;
-    if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+    if(use_tps_sensor) {
     	if(!rotates && throttle >= 95.0f)
     		ventilation_flag = 1;
     	else if(throttle < 90.0f)
@@ -2053,9 +2092,13 @@ static void ecu_update(void)
           ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-          if((gStatus.Sensors.Struct.Map == HAL_OK || gStatus.Sensors.Struct.ThrottlePos == HAL_OK) && !econ_flag) {
+          if((use_map_sensor || use_tps_sensor) && !econ_flag) {
 
-            filling_corrected = filling * fuel_ratio_diff;
+            filling_map_corrected = fuel_ratio_diff;
+
+            relative_cycle_air_flow_relation = filling_map / filling_tps;
+
+            filling_gbc_tps_corrected = fuel_ratio_diff * filling_nmap_tps_koff + relative_cycle_air_flow_relation * (1.0f - filling_nmap_tps_koff);
 
             if(idle_corr_flag) {
               lpf_calculation *= 0.4f; // 2.5 sec
@@ -2064,16 +2107,16 @@ static void ecu_update(void)
             percentage = fuel_ratio_diff;
             if(percentage > 1.0f) percentage = 1.0f / percentage;
 
-            if(gStatus.Sensors.Struct.Map == HAL_OK) {
-              filling_map_temp_correction += ((filling_corrected / filling_map) - 1.0f) * lpf_calculation;
+            if(use_map_sensor) {
+              filling_map_temp_correction += (filling_map_corrected - 1.0f) * lpf_calculation * (1.0f - filling_nmap_tps_koff);
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map, filling_map_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
             }
 
-            if(gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-              filling_tps_temp_correction += ((filling_corrected / filling_tps) - 1.0f) * lpf_calculation;
+            if(use_tps_sensor) {
+              filling_tps_temp_correction += (filling_gbc_tps_corrected - 1.0f) * lpf_calculation;
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps, filling_tps_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
               calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
@@ -2082,7 +2125,7 @@ static void ecu_update(void)
           }
         }
 
-        if(idle_flag && gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK &&
+        if(idle_flag && use_map_sensor && use_tps_sensor &&
             !gForceParameters.Enable.WishIdleValvePosition && !gForceParameters.Enable.WishIdleMassAirFlow && use_idle_valve) {
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
@@ -2218,10 +2261,10 @@ static void ecu_update(void)
     km_driven = 0;
   }
 
-  if(gStatus.Sensors.Struct.Map == HAL_OK && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+  if(use_map_sensor && use_tps_sensor) {
     if(running &&
         ((!idle_flag || (rpm > idle_reg_rpm_2 && engine_temp > 80.0f)))) {
-      map_tps_relation = filling_map / filling_tps;
+      map_tps_relation = cycle_air_flow_map / cycle_air_flow_tps;
       if(map_tps_relation > 1.10f || map_tps_relation < 0.80f) {
         if(gStatus.MapTpsRelation.is_error) {
           gStatus.MapTpsRelation.error_time += HAL_DelayDiff(hal_now, gStatus.MapTpsRelation.error_last);
