@@ -119,9 +119,15 @@ void sens_configure_tps(float min, float max)
 
 STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, float *pressure)
 {
+  HAL_StatusTypeDef ret = HAL_OK;
+
   *pressure = map * gSensMapGain + gSensMapOffset;
 
-  return HAL_OK;
+  if(map < 0.075f) {
+    ret = HAL_ERROR;
+  }
+
+  return ret;
 }
 
 static float getTemperatureByResistance_airtemp(float resistance)
