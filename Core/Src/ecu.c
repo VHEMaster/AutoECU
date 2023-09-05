@@ -67,6 +67,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define FAN_HIGH_SWITCH_TIME        (500 * 1000)
 #define FUEL_PUMP_TIMEOUT           (2 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
+#define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
 
 typedef enum {
   KnockStatusOk = 0,
@@ -824,6 +825,7 @@ static void ecu_update(void)
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
   float running_time = 0;
+  static float running_time_latest = 0;
   static float injection_phase = 100;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
@@ -1006,12 +1008,14 @@ static void ecu_update(void)
     rotates_last = now;
 
   if(running) {
+    running_time_latest += diff;
     if(DelayDiff(now, running_time_last) > 1000000) {
       running_time_last = now;
       gLocalParams.RunningTime++;
     }
   } else {
     running_time_last = now;
+    running_time_latest = 0;
   }
 
   running_time = gLocalParams.RunningTime;
@@ -2056,7 +2060,7 @@ static void ecu_update(void)
   if(halfturns_performed) {
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
     adaptation_last = now;
-    if(running) {
+    if(running && running_time_latest > CALIBRATION_MIN_RUNTIME) {
       calibration_permitted_to_perform = enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
 
       lpf_calculation = adapt_diff * 0.000001f;
