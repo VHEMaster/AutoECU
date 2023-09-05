@@ -433,7 +433,7 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   float voltage_from = gSensTpsMin;
   float voltage_to = gSensTpsMax;
 
-  if(value + 0.2f < voltage_from || value - 0.2f > voltage_to) {
+  if(value + 0.15f < voltage_from || value - 0.15f > voltage_to) {
     status = HAL_ERROR;
   }
 
