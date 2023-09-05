@@ -50,6 +50,7 @@
 #define IGNITION_ACCEPTION_FEATURE  1
 #define KNOCK_DETONATION_INCREASING_ADVANCE 0
 #define KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD 70.0f
+#define GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD 70.0f
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
@@ -2096,7 +2097,7 @@ static void ecu_update(void)
           ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-          if((use_map_sensor || use_tps_sensor) && !econ_flag) {
+          if((use_map_sensor || use_tps_sensor) && !econ_flag && engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD) {
 
             filling_map_corrected = fuel_ratio_diff;
 
