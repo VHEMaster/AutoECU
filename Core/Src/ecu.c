@@ -1731,8 +1731,8 @@ static void ecu_update(void)
   if(running) {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
-    math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
-    math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
+    math_pid_set_clamp(&gPidIdleValveAirFlow, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
+    math_pid_set_clamp(&gPidIdleValveRpm, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     if(use_idle_valve && use_map_sensor) {
       idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
