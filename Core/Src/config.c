@@ -920,7 +920,7 @@ static int8_t corr_to_backup(sEcuCorrectionsBackup *backup, const sEcuCorrection
     backup->idle_correction = corr->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        backup->knock_detonation_counter[i][j] = CLAMP(roundf(corr->ignitions[i][j] * 10.0f), 0, 127);
+        backup->knock_detonation_counter[i][j] = CLAMP(roundf(corr->knock_detonation_counter[i][j]), 0, 127);
       }
     }
     state = 0;
@@ -976,7 +976,7 @@ static int8_t backup_to_corr(sEcuCorrections *corr, const sEcuCorrectionsBackup 
     corr->idle_correction = backup->idle_correction;
     for(int i = 0; i < TABLE_FILLING_MAX; i++) {
       for(int j = 0; j < TABLE_ROTATES_MAX; j++) {
-        corr->knock_detonation_counter[i][j] = (float)backup->ignitions[i][j] * 0.1f;
+        corr->knock_detonation_counter[i][j] = (float)backup->knock_detonation_counter[i][j];
       }
     }
     state = 0;
