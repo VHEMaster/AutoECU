@@ -2223,7 +2223,7 @@ static void ecu_update(void)
       for(int x = 0; x < table->rotates_count; x++) {
         filling_map_correction = gEcuCorrections.filling_gbc_map[y][x];
         filling_map_correction += gEcuTempCorrections.filling_gbc_map[y][x];
-        filling_map_correction = CLAMP(filling_map_correction, 0.0f, 1.0f);
+        filling_map_correction = CLAMP(filling_map_correction, -1.0f, 1.0f);
         gEcuCorrections.filling_gbc_map[y][x] = filling_map_correction;
         gEcuTempCorrections.filling_gbc_map[y][x] = 0;
       }
@@ -2233,7 +2233,7 @@ static void ecu_update(void)
       for(int x = 0; x < table->rotates_count; x++) {
         filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
         filling_tps_correction += gEcuTempCorrections.filling_gbc_tps[y][x];
-        filling_tps_correction = CLAMP(filling_tps_correction, 0.0f, 1.0f);
+        filling_tps_correction = CLAMP(filling_tps_correction, -1.0f, 1.0f);
         gEcuCorrections.filling_gbc_tps[y][x] = filling_tps_correction;
         gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
       }
