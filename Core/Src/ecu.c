@@ -69,6 +69,10 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 #define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
 
+typedef struct {
+    float Values[16];
+}sDebug;
+
 typedef enum {
   KnockStatusOk = 0,
   KnockStatusLowNoise = 1,
@@ -406,6 +410,8 @@ static volatile float gLearnMap = 0;
 static volatile float gLearnTps = 0;
 #endif /* DEBUG */
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
+
+static volatile sDebug gDebug = {0};
 
 static int8_t ecu_can_process_message(const sCanMessage *message);
 
@@ -1167,6 +1173,7 @@ static void ecu_update(void)
   ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
 
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
+  gDebug.Values[0] = idle_wish_massair;
 
   if(use_tps_sensor) {
     ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
@@ -1382,6 +1389,7 @@ static void ecu_update(void)
 
     }
   }
+  gDebug.Values[1] = idle_wish_massair;
 
   ignition_advance = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_advance * (1.0f - idle_ignition_time_by_tps_value);
 
@@ -1714,9 +1722,14 @@ static void ecu_update(void)
     injection_time = 0;
   }
 
+  gDebug.Values[2] = idle_wish_massair;
+
   math_pid_set_target(&gPidIdleValveAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleValveRpm, idle_wish_rpm);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
+
+
+  gDebug.Values[3] = gPidIdleValveAirFlow.Target;
 
   idle_valve_econ_position = math_interpolate_1d(ipRpm, table->idle_valve_econ_position);
 
@@ -1737,6 +1750,10 @@ static void ecu_update(void)
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
   }
+
+  gDebug.Values[4] = gPidIdleValveAirFlow.Target;
+  gDebug.Values[5] = gPidIdleValveAirFlow.Error;
+  gDebug.Values[6] = mass_air_flow;
 
   idle_wish_valve_pos = idle_table_valve_pos;
 
