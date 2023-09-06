@@ -1594,6 +1594,10 @@ static void ecu_update(void)
       }
     }
 
+    if(enrichment_triggered) {
+      sens_reset_map_lpf();
+    }
+
     if(enrichment_triggered || !running) {
       enrichment_post_cycles = 0;
     } else {

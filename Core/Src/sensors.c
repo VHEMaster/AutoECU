@@ -303,6 +303,11 @@ INLINE HAL_StatusTypeDef sens_set_map_lpf(float map_lpf)
   return adc_set_lpf(AdcChManifoldAbsolutePressure, map_lpf);
 }
 
+INLINE HAL_StatusTypeDef sens_reset_map_lpf(void)
+{
+  return adc_reset_lpf_state(AdcChManifoldAbsolutePressure);
+}
+
 HAL_StatusTypeDef sens_get_map(float *output)
 {
   float voltage = adc_get_voltage(AdcChManifoldAbsolutePressure);

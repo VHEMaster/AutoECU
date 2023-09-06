@@ -38,6 +38,7 @@ static uint8_t ChFilter[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChIgnoreNext[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float ChLpf[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static uint8_t ChLpfReset[ADC_CHANNELS + MCU_CHANNELS] = {0};
 
 #ifdef DEBUG
 static volatile uint32_t ChPeriod[ADC_CHANNELS + MCU_CHANNELS] = {0};
@@ -392,6 +393,16 @@ HAL_StatusTypeDef adc_register(eAdcChannel channel, uint8_t range, float divider
   return result;
 }
 
+INLINE HAL_StatusTypeDef adc_reset_lpf_state(eAdcChannel channel)
+{
+  if(channel >= ADC_CHANNELS + MCU_CHANNELS)
+    return HAL_ERROR;
+
+  ChLpfReset[channel] = 1;
+
+  return HAL_OK;
+}
+
 INLINE HAL_StatusTypeDef adc_set_lpf(eAdcChannel channel, float lpf)
 {
   if(channel >= ADC_CHANNELS + MCU_CHANNELS || lpf > 1.0f || lpf <= 0.0f)
@@ -401,6 +412,7 @@ INLINE HAL_StatusTypeDef adc_set_lpf(eAdcChannel channel, float lpf)
 
   return HAL_OK;
 }
+
 INLINE HAL_StatusTypeDef adc_get_lpf(eAdcChannel channel, float *p_lpf)
 {
   if(channel >= ADC_CHANNELS + MCU_CHANNELS || !p_lpf)
@@ -563,10 +575,14 @@ HAL_StatusTypeDef adc_slow_loop(void)
       ChData[i] = AdcBuffer[i][0];
     }
     new_val = ADC_Convert(i, ChData[i]) * ChDivider[i];
-    if(ChLpf[i] < 1.0f) {
-      lpf_val = (1.0f / diff) * ChLpf[i] * 1.4142f; // * sqrt(2)
-      old_val = AdcVoltages[i];
-      new_val = new_val * lpf_val + old_val * (1.0f - lpf_val);
+    if(ChLpfReset[i]) {
+      ChLpfReset[i] = 0;
+    } else {
+      if(ChLpf[i] < 1.0f) {
+        lpf_val = (1.0f / diff) * ChLpf[i] * 1.4142f; // * sqrt(2)
+        old_val = AdcVoltages[i];
+        new_val = new_val * lpf_val + old_val * (1.0f - lpf_val);
+      }
     }
     AdcVoltages[i] = new_val;
 
