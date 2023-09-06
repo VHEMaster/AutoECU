@@ -1752,8 +1752,12 @@ static void ecu_update(void)
   }
 
   gDebug.Values[4] = gPidIdleValveAirFlow.Target;
-  gDebug.Values[5] = gPidIdleValveAirFlow.Error;
-  gDebug.Values[6] = mass_air_flow;
+  gDebug.Values[5] = mass_air_flow;
+
+  gDebug.Values[6] = gPidIdleValveAirFlow.Error;
+  gDebug.Values[7] = gPidIdleValveAirFlow.P;
+  gDebug.Values[8] = gPidIdleValveAirFlow.I;
+  gDebug.Values[9] = gPidIdleValveAirFlow.D;
 
   idle_wish_valve_pos = idle_table_valve_pos;
 
