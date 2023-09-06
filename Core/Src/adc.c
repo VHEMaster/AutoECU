@@ -37,6 +37,7 @@ static uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChFilter[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChIgnoreNext[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static float ChLpf[ADC_CHANNELS + MCU_CHANNELS] = {0};
 
 #ifdef DEBUG
 static volatile uint32_t ChPeriod[ADC_CHANNELS + MCU_CHANNELS] = {0};
@@ -273,6 +274,7 @@ HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc)
   uint8_t data;
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {
+    ChLpf[i] = 1.0f;
     for(int j = 0; j < ADC_BUFFER_SIZE; j++) {
       AdcBuffer[i][j] = 0x8000;
     }
@@ -385,8 +387,28 @@ HAL_StatusTypeDef adc_register(eAdcChannel channel, uint8_t range, float divider
   ChRange[channel] = range;
   ChDivider[channel] = divider;
   ChFilter[channel] = filter;
+  ChLpf[channel] = 1.0f;
 
   return result;
+}
+
+INLINE HAL_StatusTypeDef adc_set_lpf(eAdcChannel channel, float lpf)
+{
+  if(channel >= ADC_CHANNELS + MCU_CHANNELS || lpf > 1.0f || lpf <= 0.0f)
+    return HAL_ERROR;
+
+  ChLpf[channel] = lpf;
+
+  return HAL_OK;
+}
+INLINE HAL_StatusTypeDef adc_get_lpf(eAdcChannel channel, float *p_lpf)
+{
+  if(channel >= ADC_CHANNELS + MCU_CHANNELS || !p_lpf)
+    return HAL_ERROR;
+
+  *p_lpf = ChLpf[channel];
+
+  return HAL_OK;
 }
 
 ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
@@ -517,10 +539,16 @@ HAL_StatusTypeDef adc_slow_loop(void)
   const uint32_t failed_adc_mask = (1 << ADC_CHANNELS) - 1;
   const uint32_t failed_mcu_mask = ((1 << MCU_CHANNELS) - 1) << ADC_CHANNELS;
   static HAL_StatusTypeDef result = HAL_OK;
+  static uint32_t last = 0;
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t data;
   uint32_t failed_channels = 0;
   uint32_t now = Delay_Tick;
+
+  float diff, lpf_val, new_val, old_val;;
+
+  diff = DelayDiff(now, last);
+  last = now;
 
   if(adcInitStatus != HAL_OK)
     return adcInitStatus;
@@ -534,7 +562,14 @@ HAL_StatusTypeDef adc_slow_loop(void)
     } else {
       ChData[i] = AdcBuffer[i][0];
     }
-    AdcVoltages[i] = ADC_Convert(i, ChData[i]) * ChDivider[i];
+    new_val = ADC_Convert(i, ChData[i]) * ChDivider[i];
+    if(ChLpf[i] < 1.0f) {
+      lpf_val = (1.0f / diff) * ChLpf[i] * 1.4142f; // * sqrt(2)
+      old_val = AdcVoltages[i];
+      new_val = new_val * lpf_val + old_val * (1.0f - lpf_val);
+    }
+    AdcVoltages[i] = new_val;
+
   }
 
   for(int i = 0; i < ADC_CHANNELS + MCU_CHANNELS; i++) {

@@ -41,6 +41,8 @@ void ADC_TxRxCpltCallback(SPI_HandleTypeDef * _hspi);
 void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc);
 HAL_StatusTypeDef adc_init(SPI_HandleTypeDef * _hspi, ADC_HandleTypeDef * _hadc);
 HAL_StatusTypeDef adc_register(eAdcChannel channel, uint8_t range, float divider, uint8_t filter);
+HAL_StatusTypeDef adc_set_lpf(eAdcChannel channel, float lpf);
+HAL_StatusTypeDef adc_get_lpf(eAdcChannel channel, float *p_lpf);
 HAL_StatusTypeDef adc_fast_loop(void);
 HAL_StatusTypeDef adc_slow_loop(void);
 float adc_get_voltage(eAdcChannel channel);
