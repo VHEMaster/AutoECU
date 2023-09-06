@@ -314,14 +314,6 @@ HAL_StatusTypeDef sens_get_map_urgent(float *output)
   return sens_get_map_internal(output, voltage, power_voltage);
 }
 
-HAL_StatusTypeDef sens_get_map_unfiltered(float *output)
-{
-  float voltage = adc_get_voltage_unfiltered(AdcChManifoldAbsolutePressure);
-  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
-
-  return sens_get_map_internal(output, voltage, power_voltage);
-}
-
 HAL_StatusTypeDef sens_get_air_temperature(float *output)
 {
   HAL_StatusTypeDef status = HAL_OK;

@@ -2878,7 +2878,6 @@ ITCM_FUNC void ecu_process(void)
   float enrichment_end_injection_final_phase = table->enrichment_end_injection_final_phase;
   float enrichment_end_injection_final_amount = table->enrichment_end_injection_final_amount;
 
-  float pressure = 0;
   static const uint8_t phjase_detect_cycles_wait = 32;
   static const uint8_t phjase_detect_cycles_threshold = ACCELERATION_POINTS_COUNT * ECU_CYLINDERS_COUNT_HALF;
   static const float phjase_detect_fueling_multiplier = 1.85f;
@@ -2963,8 +2962,6 @@ ITCM_FUNC void ecu_process(void)
 #ifndef SIMULATION
   throttle_status = sens_get_throttle_position(&throttle);
 #else
-
-  pressure = gDebugMap;
   throttle = gDebugThrottle;
 #endif
 
