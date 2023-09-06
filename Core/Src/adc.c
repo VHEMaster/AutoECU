@@ -18,7 +18,7 @@
 
 #define ADC_CHANNELS      8
 #define MCU_CHANNELS      1
-#define ADC_BUFFER_SIZE   8
+#define ADC_BUFFER_SIZE   12
 
 #define ADC_INIT_TIME     (15000)
 #define ADC_TIMEOUT       (5000)
@@ -37,6 +37,11 @@ static uint8_t ChRange[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChFilter[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static uint8_t ChIgnoreNext[ADC_CHANNELS + MCU_CHANNELS] = {0};
 static float ChDivider[ADC_CHANNELS + MCU_CHANNELS] = {0};
+
+#ifdef DEBUG
+static volatile uint32_t ChPeriod[ADC_CHANNELS + MCU_CHANNELS] = {0};
+static uint32_t ChLast[ADC_CHANNELS + MCU_CHANNELS] = {0};
+#endif /* DEBUG */
 
 static SPI_HandleTypeDef *hspi = NULL;
 static ADC_HandleTypeDef *hadc = NULL;
@@ -103,6 +108,8 @@ ITCM_FUNC void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
 {
   static uint8_t McuChannel = 0;
   uint16_t data;
+  uint32_t now = Delay_Tick;
+
   if(_hadc == hadc) {
     data = HAL_ADC_GetValue(hadc);
 
@@ -124,6 +131,10 @@ ITCM_FUNC void ADC_MCU_ConvCpltCallback(ADC_HandleTypeDef * _hadc)
         AdcBuffer[ADC_CHANNELS + McuChannel][0] = data;
       }
       AdcDataLast[ADC_CHANNELS + McuChannel] = data;
+#ifdef DEBUG
+      ChPeriod[ADC_CHANNELS + McuChannel] = DelayDiff(now, ChLast[ADC_CHANNELS + McuChannel]);
+      ChLast[ADC_CHANNELS + McuChannel] = now;
+#endif /* DEBUG */
     } else {
       ChIgnoreNext[ADC_CHANNELS + McuChannel] = 0;
     }
@@ -440,6 +451,10 @@ ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
                   AdcBuffer[AdcChannel][0] = data;
                 }
                 AdcDataLast[AdcChannel] = data;
+#ifdef DEBUG
+                ChPeriod[AdcChannel] = DelayDiff(now, ChLast[AdcChannel]);
+                ChLast[AdcChannel] = now;
+#endif /* DEBUG */
               } else {
                 ChIgnoreNext[AdcChannel] = 0;
               }
@@ -464,7 +479,6 @@ ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
             }
           }
 
-
           SPI_NSS_ON();
           memset(tx, 0, 4);
           if(AdcReset)
@@ -478,14 +492,14 @@ ITCM_FUNC HAL_StatusTypeDef adc_fast_loop(void)
             }
           }
         } else {
-			if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
-			  adcTimeoutStatus = HAL_ERROR;
-			  if(IS_DEBUGGER_ATTACHED()) {
-				BREAKPOINT(0);
-			  }
-			} else {
-			  adcTimeoutStatus = HAL_OK;
-			}
+          if(DelayDiff(now, AdcLastComm) > ADC_TIMEOUT) {
+            adcTimeoutStatus = HAL_ERROR;
+            if(IS_DEBUGGER_ATTACHED()) {
+              BREAKPOINT(0);
+            }
+          } else {
+            adcTimeoutStatus = HAL_OK;
+          }
         }
         break;
 
