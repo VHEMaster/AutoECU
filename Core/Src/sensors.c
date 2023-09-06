@@ -261,7 +261,7 @@ INLINE HAL_StatusTypeDef sens_get_adc_status(void)
   return adc_get_status();
 }
 
-static HAL_StatusTypeDef sens_get_map_internal(float *output, float voltage, float power_voltage)
+STATIC_INLINE HAL_StatusTypeDef sens_get_map_internal(float *output, float voltage, float power_voltage)
 {
   HAL_StatusTypeDef status = HAL_OK;
   uint32_t now = Delay_Tick;
@@ -296,6 +296,11 @@ static HAL_StatusTypeDef sens_get_map_internal(float *output, float voltage, flo
 
 
   return status_old;
+}
+
+INLINE HAL_StatusTypeDef sens_set_map_lpf(float map_lpf)
+{
+  return adc_set_lpf(AdcChManifoldAbsolutePressure, map_lpf);
 }
 
 HAL_StatusTypeDef sens_get_map(float *output)

@@ -962,6 +962,8 @@ static void ecu_update(void)
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
 
+  float map_lpf;
+
   if(!now)
     now++;
 
@@ -1032,6 +1034,15 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
+
+  if(running) {
+    map_lpf = 1.0f / period_half * 1.3f; // Let LPF filters it not really completly
+  } else {
+    map_lpf = 1.0f;
+  }
+
+  map_lpf = CLAMP(map_lpf, 0.0f, 1.0f);
+  gStatus.Sensors.Struct.Map |= sens_set_map_lpf(map_lpf);
 
   if(use_map_sensor && gStatus.Sensors.Struct.Map != HAL_OK) {
     use_map_sensor = 0;
