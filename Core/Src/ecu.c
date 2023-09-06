@@ -46,7 +46,6 @@
 #include "math_fast.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
-#define PRESSURE_ACCEPTION_FEATURE  0
 #define IGNITION_ACCEPTION_FEATURE  1
 #define KNOCK_DETONATION_INCREASING_ADVANCE 0
 #define KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD 70.0f
@@ -310,18 +309,11 @@ union {
 struct {
     volatile uint32_t RequestFillLast;
     volatile uint32_t ParametersAcceptLast;
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-    volatile float MapAcceptValue;
-    volatile float TpsAcceptValue;
-    volatile uint32_t MapAcceptLast;
-#endif
     uint32_t RunningTime;
     uint32_t LastRunned;
 
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
-
-    volatile float InjectionPressure;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -707,9 +699,6 @@ static void ecu_update(void)
   static float idle_valve_pos_correction = 0;
   static uint8_t is_cold_start = 1;
   static float cold_start_idle_temperature = 0.0f;
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  uint32_t params_map_accept_last = gLocalParams.MapAcceptLast;
-#endif
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
@@ -750,7 +739,6 @@ static void ecu_update(void)
 
   float rpm;
   float pressure;
-  float pressure_when_injected;
   float fuel_ratio;
   float lambda_value;
   float lambda_temperature;
@@ -1059,8 +1047,6 @@ static void ecu_update(void)
     injector_status = HAL_OK;
   }
 
-  pressure_when_injected = gLocalParams.InjectionPressure;
-
   if(found != was_found) {
     was_found = found;
     if(found) {
@@ -1081,18 +1067,6 @@ static void ecu_update(void)
       }
     }
   }
-
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  if(use_map_sensor && running) {
-    if(DelayDiff(now, params_map_accept_last) < 100000) {
-      pressure = gLocalParams.MapAcceptValue;
-    }
-  } else {
-    gLocalParams.TpsAcceptValue = throttle;
-    gLocalParams.MapAcceptValue = pressure;
-    gLocalParams.MapAcceptLast = now;
-  }
-#endif
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
@@ -2904,18 +2878,7 @@ ITCM_FUNC void ecu_process(void)
   float enrichment_end_injection_final_phase = table->enrichment_end_injection_final_phase;
   float enrichment_end_injection_final_amount = table->enrichment_end_injection_final_amount;
 
-  HAL_StatusTypeDef map_status = gStatus.Sensors.Struct.Map;
   float pressure = 0;
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  static float oldanglesbeforepressure[ECU_CYLINDERS_COUNT_HALF] = {0,0};
-  static uint8_t pressure_measurement[ECU_CYLINDERS_COUNT_HALF] = { 1,1 };
-  static float pressure_filtered = 0;
-  static uint32_t pressure_count = 0;
-  float anglesbeforepressure[ECU_CYLINDERS_COUNT_HALF];
-  float pressure_measurement_time = 20;
-  float pressure_measurement_angle = 90 + pressure_measurement_time;
-#endif
-
   static const uint8_t phjase_detect_cycles_wait = 32;
   static const uint8_t phjase_detect_cycles_threshold = ACCELERATION_POINTS_COUNT * ECU_CYLINDERS_COUNT_HALF;
   static const float phjase_detect_fueling_multiplier = 1.85f;
@@ -3003,21 +2966,6 @@ ITCM_FUNC void ecu_process(void)
 
   pressure = gDebugMap;
   throttle = gDebugThrottle;
-#endif
-
-  //map_status = sens_get_map_urgent(&pressure);
-  sens_get_map_urgent(&pressure);
-  if(map_status != HAL_OK)
-    pressure = gParameters.ManifoldAirPressure;
-
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  if (found) {
-    pressure_filtered += pressure;
-    pressure_count++;
-  } else {
-    pressure_filtered = pressure;
-    pressure_count = 1;
-  }
 #endif
 
   if(shiftEnabled) {
@@ -3323,61 +3271,6 @@ ITCM_FUNC void ecu_process(void)
           inj_phase_temp -= angles_injection_per_turn;
         }
 
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-        //Pressure detection part
-
-        if(map_status == HAL_OK && throttle_status == HAL_OK) {
-          throttle_abs_diff = fabsf(throttle - gLocalParams.TpsAcceptValue);
-          throttle_rel_diff = (1.0f + throttle) / (1.0f + gLocalParams.TpsAcceptValue);
-          if(throttle_rel_diff < 1.0f)
-            throttle_rel_diff = 1.0f / throttle_rel_diff;
-
-          if(throttle_abs_diff > 2.0f && throttle_rel_diff > 1.33f) {
-            gLocalParams.TpsAcceptValue = throttle;
-            gLocalParams.MapAcceptValue = pressure;
-            gLocalParams.MapAcceptLast = now;
-          }
-        }
-
-        for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++)
-        {
-          if(non_phased_angles[i] < pressure_measurement_angle)
-            anglesbeforepressure[i] = -non_phased_angles[i] + pressure_measurement_angle;
-          else
-            anglesbeforepressure[i] = 360.0f - non_phased_angles[i] + pressure_measurement_angle;
-
-          if(oldanglesbeforepressure[i] - anglesbeforepressure[i] > 0.0f && oldanglesbeforepressure[i] - anglesbeforepressure[i] > 180.0f)
-            anglesbeforepressure[i] = oldanglesbeforepressure[i];
-
-          if(anglesbeforepressure[i] - pressure_measurement_time < 0.0f)
-          {
-            if(!pressure_measurement[i])
-            {
-              pressure_measurement[i] = 1;
-
-              if(map_status == HAL_OK) {
-                if(!pressure_count) {
-                  pressure_filtered = pressure;
-                  pressure_count = 1;
-                }
-                gLocalParams.TpsAcceptValue = throttle;
-                gLocalParams.MapAcceptValue = pressure_filtered / (float)pressure_count;
-                gLocalParams.MapAcceptLast = now;
-                pressure_filtered = 0;
-                pressure_count = 0;
-              }
-            }
-          }
-
-          if(oldanglesbeforepressure[i] - anglesbeforepressure[i] < -90.0f)
-          {
-            pressure_measurement[i] = 0;
-          }
-
-          oldanglesbeforepressure[i] = anglesbeforepressure[i];
-        }
-#endif
-
         //Knock part
         if(running) {
           if(knock_busy && knock_process[knock_cylinder]) {
@@ -3568,7 +3461,6 @@ ITCM_FUNC void ecu_process(void)
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
               }
               gLocalParams.ParametersAcceptLast = 0;
-              gLocalParams.InjectionPressure = pressure;
               gParameters.CylinderInjectionBitmask ^= 1 << i;
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
               injection_performed = 1 << i;
@@ -3606,7 +3498,6 @@ ITCM_FUNC void ecu_process(void)
               enrichment_time_saturation[i] += inj_lag;
               ecu_inject(cy_count_injection, i, enrichment_time_saturation[i]);
               enrichment_time_saturation[i] = 0;
-              gLocalParams.InjectionPressure = pressure;
               gLocalParams.ParametersAcceptLast = 0;
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
@@ -3635,14 +3526,6 @@ ITCM_FUNC void ecu_process(void)
       injected[i] = 0;
       //ignition_ready[i] = 0;
     }
-
-
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
-      pressure_measurement[i] = 0;
-      oldanglesbeforepressure[i] = 0.0f;
-    }
-#endif
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
@@ -5112,11 +4995,6 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
 
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  gLocalParams.MapAcceptValue = 103000.0f;
-  gLocalParams.MapAcceptLast = 0;
-#endif
-
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   memset(gLearnParamsBuffer, 0, sizeof(gLearnParamsBuffer));
   for(int i = 0; i < LEARN_ACCEPT_CYCLES_BUFFER_SIZE; i++) {
@@ -5143,25 +5021,22 @@ void ecu_irq_fast_loop(void)
   float throttle;
   sens_get_throttle_position(&throttle);
   sens_get_map(&pressure);
-#if defined(PRESSURE_ACCEPTION_FEATURE) && PRESSURE_ACCEPTION_FEATURE > 0
-  pressure = gLocalParams.MapAcceptValue;
-#endif
-    if(pressure > 80000)
-      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
-    else if(pressure < 60000)
-      HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
+  if(pressure > 80000)
+    HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
+  else if(pressure < 60000)
+    HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
 
-    if(throttle > 80) {
-      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
+  if(throttle > 80) {
+    HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
 #ifdef SIMULATION
-      gDebugMap = 103000;
+    gDebugMap = 103000;
 #endif
-    } else if(throttle < 50) {
-      HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
+  } else if(throttle < 50) {
+    HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
 #ifdef SIMULATION
-      gDebugMap = 50000;
+    gDebugMap = 50000;
 #endif
-    }
+  }
 #endif
 }
 
