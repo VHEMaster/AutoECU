@@ -63,10 +63,7 @@ INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
   I += error * dtf * pid->Ki;
   D = -(input - pid->Current) / dtf * pid->Kd;
 
-  if(I > pid->ClampTo)
-    I = pid->ClampTo;
-  else if(I < pid->ClampFrom)
-    I = pid->ClampFrom;
+  I = CLAMP(I, pid->ClampFrom, pid->ClampTo);
 
   pid->P = P;
   pid->I = I;
@@ -76,10 +73,7 @@ INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
 
   output = P + I + D;
 
-  if(output > pid->ClampTo)
-    output = pid->ClampTo;
-  else if(output < pid->ClampFrom)
-    output = pid->ClampFrom;
+  output = CLAMP(output, pid->ClampFrom, pid->ClampTo);
 
   pid->Output = output;
 
