@@ -1036,7 +1036,7 @@ static void ecu_update(void)
 #endif
 
   if(running) {
-    map_lpf = 1.0f / period_half * 1.3f; // Let LPF filters it not really completly
+    map_lpf = period_half * 0.000001f * 1.3f; // Let LPF filters it not really completly
   } else {
     map_lpf = 1.0f;
   }

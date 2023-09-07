@@ -579,7 +579,7 @@ HAL_StatusTypeDef adc_slow_loop(void)
       ChLpfReset[i] = 0;
     } else {
       if(ChLpf[i] < 1.0f) {
-        lpf_val = (1.0f / diff) * ChLpf[i] * 1.4142f; // * sqrt(2)
+        lpf_val = (1000.0f / diff) * ChLpf[i] * 1.4142f; // * sqrt(2)
         old_val = AdcVoltages[i];
         new_val = new_val * lpf_val + old_val * (1.0f - lpf_val);
       }
