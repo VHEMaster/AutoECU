@@ -1257,11 +1257,11 @@ static void ecu_update(void)
   cycle_air_flow = cycle_air_flow_map * (1.0f - filling_nmap_tps_koff) + cycle_air_flow_tps * filling_nmap_tps_koff;
 
   filling = cycle_air_flow / calculate_cycle_air_flow_max;
-  learn_cycles_to_delay = filling;
+  learn_cycles_to_delay = 1.0f / filling;
   learn_cycles_to_delay *= learn_cycles_delay_mult;
   learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
 
-  engine_load = ((air_density / normal_density) * filling) * 100.0f;
+  engine_load = filling * 100.0f;
   engine_load = MAX(engine_load, 0);
 
   mass_air_flow = rpm * cycle_air_flow * 0.00012f;
