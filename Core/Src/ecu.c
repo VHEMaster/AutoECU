@@ -417,12 +417,10 @@ static sLearnParameters ecu_convert_learn_parameters(const sParameters * params)
   sLearnParameters ret;
 
   ret.RPM = params->RPM;
-  ret.AirTemp = params->AirTemp;
   ret.ManifoldAirPressure = params->ManifoldAirPressure;
   ret.ThrottlePosition = params->ThrottlePosition;
   ret.FuelRatio = params->FuelRatio;
   ret.WishFuelRatio = params->WishFuelRatio;
-  ret.EngineTemp = params->EngineTemp;
   ret.Timestamp = Delay_Tick;
 
   return ret;
@@ -1260,6 +1258,7 @@ static void ecu_update(void)
   learn_cycles_to_delay = 1.0f / filling;
   learn_cycles_to_delay *= learn_cycles_delay_mult;
   learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
+  learn_cycles_to_delay = CLAMP(learn_cycles_to_delay, 0.0f, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
 
   engine_load = filling * 100.0f;
   engine_load = MAX(engine_load, 0);
