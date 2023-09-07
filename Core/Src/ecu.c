@@ -2041,7 +2041,7 @@ static void ecu_update(void)
     if(running && running_time_latest > CALIBRATION_MIN_RUNTIME) {
       calibration_permitted_to_perform = enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
 
-      lpf_calculation = adapt_diff * 0.000001f;
+      lpf_calculation = adapt_diff * 0.000001f * 1.4142f; // * sqrt(2)
       if(lpf_calculation > 0.1f)
         lpf_calculation = 0.1f;
 
