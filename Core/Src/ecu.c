@@ -70,7 +70,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
 
 typedef struct {
-    float Values[16];
+    float Values[32];
 }sDebug;
 
 typedef enum {
@@ -1735,13 +1735,17 @@ static void ecu_update(void)
 
   if(running) {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
+    gDebug.Values[20] = idle_table_valve_pos;
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
+    gDebug.Values[21] = idle_table_valve_pos;
     math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
     math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
     idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
     if(use_idle_valve && use_map_sensor) {
       idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
+      gDebug.Values[22] = idle_valve_pos_correction;
       idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+      gDebug.Values[23] = idle_valve_pos_correction;
     } else {
       math_pid_reset(&gPidIdleValveAirFlow);
       math_pid_reset(&gPidIdleValveRpm);
@@ -1750,6 +1754,7 @@ static void ecu_update(void)
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
   }
+  gDebug.Values[24] = idle_table_valve_pos;
 
   gDebug.Values[4] = gPidIdleValveAirFlow.Target;
   gDebug.Values[5] = mass_air_flow;
@@ -1768,8 +1773,12 @@ static void ecu_update(void)
     idle_advance_correction = 0;
   }
 
+  gDebug.Values[25] = idle_wish_valve_pos;
+
   idle_wish_valve_pos += idle_valve_pos_correction;
   ignition_advance += idle_advance_correction;
+
+  gDebug.Values[26] = idle_wish_valve_pos;
 
   if (running) {
     idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
@@ -1778,6 +1787,8 @@ static void ecu_update(void)
       idle_wish_valve_pos = idle_valve_econ_position;
     }
   }
+
+  gDebug.Values[27] = idle_wish_valve_pos;
 
   if(gForceParameters.Enable.IgnitionAdvance)
     ignition_advance = gForceParameters.IgnitionAdvance;
@@ -1808,6 +1819,8 @@ static void ecu_update(void)
   fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
 
   idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
+
+  gDebug.Values[28] = idle_wish_valve_pos;
 
   if(!gIgnCanShutdown)
 	  out_set_idle_valve(roundf(idle_wish_valve_pos));
