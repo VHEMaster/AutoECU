@@ -42,6 +42,7 @@ float csps_getphasedangle(sCspsData data);
 float csps_getphasedangle_cy(uint8_t phased, uint8_t cylinder, float angle);
 sCspsData csps_data(void);
 float csps_gettspsrelpos(void);
+uint8_t csps_phased_valid(void);
 
 void csps_register_acceleration_callback(fCspsAccelerationCallback func);
 void csps_tsps_enable(uint8_t enabled);

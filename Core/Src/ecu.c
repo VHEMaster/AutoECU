@@ -1079,7 +1079,11 @@ static void ecu_update(void)
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
-  tsps_rel_pos = csps_gettspsrelpos() - math_interpolate_1d(ipRpm, table->tsps_relative_pos);
+  if(csps_phased_valid()) {
+    tsps_rel_pos = csps_gettspsrelpos() - math_interpolate_1d(ipRpm, table->tsps_relative_pos);
+  } else {
+    tsps_rel_pos = 0;
+  }
   tsps_desync_thr = fabsf(math_interpolate_1d(ipRpm, table->tsps_desync_thr));
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)

@@ -750,6 +750,13 @@ ITCM_FUNC INLINE float csps_gettspsrelpos(void)
   return 0.0f;
 }
 
+ITCM_FUNC INLINE uint8_t csps_phased_valid(void)
+{
+  if(csps_phased && !csps_phase_is_simulating)
+    return 1;
+  return 0;
+}
+
 void csps_loop(void)
 {
   static uint32_t last_error_null = 0;
