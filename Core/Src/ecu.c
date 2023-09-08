@@ -790,7 +790,7 @@ static void ecu_update(void)
   float cycle_air_flow_map;
   float cycle_air_flow_tps;
   float cycle_air_flow;
-  float relative_cycle_air_flow_relation;
+  float filling_map_tps_diff;
   float air_temp_recalc_mult;
   float cycle_air_flow_injection;
   float cycle_air_flow_injection_startup;
@@ -2028,6 +2028,7 @@ static void ecu_update(void)
   }
 
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
+  filling_map_tps_diff = filling_map / filling_tps;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 
@@ -2090,9 +2091,7 @@ static void ecu_update(void)
 
             filling_map_corrected = fuel_ratio_diff;
 
-            relative_cycle_air_flow_relation = filling_map / filling_tps;
-
-            filling_gbc_tps_corrected = fuel_ratio_diff * filling_nmap_tps_koff + relative_cycle_air_flow_relation * (1.0f - filling_nmap_tps_koff);
+            filling_gbc_tps_corrected = fuel_ratio_diff * filling_nmap_tps_koff + filling_map_tps_diff * (1.0f - filling_nmap_tps_koff);
 
             if(idle_corr_flag) {
               lpf_calculation *= 0.4f; // 2.5 sec
