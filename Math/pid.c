@@ -42,7 +42,6 @@ INLINE void math_pid_set_clamp(sMathPid *pid, float from, float to)
 INLINE void math_pid_init(sMathPid *pid)
 {
   memset(pid, 0, sizeof(sMathPid));
-  pid->Kp = 1.0f;
   pid->ClampFrom = FLT_MIN;
   pid->ClampTo = FLT_MAX;
 }
