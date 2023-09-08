@@ -1753,13 +1753,10 @@ static void ecu_update(void)
 
   ecu_pid_update(idle_corr_flag, running, idle_wish_to_rpm_relation);
 
-  if(!idle_corr_flag) {
-    idle_valve_pos_correction = 0;
-    idle_advance_correction = 0;
+  if(idle_corr_flag) {
+    idle_wish_valve_pos += idle_valve_pos_correction;
+    ignition_advance += idle_advance_correction;
   }
-
-  idle_wish_valve_pos += idle_valve_pos_correction;
-  ignition_advance += idle_advance_correction;
 
   if (running) {
     idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
