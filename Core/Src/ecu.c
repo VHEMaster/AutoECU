@@ -1732,10 +1732,14 @@ static void ecu_update(void)
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
     math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
     math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
-    idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+    if(halfturns_performed) {
+      idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+    }
     if(use_idle_valve && use_map_sensor) {
-      idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
-      idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+      if(halfturns_performed) {
+        idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
+        idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+      }
     } else {
       math_pid_reset(&gPidIdleValveAirFlow);
       math_pid_reset(&gPidIdleValveRpm);
