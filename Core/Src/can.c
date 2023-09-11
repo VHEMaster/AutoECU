@@ -78,6 +78,10 @@ HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask)
   if(status != HAL_OK)
     return status;
 
+  status = HAL_CAN_ActivateNotification(hcan, CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE | CAN_IT_BUSOFF | CAN_IT_LAST_ERROR_CODE | CAN_IT_ERROR);
+  if(status != HAL_OK)
+    return status;
+
   status = HAL_CAN_Start(hcan);
   if(status != HAL_OK)
     return status;
