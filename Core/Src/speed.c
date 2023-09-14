@@ -9,7 +9,7 @@
 #include "delay.h"
 #include <string.h>
 
-#define IRQ_SIZE 13
+#define IRQ_SIZE 27
 
 typedef struct {
     float input_corrective;
