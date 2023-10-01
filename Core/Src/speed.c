@@ -5,11 +5,13 @@
  *      Author: VHEMaster
  */
 
+#include "defines.h"
 #include "speed.h"
 #include "delay.h"
+#include "kalman.h"
 #include <string.h>
 
-#define IRQ_SIZE 27
+#define IRQ_SIZE 5
 
 typedef struct {
     float input_corrective;
@@ -25,6 +27,7 @@ typedef struct {
 }sSpeedCtx;
 
 
+static sMathKalmanCtx gKalmanCtx;
 static sSpeedCtx gSpeedCtx;
 static TIM_HandleTypeDef *htim;
 static uint32_t tim_channel;
@@ -39,19 +42,17 @@ void speed_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chan
   gSpeedCtx.output_corrective = 1.0f;
 
   gSpeedCtx.timebase = timebase;
-  for(int i = 0; i < IRQ_SIZE; i++) {
-    gSpeedCtx.irq_data[i] = 0;
-  }
+  memset(gSpeedCtx.irq_data, 0, sizeof(gSpeedCtx.irq_data));
+
+  gKalmanCtx = math_kalman_init(2.0, 15.0, 1.0f, 1.0f);
+  math_kalman_set_state(&gKalmanCtx, 0.0f, 0.1f);
 }
 
 #ifdef SIMULATION
 void speed_emulate(uint32_t timestamp, float speed)
 {
-  static uint32_t time_last = 0;
   static float time_prev = 0;
   static float random = 0;
-
-  uint32_t diff = DelayDiff(timestamp, time_last);
 
   speed /= gSpeedCtx.input_corrective;
   speed *= random + 1.0f;
@@ -78,6 +79,7 @@ void speed_exti(uint32_t timestamp)
   const float accel_koff = 0.01f;
   float acceleration;
   float average = 0;
+  float speed = gSpeedCtx.speed;
 
   gSpeedCtx.pulse_last = timestamp;
 
@@ -101,8 +103,13 @@ void speed_exti(uint32_t timestamp)
   // Since both edges are used
   average *= 2.0f;
 
-  gSpeedCtx.speed = 600000.0f / average; // 1000000.0f / (average / 3.6f * 6.0f)
-  gSpeedCtx.speed *= gSpeedCtx.input_corrective;
+  speed = 600000.0f / average; // 1000000.0f / (average / 3.6f * 6.0f)
+  speed *= gSpeedCtx.input_corrective;
+
+  gKalmanCtx.Q = average * 1.666667e-5 * IRQ_SIZE;
+  speed = math_kalman_correct(&gKalmanCtx, speed);
+  speed = MAX(1.0f, speed);
+  gSpeedCtx.speed = speed;
 
   htim->Instance->PSC = average * 0.1f / gSpeedCtx.output_corrective;
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
@@ -119,9 +126,8 @@ void speed_loop(void)
   uint32_t pulse_last = gSpeedCtx.pulse_last;
   uint32_t now = *gSpeedCtx.timebase;
   if(gSpeedCtx.rotates && DelayDiff(now, pulse_last) > 200000) {
-    for(int i = 0; i < IRQ_SIZE; i++) {
-      gSpeedCtx.irq_data[i] = 0;
-    }
+    memset(gSpeedCtx.irq_data, 0, sizeof(gSpeedCtx.irq_data));
+    math_kalman_set_state(&gKalmanCtx, 0.0f, 0.1f);
     gSpeedCtx.pulse_last = now;
     gSpeedCtx.acceleration_time = now - 500000;
     gSpeedCtx.rotates = 0;
