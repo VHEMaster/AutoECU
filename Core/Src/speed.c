@@ -49,7 +49,12 @@ void speed_emulate(uint32_t timestamp, float speed)
 {
   static uint32_t time_last = 0;
   static float time_prev = 0;
+  static float random = 0;
+
   uint32_t diff = DelayDiff(timestamp, time_last);
+
+  speed /= gSpeedCtx.input_corrective;
+  speed *= random + 1.0f;
 
   float time_needed = 1000000.0f / (speed / 3.6f * 6.0f * 2.0f);
 
@@ -61,6 +66,8 @@ void speed_emulate(uint32_t timestamp, float speed)
     if(time_prev > (float)(DelayMask))
       time_prev -= (float)(DelayMask);
     speed_exti(timestamp);
+
+    random = ((__RBIT(ADC1->DR) / 268435455.0f) - 0.5f) * 0.1f;
   }
 }
 #endif
