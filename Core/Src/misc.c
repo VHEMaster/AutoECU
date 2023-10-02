@@ -444,29 +444,40 @@ static int8_t O2_Enable(eO2AmplificationFactor factor)
 
 static void O2_CriticalLoop(void)
 {
+  static const float const_heatup_lpf_koff = 0.33f; //3 sec
+  static float heatup_max_voltage_lpf = O2_HEATUP_MAX_VOLTAGE;
+  static float heatup_max_voltage = O2_HEATUP_MAX_VOLTAGE;
   static uint32_t last_process = 0;
   float temperaturevoltage = adc_get_voltage(AdcChO2UR);
   float lambdavoltage = adc_get_voltage(AdcChO2UA);
   float offsetvoltage = O2Status.OffsetVoltage;
   float o2heater;
+  float heatup_lpf_koff;
   uint32_t now = Delay_Tick;
+  uint32_t diff = DelayDiff(now, last_process);
   O2Status.Lambda = O2_GetLambda(lambdavoltage, offsetvoltage);
   O2Status.Temperature = O2_GetTemperature(temperaturevoltage);
   O2Status.TemperatureVoltage = temperaturevoltage;
 
   if(O2Status.Available && O2Status.Working && O2Status.Valid) {
-    math_pid_set_clamp(&o2_pid, 0.0f, O2_MAX_VOLTAGE);
-    if(DelayDiff(now, last_process) >= 5000) {
+    heatup_max_voltage = O2_MAX_VOLTAGE;
+    if(diff >= 5000) {
       last_process = now;
       o2heater = math_pid_update(&o2_pid, temperaturevoltage, now);
       O2_SetHeaterVoltage(o2heater);
     }
   } else {
-    math_pid_set_clamp(&o2_pid, 0.0f, O2_HEATUP_MAX_VOLTAGE);
+    heatup_max_voltage = O2_HEATUP_MAX_VOLTAGE;
     last_process = now;
   }
 
-
+  heatup_lpf_koff = (float)diff * 0.000001f * const_heatup_lpf_koff;
+  if(heatup_max_voltage > heatup_max_voltage_lpf) {
+    heatup_max_voltage_lpf = heatup_max_voltage * heatup_lpf_koff + heatup_max_voltage_lpf * (1.0f - heatup_lpf_koff);
+  } else {
+    heatup_max_voltage_lpf = heatup_max_voltage;
+  }
+  math_pid_set_clamp(&o2_pid, 0.0f, heatup_max_voltage_lpf);
 }
 
 static int8_t O2_Loop(void)
@@ -696,6 +707,7 @@ static int8_t O2_Loop(void)
     case LambdaStateHeating :
       if(o2heater >= O2_HEATUP_MAX_VOLTAGE || O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
+        math_pid_reset(&o2_pid);
         calibrate_timestamp = now;
         temperature_wait_timestamp = now;
         state = LambdaStatePollInit1;
