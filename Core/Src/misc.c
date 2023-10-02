@@ -33,7 +33,7 @@
 #define O2_HEATER_OPENLOAD_TIMEOUT_MS   1000
 #define O2_SPI_POLL_PERIOD_MS           200
 
-#define O2_MAX_VOLTAGE            12.6f // 13.0 by Datasheet
+#define O2_MAX_VOLTAGE            13.0f // 13.0 by Datasheet
 #define O2_HEATUP_MAX_VOLTAGE     11.0f // 13.0 by Datasheet
 #define O2_HEATUP_SLEW_RATE       0.3f  // 0.4 by Datasheet
 #define O2_HEATUP_START_VOLTAGE   2.0f  // 8.5 by Datasheet
