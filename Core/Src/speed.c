@@ -11,7 +11,7 @@
 #include "kalman.h"
 #include <string.h>
 
-#define IRQ_SIZE 5
+#define IRQ_SIZE 3
 
 typedef struct {
     float input_corrective;
@@ -106,7 +106,7 @@ void speed_exti(uint32_t timestamp)
   speed = 600000.0f / average; // 1000000.0f / (average / 3.6f * 6.0f)
   speed *= gSpeedCtx.input_corrective;
 
-  gKalmanCtx.Q = average * 1.666667e-5 * IRQ_SIZE;
+  gKalmanCtx.Q = average * 1.666667e-5f * IRQ_SIZE * 0.1f;
   speed = math_kalman_correct(&gKalmanCtx, speed);
   speed = MAX(1.0f, speed);
   gSpeedCtx.speed = speed;
