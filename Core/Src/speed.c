@@ -22,7 +22,6 @@ typedef struct {
     float speed;
     float speed_prev;
     __IO uint32_t *timebase;
-    float acceleration;
     uint32_t acceleration_time;
 }sSpeedCtx;
 
@@ -76,8 +75,6 @@ void speed_emulate(uint32_t timestamp, float speed)
 void speed_exti(uint32_t timestamp)
 {
   int i;
-  const float accel_koff = 0.01f;
-  float acceleration;
   float average = 0;
   float speed = gSpeedCtx.speed;
 
@@ -115,8 +112,6 @@ void speed_exti(uint32_t timestamp)
   if(TIM_CHANNEL_STATE_GET(htim, tim_channel) != HAL_TIM_CHANNEL_STATE_BUSY)
     HAL_TIM_PWM_Start(htim, tim_channel);
 
-  acceleration = ((gSpeedCtx.speed - gSpeedCtx.speed_prev) * 0.27777778f) / (DelayDiff(timestamp, gSpeedCtx.acceleration_time) * 0.000001f);
-  gSpeedCtx.acceleration = acceleration * accel_koff + gSpeedCtx.acceleration * (1.0f - accel_koff);
   gSpeedCtx.acceleration_time = timestamp;
   gSpeedCtx.speed_prev = gSpeedCtx.speed;
 }
@@ -147,11 +142,6 @@ uint8_t speed_isrotates(void)
 float speed_getspeed(void)
 {
   return gSpeedCtx.speed;
-}
-
-float speed_getacceleration(void)
-{
-  return gSpeedCtx.acceleration;
 }
 
 void speed_setinputcorrective(float corrective)

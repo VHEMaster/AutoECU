@@ -757,7 +757,6 @@ static void ecu_update(void)
   float power_voltage;
   float reference_voltage;
   float speed;
-  float acceleration;
   float idle_valve_position;
   float idle_valve_econ_position;
   float uspa;
@@ -998,7 +997,6 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
   speed = speed_getspeed();
-  acceleration = speed_getacceleration();
   knock_status = Knock_GetStatus();
 
   if(rotates)
@@ -2381,7 +2379,6 @@ static void ecu_update(void)
   gParameters.IdleCorrFlag = idle_corr_flag;
   gParameters.IdleEconFlag = econ_flag;
   gParameters.RPM = rpm;
-  gParameters.Acceleration = acceleration;
   gParameters.Speed = speed;
   gParameters.MassAirFlow = mass_air_flow;
   gParameters.CyclicAirFlow = cycle_air_flow;
