@@ -159,7 +159,7 @@ typedef struct {
         float Advance;
         float DetonationCountPerSecond;
         float DetonationRelation;
-        float AdaptationDetonate;
+        float AdaptationDetonates[ECU_CYLINDERS_COUNT];
         uint8_t Updated[ECU_CYLINDERS_COUNT];
         uint8_t UpdatedInternally[ECU_CYLINDERS_COUNT];
         uint8_t UpdatedAdaptation[ECU_CYLINDERS_COUNT];
@@ -320,6 +320,8 @@ union {
 } gDiagErrors;
 
 struct {
+    float IgnitionCorrectionCy[ECU_CYLINDERS_COUNT];
+    float InjectionCorrectionCy[ECU_CYLINDERS_COUNT];
     volatile uint32_t RequestFillLast;
     volatile uint32_t ParametersAcceptLast;
     uint32_t RunningTime;
@@ -827,6 +829,7 @@ static void ecu_update(void)
   float knock_cy_level_diff;
   static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
   static float knock_cy_level_multiplier_correction[ECU_CYLINDERS_COUNT] = {0};
+  float ignition_advance_cy[ECU_CYLINDERS_COUNT];
 
   float min, max;
   static uint8_t ventilation_flag = 0;
@@ -914,6 +917,8 @@ static void ecu_update(void)
   float calib_cur_progress;
   float percentage;
   float lpf_calculation;
+  float knock_lpf_calculation;
+  float filling_lpf_calculation;
   float idle_valve_pos_adaptation;
   float idle_valve_pos_dif;
   float ignition_correction;
@@ -1409,6 +1414,14 @@ static void ecu_update(void)
   ignition_advance += engine_temp_ign_corr;
   ignition_advance += ignition_corr_final;
 
+  if(!gForceParameters.Enable.IgnitionAdvance) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      ignition_advance_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_cy_ignition[i]);
+    }
+  } else {
+    memset(ignition_advance_cy, 0, sizeof(ignition_advance_cy));
+  }
+
   wish_fuel_ratio = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
   injection_phase_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
 
@@ -1840,8 +1853,8 @@ static void ecu_update(void)
         gStatus.Knock.Filtered = gStatus.Knock.Denoised[i];
       if(gStatus.Knock.Detonate < gStatus.Knock.Detonates[i])
         gStatus.Knock.Detonate = gStatus.Knock.Detonates[i];
-      if(gStatus.Knock.AdaptationDetonate < gStatus.Knock.Detonate)
-        gStatus.Knock.AdaptationDetonate = gStatus.Knock.Detonate;
+      if(gStatus.Knock.AdaptationDetonates[i] < gStatus.Knock.Detonates[i])
+        gStatus.Knock.AdaptationDetonates[i] = gStatus.Knock.Detonates[i];
     }
 
     if(gStatus.Knock.StatusVoltage < gStatus.Knock.Voltage)
@@ -1998,7 +2011,7 @@ static void ecu_update(void)
     memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
     memset(gStatus.Knock.UpdatedInternally, 0, sizeof(gStatus.Knock.UpdatedInternally));
     memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
-    gStatus.Knock.AdaptationDetonate = 0;
+    memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
     gStatus.Knock.GeneralStatus = KnockStatusOk;
   }
 
@@ -2006,13 +2019,6 @@ static void ecu_update(void)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
       gStatus.Knock.Advance = gStatus.Knock.Advances[i];
-    if(!calibration && !gForceParameters.Enable.IgnitionAdvance && !gForceParameters.Enable.InjectionPulse) {
-      gEcuCorrections.knock_ignition_correctives[i] = table->knock_ign_corr_max * knock_zone * gStatus.Knock.Advances[i];
-      gEcuCorrections.knock_injection_correctives[i] = table->knock_inj_corr_max * knock_zone * gStatus.Knock.Advances[i];
-    } else {
-      gEcuCorrections.knock_ignition_correctives[i] = 0.0f;
-      gEcuCorrections.knock_injection_correctives[i] = 0.0f;
-    }
   }
 
   if(gStatus.Knock.StrongDetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.StrongDetonationLast) > 5000) {
@@ -2070,6 +2076,8 @@ static void ecu_update(void)
       lpf_calculation = adapt_diff * 0.000001f * 1.4142f; // * sqrt(2)
       if(lpf_calculation > 0.1f)
         lpf_calculation = 0.1f;
+      knock_lpf_calculation = lpf_calculation;
+      filling_lpf_calculation = lpf_calculation;
 
       if(calibration && corr_math_interpolate_2d_set_func) {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid &&
@@ -2107,25 +2115,25 @@ static void ecu_update(void)
             filling_gbc_tps_corrected = fuel_ratio_diff * filling_nmap_tps_koff + filling_map_tps_diff * (1.0f - filling_nmap_tps_koff);
 
             if(idle_corr_flag) {
-              lpf_calculation *= 0.4f; // 2.5 sec
+              filling_lpf_calculation *= 0.4f; // 2.5 sec
             }
 
             percentage = fuel_ratio_diff;
             if(percentage > 1.0f) percentage = 1.0f / percentage;
 
             if(use_map_sensor) {
-              filling_map_temp_correction += (filling_map_corrected - 1.0f) * lpf_calculation * (1.0f - filling_nmap_tps_koff);
+              filling_map_temp_correction += (filling_map_corrected - 1.0f) * filling_lpf_calculation * (1.0f - filling_nmap_tps_koff);
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map, filling_map_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
-              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+              calib_cur_progress = (percentage * filling_lpf_calculation) + (calib_cur_progress * (1.0f - filling_lpf_calculation));
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
             }
 
             if(use_tps_sensor) {
-              filling_tps_temp_correction += (filling_gbc_tps_corrected - 1.0f) * lpf_calculation;
+              filling_tps_temp_correction += (filling_gbc_tps_corrected - 1.0f) * filling_lpf_calculation;
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps, filling_tps_temp_correction, -1.0f, 1.0f);
               calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
-              calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+              calib_cur_progress = (percentage * filling_lpf_calculation) + (calib_cur_progress * (1.0f - filling_lpf_calculation));
               corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
             }
           }
@@ -2155,25 +2163,25 @@ static void ecu_update(void)
 
                 detonation_count_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
 
-                if(gStatus.Knock.AdaptationDetonate > 0.05f) {
-                  gStatus.Knock.AdaptationDetonate = 0;
+                if(gStatus.Knock.AdaptationDetonates[i] > 0.05f) {
+                  gStatus.Knock.AdaptationDetonates[i] = 0;
                   detonation_count_table += 1.0f;
 
                   calib_cur_progress = 0.0f;
 
-                  ignition_correction = table->knock_ign_corr_max * knock_zone * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
-                  corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
+                  ignition_advance_cy[i] = table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation);
+                  corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_cy_ignition[i], ignition_advance_cy[i], -25.0f, 25.0f);
 
                   math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
                 } else {
 #if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
-                    lpf_calculation *= 0.2f; //5 sec
-                    ignition_correction = -table->knock_ign_corr_max * knock_zone * lpf_calculation + ignition_correction * (1.0f - lpf_calculation);
+                    knock_lpf_calculation *= 0.2f; //5 sec
+                    ignition_correction = -table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_correction * (1.0f - knock_lpf_calculation);
                     corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -25.0f, 25.0f);
                   }
 #endif /* KNOCK_DETONATION_INCREASING_ADVANCE */
-                  calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+                  calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
                 }
                 corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
                 break;
@@ -2183,17 +2191,17 @@ static void ecu_update(void)
             if(engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
               for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
                 if(gStatus.Knock.UpdatedAdaptation[i]) {
-                  lpf_calculation *= 0.3f; //3 sec
+                  knock_lpf_calculation *= 0.3f; //3 sec
 
                   knock_cy_level_diff = knock_noise_level;
                   knock_cy_level_diff /= gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
                   knock_cy_level_diff -= 1.0f;
 
-                  knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * lpf_calculation;
+                  knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
                   math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
 
                   calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
-                  calib_cur_progress = (1.0f * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
+                  calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
                   math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
                   gStatus.Knock.UpdatedAdaptation[i] = 0;
                 }
@@ -2205,18 +2213,18 @@ static void ecu_update(void)
 
         }
       } else {
-        gStatus.Knock.AdaptationDetonate = 0;
+        memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
 
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid && !econ_flag) {
           if(gEcuParams.useLongTermCorr) {
             if(calibration_permitted_to_perform) {
               if(!idle_flag) {
-                lpf_calculation *= 0.1f * fast_sqrt(2.0f); //10 sec
-                gEcuCorrections.long_term_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
+                filling_lpf_calculation *= 0.1f * fast_sqrt(2.0f); //10 sec
+                gEcuCorrections.long_term_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * filling_lpf_calculation;
               }
               else if(idle_corr_flag) {
-                lpf_calculation *= 0.3333f * fast_sqrt(2.0f); //3 sec
-                gEcuCorrections.idle_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * lpf_calculation;
+                filling_lpf_calculation *= 0.3333f * fast_sqrt(2.0f); //3 sec
+                gEcuCorrections.idle_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * filling_lpf_calculation;
               }
             }
           } else {
@@ -2412,6 +2420,10 @@ static void ecu_update(void)
   gParameters.IgnitionAdvance = ignition_advance;
   gParameters.InjectionPhase = injection_phase;
   gParameters.InjectionPhaseDuration = injection_phase_duration;
+
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    gLocalParams.IgnitionCorrectionCy[i] = ignition_advance_cy[i];
+  }
 
   gParameters.InjectionPulse = injection_time;
   if(enrichment_post_injection_enabled && enrichment_triggered_once)
@@ -2990,8 +3002,6 @@ ITCM_FUNC void ecu_process(void)
   float cy_corr_injection[ECU_CYLINDERS_COUNT];
   float cy_corr_ignition[ECU_CYLINDERS_COUNT];
 
-  memcpy(knock_injection_correctives, gEcuCorrections.knock_injection_correctives, sizeof(knock_injection_correctives));
-  memcpy(knock_ignition_correctives, gEcuCorrections.knock_ignition_correctives, sizeof(knock_ignition_correctives));
   memcpy(cy_corr_injection, table->cy_corr_injection, sizeof(cy_corr_injection));
   memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
@@ -3081,6 +3091,14 @@ ITCM_FUNC void ecu_process(void)
     time_pulse = 2500;
   }
 
+  for(int i = 0; i < cy_count_ignition; i++) {
+    knock_ignition_correctives[i] = gLocalParams.IgnitionCorrectionCy[i];
+  }
+
+  for(int i = 0; i < cy_count_injection; i++) {
+    knock_injection_correctives[i] = gLocalParams.InjectionCorrectionCy[i];
+  }
+
   if(phased_ignition) {
     angles_ignition_per_turn = 720.0f;
     for(int i = 0; i < cy_count_ignition; i++) {
@@ -3104,7 +3122,7 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       var = angle_ignite;
       var += (cy_corr_ignition[i] + cy_corr_ignition[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
-      var += (knock_ignition_correctives[i] + knock_ignition_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
+      var += MIN(knock_ignition_correctives[i], knock_ignition_correctives[ECU_CYLINDERS_COUNT - 1 - i]);
       if(!saturated[i] && !ignited[i]) {
         var2 = anglesbeforeignite[i] - var + cy_ignition[i];
         if(var2 > 0) {
@@ -3134,7 +3152,7 @@ ITCM_FUNC void ecu_process(void)
         cy_injection[i] = ((cy_corr_injection[i] + cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f) * inj_pulse;
       else cy_injection[i] = inj_pulse;
       if(fabsf(knock_injection_correctives[i]) > 0.0005f || fabsf(knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) > 0.0005f)
-        cy_injection[i] *= (knock_injection_correctives[i] + knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f;
+        cy_injection[i] *= MAX(knock_injection_correctives[i], knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) + 1.0f;
       cy_injection[i] += inj_lag;
 
       cy_injection[ECU_CYLINDERS_COUNT - 1 - i] = cy_injection[i];
