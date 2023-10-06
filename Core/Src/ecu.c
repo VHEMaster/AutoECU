@@ -4621,14 +4621,15 @@ static void ecu_starter_process(void)
   uint8_t start_allowed;
   uint8_t running = csps_isrunning();
   GPIO_PinState starter_state;
+  uint32_t starter_time = 0;
 
-  starter_state = out_get_starter(NULL);
+  starter_state = out_get_starter(&starter_time);
 
   start_allowed = gEcuImmoStartAllowed && gEcuIgnStartAllowed;
 
   if(start_allowed && !running) {
     starter_state = GPIO_PIN_SET;
-  } else {
+  } else if(starter_time > 150000) {
     starter_state = GPIO_PIN_RESET;
   }
 
