@@ -504,10 +504,14 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
         accels_angle_tdc[i] = 0;
         accels_angle_end[i] = 0;
 
-        csps_acceleration_callback(i, csps_accelerations[i]);
+        if(csps_acceleration_callback != NULL) {
+          csps_acceleration_callback(i, csps_accelerations[i]);
+        }
 
         if(accels_cy_count == ECU_CYLINDERS_COUNT_HALF) {
-          csps_acceleration_callback(ECU_CYLINDERS_COUNT - i - 1, csps_accelerations[i]);
+          if(csps_acceleration_callback != NULL) {
+            csps_acceleration_callback(ECU_CYLINDERS_COUNT - i - 1, csps_accelerations[i]);
+          }
           csps_accelerations[i] = csps_accelerations[ECU_CYLINDERS_COUNT - i - 1];
         }
       }
