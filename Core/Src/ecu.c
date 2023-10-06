@@ -86,6 +86,11 @@ typedef struct {
 }sEcuCorrectionsProgress;
 
 typedef struct {
+    float filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    float filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+}sEcuCorrectionsTemp;
+
+typedef struct {
     union {
         struct {
             HAL_StatusTypeDef Load : 2;
@@ -337,7 +342,7 @@ static RTC_HandleTypeDef *hrtc = NULL;
 static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
 static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
-static sEcuCorrections gEcuTempCorrections;
+static sEcuCorrectionsTemp gEcuTempCorrections;
 static sEcuCorrectionsProgress gEcuCorrectionsProgress;
 static sEcuCriticalBackup gEcuCriticalBackup;
 static uint8_t volatile gStatusReset = 0;
