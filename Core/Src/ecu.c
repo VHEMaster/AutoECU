@@ -78,6 +78,14 @@ typedef enum {
 }eKnockStatus;
 
 typedef struct {
+    float progress_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
+    float progress_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
+    float progress_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float progress_idle_valve_position[TABLE_TEMPERATURES_MAX];
+    float progress_knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_MAX];
+}sEcuCorrectionsProgress;
+
+typedef struct {
     union {
         struct {
             HAL_StatusTypeDef Load : 2;
@@ -360,6 +368,8 @@ static uint8_t gCanTestStarted = 0;
 
 static volatile int8_t gCriticalStatus = 0;
 static volatile int8_t gBackupStatus = 0;
+static volatile int8_t gBackupSaveReq = 0;
+static volatile int8_t gBackupSaveRes = 0;
 
 static sMathPid gPidIdleValveAirFlow = {0};
 static sMathPid gPidIdleValveRpm = {0};
@@ -2468,7 +2478,6 @@ static void ecu_init_post_init(void)
 static void ecu_backup_save_process(void)
 {
   static uint8_t state = 0;
-  static uint32_t save_correction_last = 0;
   int8_t status;
   uint32_t now = Delay_Tick;
 
@@ -2483,8 +2492,7 @@ static void ecu_backup_save_process(void)
 
   switch(state) {
     case 0:
-      if(DelayDiff(now, save_correction_last) > 500000) {
-        save_correction_last = now;
+      if(gBackupSaveReq && !gBackupSaveRes) {
         state++;
       }
       break;
@@ -2493,6 +2501,8 @@ static void ecu_backup_save_process(void)
         status = config_save_corrections(&gEcuCorrections);
         if(status) {
           state = 0;
+          gBackupSaveReq = 0;
+          gBackupSaveRes = 1;
         }
         gBackupStatus = status < 0 ? status : 0;
       }
@@ -4490,6 +4500,16 @@ static int8_t ecu_shutdown_process(void)
       }
       break;
     case 5:
+      gBackupSaveRes = 0;
+      gBackupSaveReq = 1;
+      stage++;
+      break;
+    case 6:
+      if(gBackupSaveRes && !gBackupSaveReq) {
+        stage++;
+      }
+      break;
+    case 7:
       Mem.lock = 0;
       stage = 0;
       retval = 1;

@@ -436,7 +436,6 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output)
   static HAL_StatusTypeDef status_old = HAL_OK;
   static float result_old = 0;
   float result = result_old;
-  float power_voltage = adc_get_voltage(AdcMcuChReferenceVoltage);
   float value = adc_get_voltage(AdcChThrottlePosition);
   float voltage_from = gSensTpsMin;
   float voltage_to = gSensTpsMax;

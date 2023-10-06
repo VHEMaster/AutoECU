@@ -1,4 +1,4 @@
-/*
+ /*
  * config.c
  *
  *  Created on: 2 февр. 2021 г.
