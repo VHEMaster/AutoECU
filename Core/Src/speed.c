@@ -43,7 +43,7 @@ void speed_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chan
   gSpeedCtx.timebase = timebase;
   memset(gSpeedCtx.irq_data, 0, sizeof(gSpeedCtx.irq_data));
 
-  gKalmanCtx = math_kalman_init(2.0, 15.0, 1.0f, 1.0f);
+  gKalmanCtx = math_kalman_init(1.0, 35.0, 1.0f, 1.0f);
   math_kalman_set_state(&gKalmanCtx, 0.0f, 0.1f);
 }
 

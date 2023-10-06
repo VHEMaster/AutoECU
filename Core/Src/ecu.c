@@ -5513,6 +5513,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_DragUpdateResponse.Data.CycleAirFlow = gSharedParameters.CyclicAirFlow;
       PK_DragUpdateResponse.Data.MassAirFlow = gSharedParameters.MassAirFlow;
       PK_DragUpdateResponse.Data.Throttle = gSharedParameters.ThrottlePosition;
+      PK_DragUpdateResponse.Data.Speed = gSharedParameters.Speed;
       PK_DragUpdateResponse.TotalPoints = Drag.PointsCount;
       PK_DragUpdateResponse.Started = Drag.Started;
       PK_DragUpdateResponse.Completed = Drag.Completed;
@@ -5531,10 +5532,13 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       {
         PK_DragPointResponse.Point.Pressure = 0;
         PK_DragPointResponse.Point.RPM = 0;
+        PK_DragPointResponse.Point.Speed = 0;
         PK_DragPointResponse.Point.Mixture = 0;
         PK_DragPointResponse.Point.Acceleration = 0;
         PK_DragPointResponse.Point.Ignition = 0;
         PK_DragPointResponse.Point.Time = 0;
+        PK_DragPointResponse.Point.CycleAirFlow = 0;
+        PK_DragPointResponse.Point.MassAirFlow = 0;
         PK_DragPointResponse.ErrorCode = 3;
       }
       else
