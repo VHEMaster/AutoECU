@@ -2479,7 +2479,6 @@ static void ecu_backup_save_process(void)
 {
   static uint8_t state = 0;
   int8_t status;
-  uint32_t now = Delay_Tick;
 
   if(!CRC16_IsBusy()) {
     if(!Mem.critical_lock) {

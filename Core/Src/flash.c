@@ -12,7 +12,7 @@
 #include "sst25vf032b.h"
 #include "crc.h"
 
-#define BACKUP_VERSION 0x00000024
+#define BACKUP_VERSION 0x00000025
 #define BACKUP_ADDR BKPSRAM_BASE
 #define BACKUP_SIZE 4096
 #define BACKUP_REGION_SIZE (BACKUP_SIZE / 2)
@@ -20,7 +20,7 @@
 static uint8_t const *backup_pointer = (uint8_t *)BACKUP_ADDR;
 static uint8_t backup_buffer[BACKUP_SIZE / 2] ALIGNED(32);
 
-#define FLASH_VERSION 0x00000018
+#define FLASH_VERSION 0x00000019
 #define REGION_SIZE 0x200000
 #define PAGE_SIZE SST25_32KSIZE
 #define PAGES_COUNT (REGION_SIZE / PAGE_SIZE)
