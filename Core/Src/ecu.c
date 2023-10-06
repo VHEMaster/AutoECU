@@ -1419,7 +1419,8 @@ static void ecu_update(void)
 
   if(!gForceParameters.Enable.IgnitionAdvance) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      ignition_advance_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_cy_ignition[i]);
+      ignition_advance_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignition_corr_cy[i]);
+      ignition_advance_cy[i] += math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_cy_ignition[i]);
     }
   } else {
     memset(ignition_advance_cy, 0, sizeof(ignition_advance_cy));

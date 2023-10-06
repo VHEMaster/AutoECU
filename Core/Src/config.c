@@ -648,6 +648,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));
 
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
+  memset(table->ignition_corr_cy, 0, sizeof(table->ignition_corr_cy));
   memcpy(table->fuel_mixtures, default_fuel_mixtures, sizeof(default_fuel_mixtures));
   memcpy(table->injection_phase, default_injection_phase, sizeof(default_injection_phase));
 
