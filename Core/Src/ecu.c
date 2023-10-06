@@ -4292,7 +4292,7 @@ static void ecu_mem_loop(void)
 
   if(Mem.issaving)
   {
-    flashstatus = config_save_all(&gEcuParams, gEcuTable, TABLE_SETUPS_MAX);
+    flashstatus = config_save_all(&gEcuParams, &gEcuCorrections, gEcuTable, TABLE_SETUPS_MAX);
     if(flashstatus)
     {
       PK_SaveConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;

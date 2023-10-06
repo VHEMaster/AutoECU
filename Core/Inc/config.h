@@ -30,6 +30,6 @@ int8_t config_load_critical_backup(sEcuCriticalBackup *table);
 int8_t config_save_critical_backup(const sEcuCriticalBackup *table);
 
 int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_count);
-int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32_t tables_count);
+int8_t config_save_all(const sEcuParams *params, const sEcuCorrections *corrections, const sEcuTable *tables, uint32_t tables_count);
 
 #endif /* INC_CONFIG_H_ */

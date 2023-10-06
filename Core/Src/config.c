@@ -947,7 +947,7 @@ int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_co
   return 0;
 }
 
-int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32_t tables_count)
+int8_t config_save_all(const sEcuParams *params, const sEcuCorrections *corrections, const sEcuTable *tables, uint32_t tables_count)
 {
   static uint8_t state = 0;
   static int8_t current_table = 0;
@@ -962,8 +962,6 @@ int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32
       status = config_save_params(params);
       if(status) {
         if(status > 0) {
-          current_table = 0;
-          tables_left = tables_count;
           state++;
         } else {
           state = 0;
@@ -972,6 +970,17 @@ int8_t config_save_all(const sEcuParams *params, const sEcuTable *tables, uint32
       }
       break;
     case 1 :
+      status = config_save_corrections(corrections);
+      if(status > 0) {
+        current_table = 0;
+        tables_left = tables_count;
+        state++;
+      } else {
+        state = 0;
+        return -1;
+      }
+      break;
+    case 2 :
       status = config_save_table(&tables[current_table], current_table);
       if(status) {
         if(status > 0) {
