@@ -809,40 +809,13 @@ void config_default_params(sEcuParams *table)
 
 void config_default_corrections(sEcuCorrections *table)
 {
-  table->long_term_correction = 0;
-  table->idle_correction = 0;
-
-  for(int i = 0; i < TABLE_FILLING_MAX; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->ignitions[i][j] = 0.0f;
-
-  for(int i = 0; i < TABLE_PRESSURES_MAX; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->filling_gbc_map[i][j] = 0.0f;
-
-  for(int i = 0; i < TABLE_THROTTLES_MAX; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->filling_gbc_tps[i][j] = 0.0f;
-
-  for(int i = 0; i < TABLE_TEMPERATURES_MAX; i++)
-    table->idle_valve_position[i] = 0.0f;
-
-  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->knock_cy_level_multiplier[i][j] = 0.0f;
-
-  for(int i = 0; i < TABLE_FILLING_MAX; i++)
-    for(int j = 0; j < TABLE_ROTATES_MAX; j++)
-      table->knock_detonation_counter[i][j] = 0.0f;
+  memset(table, 0, sizeof(sEcuCorrections));
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)
 {
-  table->km_driven = 0;
-  table->fuel_consumed = 0;
-  table->idle_valve_position = 0;
+  memset(table, 0, sizeof(sEcuCriticalBackup));
 }
-
 
 HAL_StatusTypeDef config_init(void)
 {
