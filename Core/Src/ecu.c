@@ -44,6 +44,7 @@
 #include <float.h>
 #include "arm_math.h"
 #include "math_fast.h"
+#include "kalman.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define IGNITION_ACCEPTION_FEATURE  1
@@ -393,6 +394,7 @@ static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
+static sMathKalmanCtx gKalmanRpm = {0};
 
 static enum {
   PhaseDetectDisabled = 0,
@@ -989,8 +991,8 @@ static void ecu_update(void)
   uint8_t found;
   uint8_t running;
   uint8_t phased;
-  uint8_t idle_flag;
   static uint8_t was_idle = 0;
+  uint8_t idle_flag;
   uint8_t throttle_idle_flag;
   uint8_t idle_corr_flag;
   uint8_t o2_valid = 0;
@@ -1033,6 +1035,7 @@ static void ecu_update(void)
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
+  rpm = math_kalman_correct(&gKalmanRpm, rpm);
   speed = speed_getspeed();
   knock_status = Knock_GetStatus();
 
@@ -5155,6 +5158,9 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
+
+  gKalmanRpm = math_kalman_init(0.01f, 100.0f, 1.0f, 1.0f);
+  math_kalman_set_state(&gKalmanRpm, 0.0f, 0.1f);
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   memset(gLearnParamsBuffer, 0, sizeof(gLearnParamsBuffer));
