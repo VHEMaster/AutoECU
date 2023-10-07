@@ -69,6 +69,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define FUEL_PUMP_TIMEOUT           (2 * 1000 * 1000)
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 #define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
+#define PID_MINIMUM_RUNTIME         (3 * 1000 * 1000)
 
 typedef enum {
   KnockStatusOk = 0,
@@ -1810,17 +1811,22 @@ static void ecu_update(void)
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
     math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
     math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
-    if(halfturns_performed) {
-      idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
-    }
-    if(use_idle_valve && use_map_sensor) {
+
+    if(running_time_latest >= PID_MINIMUM_RUNTIME) {
       if(halfturns_performed) {
-        idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
-        idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+        idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
+      }
+      if(use_idle_valve && use_map_sensor) {
+        if(halfturns_performed) {
+          idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
+          idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
+        }
+      } else {
+        math_pid_reset(&gPidIdleValveAirFlow);
+        math_pid_reset(&gPidIdleValveRpm);
+        idle_valve_pos_correction = 0;
       }
     } else {
-      math_pid_reset(&gPidIdleValveAirFlow);
-      math_pid_reset(&gPidIdleValveRpm);
       idle_valve_pos_correction = 0;
     }
   } else {
@@ -2130,7 +2136,7 @@ static void ecu_update(void)
   if(halfturns_performed) {
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
     adaptation_last = now;
-    if(running && running_time_latest > CALIBRATION_MIN_RUNTIME) {
+    if(running && running_time_latest >= CALIBRATION_MIN_RUNTIME) {
       calibration_permitted_to_perform = enleanment_post_cycles > LEARN_ENLEANMENT_POST_CYCLES_DELAY &&
           enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY &&
           idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
