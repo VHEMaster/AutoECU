@@ -54,6 +54,7 @@
 #define INJECTORS_ON_INJ_CH1_ONLY   1
 #define ACCELERATION_POINTS_COUNT   12
 #define LEARN_ENRICHMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 16)
+#define LEARN_ENLEANMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 16)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 16)
 #define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
 
@@ -725,6 +726,7 @@ static void ecu_update(void)
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
   uint8_t calibration = gEcuParams.performAdaptation;
+  uint8_t calibrate_gbc;
   uint8_t calibration_permitted_to_perform = 0;
   uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
   uint8_t use_idle_valve = gEcuParams.useIdleValve;
@@ -882,10 +884,12 @@ static void ecu_update(void)
   static uint32_t enrichment_load_values_counter = 0;
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
+  static uint8_t enleanment_triggered = 0;
   uint8_t enrichment_triggered_once = 0;
   static uint8_t enrichment_triggered_async = 0;
   uint8_t enrichment_post_injection_enabled;
   static uint32_t enrichment_post_cycles = 0;
+  static uint32_t enleanment_post_cycles = 0;
   static uint32_t idle_accelerate_post_cycles = 0;
   static uint32_t last_temp_fill_correction = 0;
   static uint32_t last_temp_knock_correction = 0;
@@ -1657,6 +1661,18 @@ static void ecu_update(void)
       }
     }
 
+    if(enleanment_triggered) {
+      sens_reset_map_lpf();
+    }
+
+    if(enleanment_triggered || !running) {
+      enleanment_post_cycles = 0;
+    } else {
+      for(int ht = 0; enleanment_post_cycles < UINT_MAX && ht < halfturns_performed; ht++) {
+        enleanment_post_cycles++;
+      }
+    }
+
     ipEnrLoadStart = math_interpolate_input_limit(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
     ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
 
@@ -2070,6 +2086,7 @@ static void ecu_update(void)
   fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
   filling_map_tps_diff = filling_map / filling_tps;
   abs_knock_ign_corr_max = fabsf(table->knock_ign_corr_max);
+  calibrate_gbc = engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD || lambda_force;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 
@@ -2093,7 +2110,9 @@ static void ecu_update(void)
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
     adaptation_last = now;
     if(running && running_time_latest > CALIBRATION_MIN_RUNTIME) {
-      calibration_permitted_to_perform = enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY && idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
+      calibration_permitted_to_perform = enleanment_post_cycles > LEARN_ENLEANMENT_POST_CYCLES_DELAY &&
+          enrichment_post_cycles > LEARN_ENRICHMENT_POST_CYCLES_DELAY &&
+          idle_accelerate_post_cycles >= IDLE_ACCELERATE_POST_CYCLES_DELAY;
 
       lpf_calculation = adapt_diff * 0.000001f * 1.4142f; // * sqrt(2)
       if(lpf_calculation > 0.1f)
@@ -2130,7 +2149,7 @@ static void ecu_update(void)
           ipLearnThrottle = ipThrottle;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-          if((use_map_sensor || use_tps_sensor) && !econ_flag && (engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD || lambda_force)) {
+          if((use_map_sensor || use_tps_sensor) && !econ_flag && calibrate_gbc) {
 
             filling_map_corrected = fuel_ratio_diff;
 
@@ -2236,16 +2255,18 @@ static void ecu_update(void)
         }
       } else {
         memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
+      }
 
+      if(!calibration || (!idle_calibration && idle_flag) || !calibrate_gbc) {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid && !econ_flag) {
           if(gEcuParams.useLongTermCorr) {
             if(calibration_permitted_to_perform) {
               if(!idle_flag) {
-                filling_lpf_calculation *= 0.1f * fast_sqrt(2.0f); //10 sec
+                filling_lpf_calculation *= 0.1f * 1.4142f; //10 sec * sqrt(2)
                 gEcuCorrections.long_term_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * filling_lpf_calculation;
               }
               else if(idle_corr_flag) {
-                filling_lpf_calculation *= 0.3333f * fast_sqrt(2.0f); //3 sec
+                filling_lpf_calculation *= 0.3333f * 1.4142f; //3 sec * sqrt(2)
                 gEcuCorrections.idle_correction += ((fuel_ratio_diff - 1.0f) + short_term_correction) * filling_lpf_calculation;
               }
             }
@@ -2254,6 +2275,9 @@ static void ecu_update(void)
             gEcuCorrections.idle_correction = 0;
           }
         }
+      } else {
+        gEcuCorrections.long_term_correction = 0;
+        gEcuCorrections.idle_correction = 0;
       }
     }
   }
