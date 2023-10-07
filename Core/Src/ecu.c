@@ -882,6 +882,13 @@ static void ecu_update(void)
   uint32_t enrichment_load_values_count = 0;
   uint32_t enrichment_load_values_divider = 0;
   static uint32_t enrichment_load_values_counter = 0;
+
+  static float enleanment_load_derivative_final = 0;
+  static float enleanment_load_derivative_accept = 0;
+  static float enleanment_time_pass = 0;
+  float enleanment_load_diff;
+  float enleanment_load_derivative;
+
   float enrichment_lpf;
   static uint8_t enrichment_triggered = 0;
   static uint8_t enleanment_triggered = 0;
@@ -1649,7 +1656,25 @@ static void ecu_update(void)
       }
     }
 
-    if(enrichment_triggered) {
+    enleanment_load_diff = min - max;
+    enleanment_load_derivative = enleanment_load_diff / enrichment_lpf;
+
+    if((!enleanment_triggered && enleanment_load_derivative >= enrichment_load_dead_band) ||
+        (enleanment_triggered && (enleanment_load_derivative > enleanment_load_derivative_accept))) {
+      enleanment_load_derivative_accept = enleanment_load_derivative;
+      enleanment_load_derivative_final = enleanment_load_derivative;
+      enleanment_time_pass = 0;
+      enleanment_triggered = 1;
+    } else if(enleanment_triggered) {
+      enleanment_time_pass += diff_sec;
+      enleanment_load_derivative_final = enleanment_load_derivative_accept - enrichment_accel_dead_band * enleanment_time_pass;
+      if(enleanment_load_derivative_final <= 0) {
+        enleanment_load_derivative_final = 0;
+        enleanment_triggered = 0;
+      }
+    }
+
+    if(enrichment_triggered || enleanment_triggered) {
       sens_reset_map_lpf();
     }
 
@@ -1659,10 +1684,6 @@ static void ecu_update(void)
       for(int ht = 0; enrichment_post_cycles < UINT_MAX && ht < halfturns_performed; ht++) {
         enrichment_post_cycles++;
       }
-    }
-
-    if(enleanment_triggered) {
-      sens_reset_map_lpf();
     }
 
     if(enleanment_triggered || !running) {
