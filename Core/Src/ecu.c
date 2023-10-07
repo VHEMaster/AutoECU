@@ -138,9 +138,10 @@ typedef struct {
 
     struct {
         eKnockStatus GeneralStatus;
-        uint32_t DetonationLast;
-        uint32_t StrongDetonationLast;
-        uint32_t LowNoiseLast;
+        eKnockStatus CylinderStatus[ECU_CYLINDERS_COUNT];
+        uint32_t DetonationLastCy[ECU_CYLINDERS_COUNT];
+        uint32_t StrongDetonationLastCy[ECU_CYLINDERS_COUNT];
+        uint32_t LowNoiseLastCy[ECU_CYLINDERS_COUNT];
         uint32_t DetonationCount;
         uint32_t DetonationCountCy[ECU_CYLINDERS_COUNT];
         float Voltages[ECU_CYLINDERS_COUNT];
@@ -824,7 +825,7 @@ static void ecu_update(void)
   float fuel_flow_per_us;
   float knock_noise_level;
   static float knock_zone = 0;
-  static float knock_low_noise_state = 0;
+  static float knock_low_noise_state[ECU_CYLINDERS_COUNT] = {0};
   float knock_low_noise_lpf = 0;
   float knock_cy_level_diff;
   static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
@@ -1950,6 +1951,7 @@ static void ecu_update(void)
   if(gStatus.Knock.DetonationCountPerSecond < 0)
     gStatus.Knock.DetonationCountPerSecond = 0;
 
+  gStatus.Knock.GeneralStatus = KnockStatusOk;
   if(running && gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
 
     if(sens_get_ign(NULL) != GPIO_PIN_SET) {
@@ -1966,11 +1968,11 @@ static void ecu_update(void)
             gStatus.Knock.DetonationCount++;
             gStatus.Knock.DetonationCountPerSecond += 1.0f;
             gStatus.Knock.DetonationCountCy[i]++;
-            gStatus.Knock.GeneralStatus |= KnockStatusDedonation;
-            gStatus.Knock.DetonationLast = hal_now;
+            gStatus.Knock.CylinderStatus[i] |= KnockStatusDedonation;
+            gStatus.Knock.DetonationLastCy[i] = hal_now;
             if(gStatus.Knock.Detonates[i] > 1.0f) {
-              gStatus.Knock.GeneralStatus |= KnockStatusStrongDedonation;
-              gStatus.Knock.StrongDetonationLast = hal_now;
+              gStatus.Knock.CylinderStatus[i] |= KnockStatusStrongDedonation;
+              gStatus.Knock.StrongDetonationLastCy[i] = hal_now;
             }
             gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
           } else {
@@ -1980,27 +1982,26 @@ static void ecu_update(void)
             knock_low_noise_lpf = gStatus.Knock.Period[i] * 0.000001f * 0.33f; // 3.0 seconds
             knock_low_noise_lpf = CLAMP(knock_low_noise_lpf, 0.0f, 0.2f);
             if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
-              knock_low_noise_state = knock_low_noise_state * (1.0f - knock_low_noise_lpf) + 1.0f * knock_low_noise_lpf;
+              knock_low_noise_state[i] = knock_low_noise_state[i] * (1.0f - knock_low_noise_lpf) + 1.0f * knock_low_noise_lpf;
             } else {
-              knock_low_noise_state *= 1.0f - knock_low_noise_lpf;
+              knock_low_noise_state[i] *= 1.0f - knock_low_noise_lpf;
             }
           }
           gStatus.Knock.Advances[i] = CLAMP(gStatus.Knock.Advances[i], 0.0f, 1.0f);
           gStatus.Knock.UpdatedInternally[i] = 0;
         }
-      }
-      if(knock_low_noise_state >= 0.5f && engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
-        gStatus.Knock.GeneralStatus |= KnockStatusLowNoise;
-        gStatus.Knock.LowNoiseLast = hal_now;
-      }
-      if((gStatus.Knock.GeneralStatus & KnockStatusLowNoise) == KnockStatusLowNoise) {
-        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-          gStatus.Knock.Advances[i] = 1.0f;
+
+        if(knock_low_noise_state[i] >= 0.5f && engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
+          gStatus.Knock.CylinderStatus[i] |= KnockStatusLowNoise;
+          gStatus.Knock.LowNoiseLastCy[i] = hal_now;
+        }
+        if((gStatus.Knock.CylinderStatus[i] & KnockStatusLowNoise) == KnockStatusLowNoise) {
+            gStatus.Knock.Advances[i] = 1.0f;
         }
       }
     } else {
       knock_zone = 0.0f;
-      knock_low_noise_state = 0;
+      memset(knock_low_noise_state, 0, sizeof(knock_low_noise_state));
       memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
       memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
       memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
@@ -2014,11 +2015,35 @@ static void ecu_update(void)
         knock_running_time = 0;
       }
     }
+
+
+    gStatus.Knock.Advance = 0;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
+        gStatus.Knock.Advance = gStatus.Knock.Advances[i];
+
+      if(gStatus.Knock.StrongDetonationLastCy[i] && HAL_DelayDiff(hal_now, gStatus.Knock.StrongDetonationLastCy[i]) > 5000) {
+        gStatus.Knock.CylinderStatus[i] &= ~KnockStatusStrongDedonation;
+        gStatus.Knock.StrongDetonationLastCy[i] = 0;
+      }
+      if(gStatus.Knock.DetonationLastCy[i] && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLastCy[i]) > 5000) {
+        gStatus.Knock.CylinderStatus[i] &= ~KnockStatusDedonation;
+        gStatus.Knock.DetonationLastCy[i] = 0;
+      }
+      if(gStatus.Knock.LowNoiseLastCy[i] && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLastCy[i]) > 5000) {
+        gStatus.Knock.CylinderStatus[i] &= ~KnockStatusLowNoise;
+        gStatus.Knock.LowNoiseLastCy[i] = 0;
+      }
+    }
+
+    gStatus.Knock.DetonationRelation = gStatus.Knock.DetonationCountPerSecond / rpm * 30.0f;
+
   } else {
     knock_zone = 0.0f;
     knock_running = 0;
     knock_running_time = 0;
-    knock_low_noise_state = 0;
+    gStatus.Knock.DetonationRelation = 0;
+    memset(knock_low_noise_state, 0, sizeof(knock_low_noise_state));
     memset(gStatus.Knock.Advances, 0, sizeof(gStatus.Knock.Advances));
     memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
     memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
@@ -2026,36 +2051,18 @@ static void ecu_update(void)
     memset(gStatus.Knock.UpdatedInternally, 0, sizeof(gStatus.Knock.UpdatedInternally));
     memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
     memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
-    gStatus.Knock.GeneralStatus = KnockStatusOk;
+    memset(gStatus.Knock.CylinderStatus, 0, sizeof(gStatus.Knock.CylinderStatus));
+    memset(gStatus.Knock.StrongDetonationLastCy, 0, sizeof(gStatus.Knock.StrongDetonationLastCy));
+    memset(gStatus.Knock.DetonationLastCy, 0, sizeof(gStatus.Knock.DetonationLastCy));
+    memset(gStatus.Knock.LowNoiseLastCy, 0, sizeof(gStatus.Knock.LowNoiseLastCy));
   }
 
-  gStatus.Knock.Advance = 0;
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-    if(gStatus.Knock.Advances[i] > gStatus.Knock.Advance)
-      gStatus.Knock.Advance = gStatus.Knock.Advances[i];
-  }
-
-  if(gStatus.Knock.StrongDetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.StrongDetonationLast) > 5000) {
-    gStatus.Knock.GeneralStatus &= ~KnockStatusStrongDedonation;
-    gStatus.Knock.StrongDetonationLast = 0;
-  }
-  if(gStatus.Knock.DetonationLast && HAL_DelayDiff(hal_now, gStatus.Knock.DetonationLast) > 5000) {
-    gStatus.Knock.GeneralStatus &= ~KnockStatusDedonation;
-    gStatus.Knock.DetonationLast = 0;
-  }
-  if(gStatus.Knock.LowNoiseLast && HAL_DelayDiff(hal_now, gStatus.Knock.LowNoiseLast) > 5000) {
-    gStatus.Knock.GeneralStatus &= ~KnockStatusLowNoise;
-    gStatus.Knock.LowNoiseLast = 0;
-  }
-
-  if(running) {
-    gStatus.Knock.DetonationRelation = gStatus.Knock.DetonationCountPerSecond / rpm * 30.0f;
-  } else {
-    gStatus.Knock.DetonationRelation = 0;
+    gStatus.Knock.GeneralStatus |= gStatus.Knock.CylinderStatus[i];
   }
 
   if(gStatus.Knock.DetonationRelation > 0.1f) {
-    gStatus.Knock.GeneralStatus &= ~KnockStatusContinuousDedonation;
+    gStatus.Knock.GeneralStatus |= KnockStatusContinuousDedonation;
   } else {
     gStatus.Knock.GeneralStatus &= ~KnockStatusContinuousDedonation;
   }
@@ -3973,6 +3980,10 @@ static void ecu_checkengine_loop(void)
   if(gEcuParams.useKnockSensor) {
     CHECK_STATUS(iserror, CheckKnockDetonationFound, (gStatus.Knock.GeneralStatus & KnockStatusStrongDedonation) > 0);
     CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0);
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      CHECK_STATUS(iserror, (CheckKnockDetonationCy1 + 1), (gStatus.Knock.CylinderStatus[i] & KnockStatusStrongDedonation) > 0);
+    }
   }
   if(gEcuParams.phasedMode == PhasedModeWithSensor) {
     CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.Tsps.sync_error && gStatus.Tsps.sync_error_time > 100);
