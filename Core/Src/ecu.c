@@ -830,6 +830,7 @@ static void ecu_update(void)
   static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
   static float knock_cy_level_multiplier_correction[ECU_CYLINDERS_COUNT] = {0};
   float ignition_advance_cy[ECU_CYLINDERS_COUNT];
+  float injection_correction_cy[ECU_CYLINDERS_COUNT];
 
   float min, max;
   static uint8_t ventilation_flag = 0;
@@ -1424,6 +1425,15 @@ static void ecu_update(void)
     }
   } else {
     memset(ignition_advance_cy, 0, sizeof(ignition_advance_cy));
+  }
+
+  if(!gForceParameters.Enable.InjectionPulse) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      injection_correction_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_corr_cy[i]);
+      injection_correction_cy[i] += math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.injection_corr_cy[i]);
+    }
+  } else {
+    memset(injection_correction_cy, 0, sizeof(injection_correction_cy));
   }
 
   wish_fuel_ratio = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
@@ -2449,6 +2459,7 @@ static void ecu_update(void)
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     gLocalParams.IgnitionCorrectionCy[i] = ignition_advance_cy[i];
+    gLocalParams.InjectionCorrectionCy[i] = injection_correction_cy[i];
   }
 
   gParameters.InjectionPulse = injection_time;
