@@ -5,8 +5,8 @@
  *      Author: VHEMaster
  */
 
-#ifndef INTERPOLATION_H_
-#define INTERPOLATION_H_
+#ifndef KALMAN_H_
+#define KALMAN_H_
 
 typedef struct {
     float X0;
@@ -24,4 +24,4 @@ sMathKalmanCtx math_kalman_init(float q, float r, float f, float h);
 void math_kalman_set_state(sMathKalmanCtx *ctx, float state, float covariance);
 float math_kalman_correct(sMathKalmanCtx *ctx, float value);
 
-#endif /* INTERPOLATION_H_ */
+#endif /* KALMAN_H_ */
