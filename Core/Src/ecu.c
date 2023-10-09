@@ -3232,29 +3232,38 @@ ITCM_FUNC void ecu_process(void)
 
   if(phased_injection) {
     angles_injection_per_turn = 720.0f;
-    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      cy_injection[i] = (cy_corr_injection[i] + 1.0f) * inj_pulse;
-      cy_injection[i] *= knock_injection_correctives[i] + 1.0f;
-    }
   } else {
     angles_injection_per_turn = 360.0f;
-    if(inj_pulse < inj_lag) {
-      inj_pulse = 0;
+  }
+
+  if(inj_pulse > inj_lag) {
+    if(phased_injection) {
+      angles_injection_per_turn = 720.0f;
+
+      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+        cy_injection[i] = inj_pulse - inj_lag;
+        cy_injection[i] *= cy_corr_injection[i] + 1.0f;
+        cy_injection[i] *= knock_injection_correctives[i] + 1.0f;
+        cy_injection[i] += inj_lag;
+      }
     } else {
       inj_pulse = (inj_pulse - inj_lag) * 0.5f;
-    }
-    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
-      injection[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-      injected[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-      if(cy_corr_injection[i] != 0.0f || cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i] != 0.0f)
-        cy_injection[i] = ((cy_corr_injection[i] + cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f) * inj_pulse;
-      else cy_injection[i] = inj_pulse;
-      if(fabsf(knock_injection_correctives[i]) > 0.0005f || fabsf(knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) > 0.0005f)
-        cy_injection[i] *= MAX(knock_injection_correctives[i], knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) + 1.0f;
-      cy_injection[i] += inj_lag;
 
-      cy_injection[ECU_CYLINDERS_COUNT - 1 - i] = cy_injection[i];
+      for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
+        injection[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+        injected[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+        if(cy_corr_injection[i] != 0.0f || cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i] != 0.0f)
+          cy_injection[i] = ((cy_corr_injection[i] + cy_corr_injection[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f + 1.0f) * inj_pulse;
+        else cy_injection[i] = inj_pulse;
+        if(fabsf(knock_injection_correctives[i]) > 0.0005f || fabsf(knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) > 0.0005f)
+          cy_injection[i] *= MAX(knock_injection_correctives[i], knock_injection_correctives[ECU_CYLINDERS_COUNT - 1 - i]) + 1.0f;
+        cy_injection[i] += inj_lag;
+
+        cy_injection[ECU_CYLINDERS_COUNT - 1 - i] = cy_injection[i];
+      }
     }
+  } else {
+    memset(cy_injection, 0, sizeof(cy_injection));
   }
 
   if(inj_was_phased != phased_injection) {
