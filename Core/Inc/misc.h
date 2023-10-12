@@ -23,7 +23,23 @@ typedef enum {
   O2AmplificationFactorCount,
 }eO2AmplificationFactor;
 
+typedef enum {
+  LambdaStateInitial = 0,
+  LambdaStateDeviceCheck,
+  LambdaStateDiagCheck,
+  LambdaStatePollCalibrate,
+  LambdaStateSetCalibrate,
+  LambdaStatePollEnable,
+  LambdaStatePollPumpReset,
+  LambdaStateWaitToHeat,
+  LambdaStateHeating,
+  LambdaStatePollInit1,
+  LambdaStatePollInit2,
+  LambdaStateCheckTemperature
+}eLambdaState;
+
 typedef struct {
+    eLambdaState SmState;
     volatile float ReferenceVoltage;
     volatile float OffsetVoltage;
     float HeaterVoltage;
