@@ -3189,11 +3189,11 @@ ITCM_FUNC void ecu_process(void)
     time_pulse = 2500;
   }
 
-  for(int i = 0; i < cy_count_ignition; i++) {
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     knock_ignition_correctives[i] = gLocalParams.IgnitionCorrectionCy[i];
   }
 
-  for(int i = 0; i < cy_count_injection; i++) {
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     knock_injection_correctives[i] = gLocalParams.InjectionCorrectionCy[i];
   }
 
