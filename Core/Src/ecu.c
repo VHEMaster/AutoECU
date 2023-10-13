@@ -2238,6 +2238,8 @@ static void ecu_update(void)
                   gStatus.Knock.AdaptationDetonates[i] = 0;
                   detonation_count_table += 1.0f;
 
+                  knock_lpf_calculation *= 2.00f * 1.4142f; //0.5 sec * sqrt(2)
+
                   calib_cur_progress = 0.0f;
 
                   ignition_advance_cy[i] = table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation);
