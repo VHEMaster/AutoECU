@@ -163,6 +163,7 @@ typedef struct {
         float Advance;
         float DetonationCountPerSecond;
         float DetonationRelation;
+        float DetonationSaturation;
         float AdaptationDetonates[ECU_CYLINDERS_COUNT];
         uint8_t Updated[ECU_CYLINDERS_COUNT];
         uint8_t UpdatedInternally[ECU_CYLINDERS_COUNT];
@@ -771,7 +772,6 @@ static void ecu_update(void)
   float lambda_value;
   float lambda_temperature;
   float lambda_heatervoltage;
-  float lambda_temperaturevoltage;
   float air_temp;
   float calculated_air_temp;
   float engine_to_air_temp_koff;
@@ -1139,14 +1139,12 @@ static void ecu_update(void)
   fuel_ratio = table->fuel_afr;
   lambda_value = 1.0f;
   lambda_temperature = 0;
-  lambda_temperaturevoltage = 0;
   lambda_heatervoltage = 0;
   if(gEcuParams.useLambdaSensor) {
     gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&o2_data, &lambda_value, &o2_valid);
     if(gStatus.Sensors.Struct.Lambda == HAL_OK) {
       sens_get_o2_temperature(&o2_data, &lambda_temperature);
     }
-    sens_get_o2_temperaturevoltage(&o2_data, &lambda_temperaturevoltage);
     sens_get_o2_heatervoltage(&o2_data, &lambda_heatervoltage);
     if(o2_valid) {
       fuel_ratio = lambda_value * table->fuel_afr;
@@ -1434,6 +1432,7 @@ static void ecu_update(void)
   ignition_advance += engine_temp_ign_corr;
   ignition_advance += ignition_corr_final;
 
+  detonation_count_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
   if(!gForceParameters.Enable.IgnitionAdvance) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       ignition_advance_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignition_corr_cy[i]);
@@ -1901,8 +1900,11 @@ static void ecu_update(void)
         gStatus.Knock.Detonates[i] = (gStatus.Knock.Denoised[i] / knock_cy_level_multiplier[i]) - knock_threshold;
         if(gStatus.Knock.Denoised[i] < 0.0f)
           gStatus.Knock.Denoised[i] = 0.0f;
-        if(gStatus.Knock.Detonates[i] < 0.0f)
+        if(gStatus.Knock.Detonates[i] < 0.0f) {
           gStatus.Knock.Detonates[i] = 0.0f;
+        } else {
+          gStatus.Knock.DetonationSaturation += gStatus.Knock.Detonates[i];
+        }
         gStatus.Knock.Updated[i] = 0;
         gStatus.Knock.UpdatedInternally[i] = 1;
         gStatus.Knock.UpdatedAdaptation[i] = 1;
@@ -2230,19 +2232,17 @@ static void ecu_update(void)
           if(knock_zone > 0.05f && !idle_flag) {
             for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
               if(gStatus.Knock.UpdatedAdaptation[i]) {
-                memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
-
-                detonation_count_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
+                gStatus.Knock.UpdatedAdaptation[i] = 0;
 
                 if(gStatus.Knock.AdaptationDetonates[i] > 0.05f) {
                   gStatus.Knock.AdaptationDetonates[i] = 0;
                   detonation_count_table += 1.0f;
 
-                  knock_lpf_calculation *= 2.00f * 1.4142f; //0.5 sec * sqrt(2)
+                  knock_lpf_calculation *= 5.00f * 1.4142f; //1 degree per 0.2 sec * sqrt(2)
 
                   calib_cur_progress = 0.0f;
 
-                  ignition_advance_cy[i] = table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation);
+                  ignition_advance_cy[i] = -(knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation));
                   corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i], ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
 
                   math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
@@ -2257,7 +2257,6 @@ static void ecu_update(void)
                   calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
                 }
                 corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
-                break;
               }
             }
           } else if(idle_flag) {
@@ -2282,8 +2281,9 @@ static void ecu_update(void)
             } else {
               memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
             }
+          } else {
+            memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
           }
-
         }
       } else {
         memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
@@ -2480,6 +2480,7 @@ static void ecu_update(void)
   gParameters.KnockCount = gStatus.Knock.DetonationCount;
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++)
     gParameters.KnockCountCy[i] = gStatus.Knock.DetonationCountCy[i];
+  gParameters.KnockSaturation = gStatus.Knock.DetonationSaturation;
   gParameters.AirTemp = air_temp;
   gParameters.EngineTemp = engine_temp;
   gParameters.CalculatedAirTemp = calculated_air_temp;
@@ -2491,7 +2492,6 @@ static void ecu_update(void)
   gParameters.FuelRatioDiff = fuel_ratio_diff;
   gParameters.LambdaValue = lambda_value;
   gParameters.LambdaTemperature = lambda_temperature;
-  gParameters.LambdaTemperatureVoltage = lambda_temperaturevoltage;
   gParameters.LambdaHeaterVoltage = lambda_heatervoltage;
   gParameters.ShortTermCorrection = short_term_correction;
   gParameters.LongTermCorrection = gEcuCorrections.long_term_correction;
@@ -2505,7 +2505,6 @@ static void ecu_update(void)
   gParameters.MassAirFlow = mass_air_flow;
   gParameters.CyclicAirFlow = cycle_air_flow;
   gParameters.EffectiveVolume = effective_volume;
-  gParameters.AirDensity = air_density;
   gParameters.EngineLoad = engine_load;
   gParameters.EstimatedPower = estimated_power_hp;
   gParameters.EstimatedTorque = estimated_torque_nm;
@@ -3097,13 +3096,8 @@ ITCM_FUNC void ecu_process(void)
   float phased_angles[ECU_CYLINDERS_COUNT];
   float non_phased_angles[ECU_CYLINDERS_COUNT_HALF];
 
-  float knock_injection_correctives[ECU_CYLINDERS_COUNT];
-  float knock_ignition_correctives[ECU_CYLINDERS_COUNT];
   float cy_corr_injection[ECU_CYLINDERS_COUNT];
   float cy_corr_ignition[ECU_CYLINDERS_COUNT];
-
-  memcpy(cy_corr_injection, table->cy_corr_injection, sizeof(cy_corr_injection));
-  memcpy(cy_corr_ignition, table->cy_corr_ignition, sizeof(cy_corr_ignition));
 
 #ifndef SIMULATION
   throttle_status = sens_get_throttle_position(&throttle);
@@ -3131,7 +3125,7 @@ ITCM_FUNC void ecu_process(void)
   phased_mode = gEcuParams.phasedMode;
   use_phased = phased_mode != PhasedModeDisabled && is_phased;
   phased_injection = use_phased;
-  phased_ignition = use_phased && individual_coils && !single_coil;
+  phased_ignition = use_phased && !single_coil;
   phased_knock = use_phased;
   cy_count_injection = phased_injection ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   cy_count_ignition = phased_ignition ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
@@ -3164,7 +3158,7 @@ ITCM_FUNC void ecu_process(void)
 
   if(single_coil) {
     angle_ignite_koff = 0.005f;
-  } else if(!phased_ignition) {
+  } else if(!phased_ignition || !individual_coils) {
     angle_ignite_koff = 0.01f;
   }
 
@@ -3192,11 +3186,13 @@ ITCM_FUNC void ecu_process(void)
   }
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-    knock_ignition_correctives[i] = gLocalParams.IgnitionCorrectionCy[i];
+    cy_corr_ignition[i] = table->cy_corr_ignition[i];
+    cy_corr_ignition[i] += gLocalParams.IgnitionCorrectionCy[i];
   }
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-    knock_injection_correctives[i] = gLocalParams.InjectionCorrectionCy[i];
+    cy_corr_injection[i] = table->cy_corr_injection[i];
+    cy_corr_injection[i] *= gLocalParams.InjectionCorrectionCy[i] + 1.0f;
   }
 
   if(phased_ignition) {
@@ -3204,7 +3200,6 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < cy_count_ignition; i++) {
       var = angle_ignite;
       var += cy_corr_ignition[i];
-      var += knock_ignition_correctives[i];
       if(!saturated[i] && !ignited[i]) {
         var2 = anglesbeforeignite[i] - var + cy_ignition[i];
         if(var2 > 0) {
@@ -3221,8 +3216,7 @@ ITCM_FUNC void ecu_process(void)
     }
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
       var = angle_ignite;
-      var += (cy_corr_ignition[i] + cy_corr_ignition[ECU_CYLINDERS_COUNT - 1 - i]) * 0.5f;
-      var += MIN(knock_ignition_correctives[i], knock_ignition_correctives[ECU_CYLINDERS_COUNT - 1 - i]);
+      var += MIN(cy_corr_ignition[i], cy_corr_ignition[ECU_CYLINDERS_COUNT - 1 - i]);
       if(!saturated[i] && !ignited[i]) {
         var2 = anglesbeforeignite[i] - var + cy_ignition[i];
         if(var2 > 0) {
@@ -3245,7 +3239,6 @@ ITCM_FUNC void ecu_process(void)
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         cy_injection[i] = inj_pulse - inj_lag;
         cy_injection[i] *= cy_corr_injection[i] + 1.0f;
-        cy_injection[i] *= knock_injection_correctives[i] + 1.0f;
         cy_injection[i] += inj_lag;
       }
     } else {
@@ -3259,7 +3252,6 @@ ITCM_FUNC void ecu_process(void)
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         cy_injection[i] = inj_pulse;
         cy_injection[i] *= cy_corr_injection[i] + 1.0f;
-        cy_injection[i] *= knock_injection_correctives[i] + 1.0f;
         cy_injection[i] += inj_lag;
       }
     }
@@ -3308,8 +3300,9 @@ ITCM_FUNC void ecu_process(void)
       angle_ignition[i] = phased_angles[i];
     }
   } else {
-    angle_ignition[0] = non_phased_angles[0];
-    angle_ignition[1] = non_phased_angles[1];
+    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
+      angle_ignition[i] = non_phased_angles[i];
+    }
   }
 
   if(phased_knock) {
@@ -3512,8 +3505,14 @@ ITCM_FUNC void ecu_process(void)
               } else {
                 shift_ign_act = !shiftEnabled || ecu_shift_ign_act(cy_count_ignition, i, clutch, rpm, throttle);
                 cutoff_ign_act = ecu_cutoff_ign_act(cy_count_ignition, i, rpm);
-                if(shift_ign_act && cutoff_ign_act)
-                  ecu_coil_saturate(cy_count_ignition, i);
+                if(shift_ign_act && cutoff_ign_act) {
+                  if(individual_coils) {
+                    ecu_coil_saturate(cy_count_ignition, i);
+                  } else {
+                    ecu_coil_saturate(cy_count_ignition, i);
+                    ecu_coil_saturate(cy_count_ignition, ECU_CYLINDERS_COUNT - 1 - i);
+                  }
+                }
               }
 
               ignition_saturate_time[i] = now;
@@ -3539,7 +3538,12 @@ ITCM_FUNC void ecu_process(void)
                   if(shift_ign_act && cutoff_ign_act)
                     ecu_coil_ignite(1, 0);
                 } else {
-                  ecu_coil_ignite(cy_count_ignition, i);
+                  if(individual_coils) {
+                    ecu_coil_ignite(cy_count_ignition, i);
+                  } else {
+                    ecu_coil_ignite(cy_count_ignition, i);
+                    ecu_coil_ignite(cy_count_ignition, ECU_CYLINDERS_COUNT - 1 - i);
+                  }
                 }
                 gParameters.CylinderIgnitionBitmask ^= 1 << i;
                 ignition_ignite[i] = time_pulse;
@@ -4164,7 +4168,6 @@ static void ecu_drag_process(void)
             Drag.StopTime = now;
             Drag.Points[Drag.PointsCount].RPM = rpm;
             Drag.Points[Drag.PointsCount].Speed = speed;
-            Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
             Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
             Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
             Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
@@ -4239,7 +4242,6 @@ static void ecu_drag_process(void)
               Drag.StopTime = now;
               Drag.Points[Drag.PointsCount].RPM = rpm;
               Drag.Points[Drag.PointsCount].Speed = speed;
-              Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
               Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
               Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
               Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
@@ -4268,7 +4270,6 @@ static void ecu_drag_process(void)
               Drag.StopTime = now;
               Drag.Points[Drag.PointsCount].RPM = rpm;
               Drag.Points[Drag.PointsCount].Speed = speed;
-              Drag.Points[Drag.PointsCount].Acceleration = gSharedParameters.Acceleration;
               Drag.Points[Drag.PointsCount].Pressure = gSharedParameters.ManifoldAirPressure;
               Drag.Points[Drag.PointsCount].Ignition = gSharedParameters.IgnitionAdvance;
               Drag.Points[Drag.PointsCount].Mixture = gSharedParameters.FuelRatio;
@@ -5602,7 +5603,6 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       PK_DragUpdateResponse.Data.Pressure = gSharedParameters.ManifoldAirPressure;
       PK_DragUpdateResponse.Data.RPM = gSharedParameters.RPM;
       PK_DragUpdateResponse.Data.Mixture = gSharedParameters.FuelRatio;
-      PK_DragUpdateResponse.Data.Acceleration = gSharedParameters.Acceleration;
       PK_DragUpdateResponse.Data.Ignition = gSharedParameters.IgnitionAdvance;
       PK_DragUpdateResponse.Data.CycleAirFlow = gSharedParameters.CyclicAirFlow;
       PK_DragUpdateResponse.Data.MassAirFlow = gSharedParameters.MassAirFlow;
