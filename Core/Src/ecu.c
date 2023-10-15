@@ -2244,8 +2244,8 @@ static void ecu_update(void)
 #if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
                     knock_lpf_calculation *= 0.2f; //5 sec
-                    ignition_correction = -table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_correction * (1.0f - knock_lpf_calculation);
-                    corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions, ignition_correction, -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
+                    ignition_advance_cy[i] = -table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation);
+                    corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i], ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
                   }
 #endif /* KNOCK_DETONATION_INCREASING_ADVANCE */
                   calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
@@ -2335,7 +2335,7 @@ static void ecu_update(void)
 
     for(int y = 0; y < table->fillings_count; y++) {
       for(int x = 0; x < table->rotates_count; x++) {
-        ignition_knock_correction = FLT_MIN;
+        ignition_knock_correction = -FLT_MAX;
         for(int c = 0; c < ECU_CYLINDERS_COUNT; c++) {
           ignition_advance_cy[c] = gEcuCorrections.ignition_corr_cy[c][y][x];
           if(ignition_advance_cy[c] > ignition_knock_correction) {
