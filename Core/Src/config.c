@@ -809,6 +809,82 @@ void config_default_params(sEcuParams *table)
 
 }
 
+void config_transform_progress_to_corrections(sEcuCorrections *corrections, const sEcuCorrectionsProgress *progress)
+{
+  const float multiplier = 255.0f;
+
+  if(!progress || !corrections) {
+    return;
+  }
+
+  for(int y = 0; y < TABLE_FILLING_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      float value = progress->progress_ignitions[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_ignitions[y][x] = value * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      float value = progress->progress_filling_gbc_map[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_filling_gbc_map[y][x] = value * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      float value = progress->progress_filling_gbc_tps[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_filling_gbc_tps[y][x] = value * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
+    float value = progress->progress_idle_valve_position[y];
+    if(value > 1.0f) value = 1.0f;
+    corrections->progress_idle_valve_position[y] = value * multiplier;
+  }
+  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      float value = progress->progress_knock_cy_level_multiplier[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_knock_cy_level_multiplier[y][x] = value * 255.0f;
+    }
+  }
+}
+
+void config_transform_corrections_to_progress(sEcuCorrectionsProgress *progress, const sEcuCorrections *corrections)
+{
+  const float multiplier = 1.0f / 255.0f;
+
+  if(!progress || !corrections) {
+    return;
+  }
+
+  for(int y = 0; y < TABLE_FILLING_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      progress->progress_ignitions[y][x] = corrections->progress_ignitions[y][x] * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      progress->progress_filling_gbc_map[y][x] = corrections->progress_filling_gbc_map[y][x] * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      progress->progress_filling_gbc_tps[y][x] = corrections->progress_filling_gbc_tps[y][x] * multiplier;
+    }
+  }
+  for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
+    progress->progress_idle_valve_position[y] = corrections->progress_idle_valve_position[y] * multiplier;
+  }
+  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
+    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
+      progress->progress_knock_cy_level_multiplier[y][x] = corrections->progress_knock_cy_level_multiplier[y][x] * multiplier;
+    }
+  }
+}
+
 void config_default_corrections(sEcuCorrections *table)
 {
   memset(table, 0, sizeof(sEcuCorrections));

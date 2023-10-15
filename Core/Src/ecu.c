@@ -81,14 +81,6 @@ typedef enum {
 }eKnockStatus;
 
 typedef struct {
-    float progress_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX];
-    float progress_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    float progress_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
-    float progress_idle_valve_position[TABLE_TEMPERATURES_MAX];
-    float progress_knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_MAX];
-}sEcuCorrectionsProgress;
-
-typedef struct {
     float filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
     float filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
 }sEcuCorrectionsTemp;
@@ -596,6 +588,8 @@ static void ecu_config_init(void)
       gStatus.Bkpsram.Struct.CorrsSave = HAL_ERROR;
     }
   }
+
+  config_transform_corrections_to_progress(&gEcuCorrectionsProgress, &gEcuCorrections);
 
   while(!(status = config_load_critical_backup(&gEcuCriticalBackup))) {}
   if(status < 0) {
@@ -4308,7 +4302,7 @@ static void ecu_specific_parameters_loop(void)
       } else {
         for(int i = 0; i < gSpecificParametersConfigured; i++) {
           addr = gSpecificParametersAddrs[i];
-          if(addr && addr < sizeof(gParameters) / 4) {
+          if(addr && addr < sizeof(gParameters) / sizeof(uDword)) {
             memcpy(&gSpecificParametersArray[i][pointer], &((uint32_t *)&gParameters)[addr], sizeof(uDword));
           }
         }
@@ -4494,39 +4488,7 @@ static void ecu_corrections_loop(void)
   if(DelayDiff(now, prev_conversion) > 500000)
   {
     prev_conversion = now;
-    for(int y = 0; y < TABLE_FILLING_MAX; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_ignitions[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_ignitions[y][x] = value * 255.0f;
-      }
-    }
-    for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_filling_gbc_map[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_filling_gbc_map[y][x] = value * 255.0f;
-      }
-    }
-    for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_filling_gbc_tps[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_filling_gbc_tps[y][x] = value * 255.0f;
-      }
-    }
-    for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
-      float value = gEcuCorrectionsProgress.progress_idle_valve_position[y];
-      if(value > 1.0f) value = 1.0f;
-      gEcuCorrections.progress_idle_valve_position[y] = value * 255.0f;
-    }
-    for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
-      for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-        float value = gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[y][x];
-        if(value > 1.0f) value = 1.0f;
-        gEcuCorrections.progress_knock_cy_level_multiplier[y][x] = value * 255.0f;
-      }
-    }
+    config_transform_progress_to_corrections(&gEcuCorrections, &gEcuCorrectionsProgress);
   }
 
   speed_setinputcorrective(gEcuParams.speedInputCorrection);
