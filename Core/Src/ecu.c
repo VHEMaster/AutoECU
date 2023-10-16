@@ -2236,7 +2236,7 @@ static void ecu_update(void)
 
                   calib_cur_progress = 0.0f;
 
-                  ignition_advance_cy[i] = -(knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation));
+                  ignition_advance_cy[i] -= knock_zone * knock_lpf_calculation;
                   corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i], ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
 
                   math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
