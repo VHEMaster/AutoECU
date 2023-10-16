@@ -5013,7 +5013,7 @@ static void ecu_oil_pressure_process(void)
       if(!gStatus.OilPressure.run_time)
         gStatus.OilPressure.run_time = now;
 
-      if(DelayDiff(now, gStatus.OilPressure.run_time) > 3000000) {
+      if(DelayDiff(now, gStatus.OilPressure.run_time) > 5000000) {
         gStatus.OilPressure.is_running = 1;
       }
     } else {
