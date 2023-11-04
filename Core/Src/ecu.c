@@ -5064,7 +5064,13 @@ static void ecu_battery_charge_process(void)
   uint32_t now = Delay_Tick;
   uint8_t is_running = csps_isrunning();
 
-  if(is_running) {
+#ifdef SIMULATION
+  GPIO_PinState ignition = GPIO_PIN_SET;
+#else
+  GPIO_PinState ignition = sens_get_ign(NULL);
+#endif
+
+  if(is_running && ignition == GPIO_PIN_SET) {
     if(!gStatus.BatteryCharge.is_running) {
       if(!gStatus.BatteryCharge.run_time)
         gStatus.BatteryCharge.run_time = now;
