@@ -45,6 +45,7 @@
 #include "arm_math.h"
 #include "math_fast.h"
 #include "kalman.h"
+#include "can_signals.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define IGNITION_ACCEPTION_FEATURE  1
@@ -4704,6 +4705,7 @@ static void ecu_can_process(void)
 {
   if(gStatus.CanInitStatus == HAL_OK) {
     if(!gCanTestStarted) {
+      can_signals_update(&gParameters);
       can_loop();
     }
   }
