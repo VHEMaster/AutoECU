@@ -26,7 +26,7 @@ static sCanMessage canrxbuffer[CAN_RX_BUFFER_COUNT];
 #define CAN_LOOPBACK() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_SET)
 #define CAN_NORMAL() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_RESET)
 
-void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
+void can_rxfifo_pending_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
 {
   CAN_RxHeaderTypeDef header;
   sCanMessage message = {0};
@@ -41,6 +41,16 @@ void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
     }
 
   }
+}
+
+void can_txfifo_aborted_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
+{
+
+}
+
+void can_txfifo_completed_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
+{
+
 }
 
 HAL_StatusTypeDef can_init(CAN_HandleTypeDef *_hcan)
@@ -74,7 +84,7 @@ HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask)
   if(status != HAL_OK)
     return status;
 
-  status = HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING);
+  status = HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_TX_MAILBOX_EMPTY);
   if(status != HAL_OK)
     return status;
 

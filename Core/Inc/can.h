@@ -32,7 +32,9 @@ int8_t can_send(const sCanMessage *message);
 int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *data, uint32_t *p_tx_mailbox);
 int8_t can_receive(sCanMessage *message);
 
-void can_rxfifopendingcallback(CAN_HandleTypeDef *_hcan, uint32_t fifo);
+void can_rxfifo_pending_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo);
+void can_txfifo_aborted_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo);
+void can_txfifo_completed_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo);
 
 
 #endif /* INC_CAN_H_ */

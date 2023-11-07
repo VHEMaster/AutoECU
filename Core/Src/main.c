@@ -336,17 +336,59 @@ INLINE void HAL_SPI_ErrorCallback(SPI_HandleTypeDef * hspi)
   }
 }
 
+INLINE void HAL_CAN_TxMailbox0AbortCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_aborted_callback(hcan, CAN_TX_MAILBOX0);
+  }
+}
+
+INLINE void HAL_CAN_TxMailbox1AbortCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_aborted_callback(hcan, CAN_TX_MAILBOX1);
+  }
+}
+
+INLINE void HAL_CAN_TxMailbox2AbortCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_aborted_callback(hcan, CAN_TX_MAILBOX2);
+  }
+}
+
+INLINE void HAL_CAN_TxMailbox0CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_completed_callback(hcan, CAN_TX_MAILBOX0);
+  }
+}
+
+INLINE void HAL_CAN_TxMailbox1CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_completed_callback(hcan, CAN_TX_MAILBOX1);
+  }
+}
+
+INLINE void HAL_CAN_TxMailbox2CompleteCallback(CAN_HandleTypeDef *hcan)
+{
+  if(hcan == &hcan1) {
+    can_txfifo_completed_callback(hcan, CAN_TX_MAILBOX2);
+  }
+}
+
 INLINE void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
   if(hcan == &hcan1) {
-    can_rxfifopendingcallback(hcan, CAN_RX_FIFO0);
+    can_rxfifo_pending_callback(hcan, CAN_RX_FIFO0);
   }
 }
 
 INLINE void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
   if(hcan == &hcan1) {
-    can_rxfifopendingcallback(hcan, CAN_RX_FIFO1);
+    can_rxfifo_pending_callback(hcan, CAN_RX_FIFO1);
   }
 }
 
