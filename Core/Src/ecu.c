@@ -4700,6 +4700,15 @@ static void ecu_kline_init(void)
   kline_start();
 }
 
+static void ecu_can_process(void)
+{
+  if(gStatus.CanInitStatus == HAL_OK) {
+    if(!gCanTestStarted) {
+      can_loop();
+    }
+  }
+}
+
 static void ecu_can_loop(void)
 {
   static sCanMessage message = {0};
@@ -4716,7 +4725,6 @@ static void ecu_can_loop(void)
       if(status > 0) {
         ecu_can_process_message(&message);
       }
-      can_loop();
     }
   }
 }
@@ -5210,6 +5218,7 @@ void ecu_irq_slow_loop(void)
 
   ecu_drag_process();
   ecu_specific_parameters_loop();
+  ecu_can_process();
 
 #ifndef SIMULATION
   ecu_ign_process();
