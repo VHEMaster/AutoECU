@@ -15,7 +15,8 @@
 #include "delay.h"
 
 #define CAN_SIGNAL_BYTES_MAX  (8U)
-#define CAN_SIGNAL_BITS_MAX   (CAN_SIGNAL_BYTES_MAX * 8U)
+#define CAN_BITS_IN_BYTE      (8U)
+#define CAN_SIGNAL_BITS_MAX   (CAN_SIGNAL_BYTES_MAX * CAN_BITS_IN_BYTE)
 
 typedef enum {
   CAN_SIGNAL_TYPE_UNSIGNED,
@@ -785,6 +786,15 @@ sCanSignal g_can_signal_id029_ECU_InjectorChannel = {
     .LengthBit = 3
 };
 
+#ifdef DEBUG
+volatile static uint32_t can_signal_irq_start = 0;
+volatile static uint32_t can_signal_irq_end = 0;
+volatile static uint16_t can_signal_irq_times = 0;
+volatile static uint32_t can_signal_irq_time = 0;
+volatile static float can_signal_irq_avg = 0;
+volatile static float can_signal_irq_max = 0;
+#endif
+
 static HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message)
 {
   HAL_StatusTypeDef ret = HAL_ERROR;
@@ -799,8 +809,21 @@ static HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message)
 static HAL_StatusTypeDef can_signal_append_raw(sCanMessage *message, const sCanSignal *signal, uint32_t raw_value)
 {
   HAL_StatusTypeDef ret = HAL_ERROR;
+  uint64_t frame;
+  uint32_t mask;
 
-  // TODO: implement
+  memcpy(&frame, message->MessageBuffer, sizeof(uint64_t));
+
+  mask = (1 << signal->LengthBit) - 1;
+  raw_value &= mask;
+
+  //TODO: optimize it later to avoid U64 type usage
+  frame &= ~((uint64_t)mask << signal->StartBit);
+  frame |= (uint64_t)raw_value << signal->StartBit;
+
+  memcpy(message->MessageBuffer, &frame, sizeof(uint64_t));
+
+  ret = HAL_OK;
 
   return ret;
 }
@@ -860,6 +883,10 @@ static HAL_StatusTypeDef can_message_send(const sCanMessage *message)
 
 static void can_signals_send(const sParameters *parameters)
 {
+#ifdef DEBUG
+  can_signal_irq_start = Delay_Tick;
+#endif
+
   can_signal_message_clear(&g_can_message_id020_ECU);
   can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcKnockVoltage, parameters->AdcKnockVoltage);
   can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcAirTemp, parameters->AdcAirTemp);
@@ -970,6 +997,27 @@ static void can_signals_send(const sParameters *parameters)
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CurrentTable, parameters->CurrentTable);
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_InjectorChannel, parameters->InjectorChannel);
 
+#ifdef DEBUG
+  //For time measurement taken by the can_signal irq handler. No need to optimize anything here
+  can_signal_irq_end = Delay_Tick;
+  can_signal_irq_time = DelayDiff(can_signal_irq_end, can_signal_irq_start);
+
+  if(can_signal_irq_avg == 0)
+    can_signal_irq_avg = can_signal_irq_time;
+  else if(can_signal_irq_times < 1000) {
+    can_signal_irq_avg = can_signal_irq_avg * 0.99f + can_signal_irq_time * 0.01f;
+    if(can_signal_irq_time > can_signal_irq_max)
+      can_signal_irq_max = can_signal_irq_time;
+    else can_signal_irq_max = can_signal_irq_max * 0.99f + can_signal_irq_time * 0.01f;
+    can_signal_irq_times++;
+  } else {
+    can_signal_irq_avg = can_signal_irq_avg * 0.99999f + can_signal_irq_time * 0.00001f;
+    if(can_signal_irq_time > can_signal_irq_max)
+      can_signal_irq_max = can_signal_irq_time;
+    else can_signal_irq_max = can_signal_irq_max * 0.99999f + can_signal_irq_time * 0.00001f;
+  }
+#endif
+
   can_message_send(&g_can_message_id020_ECU);
   can_message_send(&g_can_message_id021_ECU);
   can_message_send(&g_can_message_id022_ECU);
@@ -988,6 +1036,8 @@ void can_signals_update(const sParameters *parameters)
   uint32_t now = Delay_Tick;
 
   if (DelayDiff(now, last) >= 10000) {
+    last = now;
+
     can_signals_send(parameters);
   }
 }
