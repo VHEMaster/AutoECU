@@ -190,22 +190,28 @@ void can_loop(void)
   static uint8_t state = 0;
   int8_t status;
   static sCanMessage message = {0};
-  switch(state) {
-    case 0:
-      if(protPull(&cantxfifo, &message)) {
-        state++;
-      }
-      break;
-    case 1:
-      status = can_transmit(message.id, message.rtr, message.length, message.data.bytes, NULL);
-      if(status != 0) {
+
+  do {
+    switch(state) {
+      case 0:
+        if(protPull(&cantxfifo, &message)) {
+          state++;
+          continue;
+        }
+        break;
+      case 1:
+        status = can_transmit(message.id, message.rtr, message.length, message.data.bytes, NULL);
+        if(status != 0) {
+          state = 0;
+          continue;
+        }
+        break;
+      default:
         state = 0;
-      }
-      break;
-    default:
-      state = 0;
-      break;
-  }
+        continue;
+        break;
+    }
+  } while (0);
 }
 
 int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *data, uint32_t *p_tx_mailbox)
