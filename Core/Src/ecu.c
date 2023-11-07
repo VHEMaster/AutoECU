@@ -423,7 +423,7 @@ static volatile float gLearnTps = 0;
 #endif /* DEBUG */
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
-static int8_t ecu_can_process_message(const sCanMessage *message);
+static int8_t ecu_can_process_message(const sCanRawMessage *message);
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 static sLearnParameters ecu_convert_learn_parameters(const sParameters * params);
@@ -4713,7 +4713,7 @@ static void ecu_can_process(void)
 
 static void ecu_can_loop(void)
 {
-  static sCanMessage message = {0};
+  static sCanRawMessage message = {0};
   int8_t status;
   if(gStatus.CanInitStatus == HAL_OK) {
     if(gCanTestStarted) {
@@ -5796,9 +5796,9 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
   }
 }
 
-static int8_t ecu_can_process_message(const sCanMessage *message)
+static int8_t ecu_can_process_message(const sCanRawMessage *message)
 {
-  sCanMessage transmit = {0};
+  sCanRawMessage transmit = {0};
   int8_t status = 0;
 
   if(message->id == 0x100) { //Loopback

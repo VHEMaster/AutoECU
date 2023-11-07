@@ -20,8 +20,8 @@ static CAN_FilterTypeDef can_filter;
 
 static sProFIFO cantxfifo;
 static sProFIFO canrxfifo;
-static sCanMessage cantxbuffer[CAN_TX_BUFFER_COUNT];
-static sCanMessage canrxbuffer[CAN_RX_BUFFER_COUNT];
+static sCanRawMessage cantxbuffer[CAN_TX_BUFFER_COUNT];
+static sCanRawMessage canrxbuffer[CAN_RX_BUFFER_COUNT];
 
 #define CAN_LOOPBACK() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_SET)
 #define CAN_NORMAL() HAL_GPIO_WritePin(CAN1_LBK_GPIO_Port, CAN1_LBK_Pin, GPIO_PIN_RESET)
@@ -29,7 +29,7 @@ static sCanMessage canrxbuffer[CAN_RX_BUFFER_COUNT];
 void can_rxfifo_pending_callback(CAN_HandleTypeDef *_hcan, uint32_t fifo)
 {
   CAN_RxHeaderTypeDef header;
-  sCanMessage message = {0};
+  sCanRawMessage message = {0};
   HAL_StatusTypeDef status;
   if(_hcan == hcan) {
     status = HAL_CAN_GetRxMessage(hcan, fifo, &header, message.data.bytes);
@@ -108,7 +108,7 @@ int8_t can_test(void)
   static uint32_t txlength;
   static uint32_t txid;
   static uint32_t txrtr;
-  sCanMessage message;
+  sCanRawMessage message;
   HAL_StatusTypeDef hal_status;
   int8_t status;
   uint32_t now = Delay_Tick;
@@ -183,7 +183,7 @@ int8_t can_test(void)
   return status;
 }
 
-int8_t can_send(const sCanMessage *message)
+int8_t can_send(const sCanRawMessage *message)
 {
   int8_t status = 0;
   if(protGetAvail(&cantxfifo)) {
@@ -199,7 +199,7 @@ void can_loop(void)
 {
   static uint8_t state = 0;
   int8_t status;
-  static sCanMessage message = {0};
+  static sCanRawMessage message = {0};
 
   do {
     switch(state) {
@@ -296,9 +296,9 @@ int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *d
   return status;
 }
 
-int8_t can_receive(sCanMessage *p_message)
+int8_t can_receive(sCanRawMessage *p_message)
 {
-  sCanMessage message;
+  sCanRawMessage message;
   if(protPull(&canrxfifo, &message)) {
     *p_message = message;
     return 1;
