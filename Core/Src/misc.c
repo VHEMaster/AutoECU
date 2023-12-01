@@ -690,7 +690,7 @@ static int8_t O2_Loop(void)
       break;
     case LambdaStateHeating :
       if(o2heater >= O2_HEATUP_MAX_VOLTAGE || O2Status.Temperature > O2_HEATUP_TEMP_THRESHOLD) {
-        math_pid_reset(&o2_pid);
+        math_pid_reset(&o2_pid, now);
         math_pid_set_target(&o2_pid, O2Status.ReferenceVoltage);
         calibrate_timestamp = now;
         temperature_wait_timestamp = now;

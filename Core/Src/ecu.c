@@ -631,7 +631,7 @@ static void ecu_update_current_table(void)
   gParameters.CurrentTable = table;
 }
 
-STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wish_to_rpm_relation)
+STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wish_to_rpm_relation, uint32_t now)
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
@@ -640,9 +640,9 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
   if(!running) {
-    math_pid_reset(&gPidIdleValveAirFlow);
-    math_pid_reset(&gPidIdleValveRpm);
-    math_pid_reset(&gPidIdleIgnition);
+    math_pid_reset(&gPidIdleValveAirFlow, now);
+    math_pid_reset(&gPidIdleValveRpm, now);
+    math_pid_reset(&gPidIdleIgnition, now);
   }
 
   if(isidle) {
@@ -663,6 +663,8 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
 
 static void ecu_pid_init(void)
 {
+  uint32_t now = Delay_Tick;
+
   math_pid_init(&gPidIdleValveAirFlow);
   math_pid_init(&gPidShortTermCorr);
   math_pid_init(&gPidIdleValveRpm);
@@ -672,7 +674,7 @@ static void ecu_pid_init(void)
   math_pid_set_clamp(&gPidIdleValveRpm, -IDLE_VALVE_POS_MAX, IDLE_VALVE_POS_MAX);
   math_pid_set_clamp(&gPidShortTermCorr, -0.25f, 0.25f);
 
-  ecu_pid_update(0, 0, 0);
+  ecu_pid_update(0, 0, 0, now);
 }
 
 static void ecu_update_shared_parameters(void)
@@ -1510,7 +1512,7 @@ static void ecu_update(void)
 
   if(!running || !gEcuParams.useLambdaSensor || !o2_valid) {
     short_term_correction = 0.0f;
-    math_pid_reset(&gPidShortTermCorr);
+    math_pid_reset(&gPidShortTermCorr, now);
   } else if(!econ_flag && !cutoff_processing && !shift_processing) {
     if(gEcuParams.useShortTermCorr && !calibration && !gForceParameters.Enable.InjectionPulse) {
       if(halfturns_performed) {
@@ -1522,7 +1524,7 @@ static void ecu_update(void)
         short_term_correction = -short_term_correction_pid;
       }
     } else {
-      math_pid_reset(&gPidShortTermCorr);
+      math_pid_reset(&gPidShortTermCorr, now);
       short_term_correction = 0;
     }
 
@@ -1819,8 +1821,8 @@ static void ecu_update(void)
           idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
         }
       } else {
-        math_pid_reset(&gPidIdleValveAirFlow);
-        math_pid_reset(&gPidIdleValveRpm);
+        math_pid_reset(&gPidIdleValveAirFlow, now);
+        math_pid_reset(&gPidIdleValveRpm, now);
         idle_valve_pos_correction = 0;
       }
     } else {
@@ -1832,7 +1834,7 @@ static void ecu_update(void)
 
   idle_wish_valve_pos = idle_table_valve_pos;
 
-  ecu_pid_update(idle_corr_flag, running, idle_wish_to_rpm_relation);
+  ecu_pid_update(idle_corr_flag, running, idle_wish_to_rpm_relation, now);
 
   if(idle_corr_flag) {
     idle_wish_valve_pos += idle_valve_pos_correction;
@@ -1854,15 +1856,15 @@ static void ecu_update(void)
 
   if(idle_flag && running) {
     if(gForceParameters.Enable.WishIdleIgnitionAdvance) {
-      math_pid_reset(&gPidIdleIgnition);
+      math_pid_reset(&gPidIdleIgnition, now);
       ignition_advance = gForceParameters.WishIdleIgnitionAdvance;
       idle_advance_correction = 0;
     }
   }
 
   if(gForceParameters.Enable.WishIdleValvePosition) {
-    math_pid_reset(&gPidIdleValveAirFlow);
-    math_pid_reset(&gPidIdleValveRpm);
+    math_pid_reset(&gPidIdleValveAirFlow, now);
+    math_pid_reset(&gPidIdleValveRpm, now);
     idle_valve_pos_correction = 0;
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }

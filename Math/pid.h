@@ -24,7 +24,7 @@ typedef struct {
     unsigned int LastTime;
 }sMathPid;
 
-void math_pid_reset(sMathPid *pid);
+void math_pid_reset(sMathPid *pid, unsigned int time);
 void math_pid_set_target(sMathPid *pid, float target);
 void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd);
 void math_pid_set_clamp(sMathPid *pid, float from, float to);

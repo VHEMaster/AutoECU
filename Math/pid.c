@@ -11,7 +11,7 @@
 #include <string.h>
 #include <float.h>
 
-INLINE void math_pid_reset(sMathPid *pid)
+INLINE void math_pid_reset(sMathPid *pid, unsigned int time)
 {
   pid->Current = 0;
   pid->Target = 0;
@@ -19,6 +19,8 @@ INLINE void math_pid_reset(sMathPid *pid)
   pid->P = 0;
   pid->I = 0;
   pid->D = 0;
+
+  pid->LastTime = time;
 }
 
 INLINE void math_pid_set_target(sMathPid *pid, float target)
