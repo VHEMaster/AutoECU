@@ -46,6 +46,7 @@
 #include "math_fast.h"
 #include "kalman.h"
 #include "can_signals.h"
+#include "can_signals_db.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define IGNITION_ACCEPTION_FEATURE  1
@@ -59,6 +60,7 @@
 #define LEARN_ENLEANMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 16)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 16)
 #define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
+#define CAN_SIGNALS_SEND_GENERIC_MESSAGES   0
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -424,6 +426,11 @@ static volatile float gLearnTps = 0;
 #endif /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
 static int8_t ecu_can_process_message(const sCanRawMessage *message);
+static void can_signals_update(const sParameters *parameters);
+
+#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
+static void can_signals_send(const sParameters *parameters);
+#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 static sLearnParameters ecu_convert_learn_parameters(const sParameters * params);
@@ -5860,3 +5867,143 @@ void ecu_hardfault_handle(void)
   config_save_critical_backup(&gEcuCriticalBackup);
 }
 
+
+#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
+static void can_signals_send(const sParameters *parameters)
+{
+  can_signal_message_clear(&g_can_message_id020_ECU);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcKnockVoltage, parameters->AdcKnockVoltage);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcAirTemp, parameters->AdcAirTemp);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcEngineTemp, parameters->AdcEngineTemp);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcManifoldAirPressure, parameters->AdcManifoldAirPressure);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcThrottlePosition, parameters->AdcThrottlePosition);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcReferenceVoltage, parameters->AdcReferenceVoltage);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcLambdaUR, parameters->AdcLambdaUR);
+  can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcLambdaUA, parameters->AdcLambdaUA);
+
+  can_signal_message_clear(&g_can_message_id021_ECU);
+  can_signal_append_float(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockSensor, parameters->KnockSensor);
+  can_signal_append_float(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockSensorFiltered, parameters->KnockSensorFiltered);
+  can_signal_append_float(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockSensorDetonate, parameters->KnockSensorDetonate);
+  can_signal_append_float(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockSaturation, parameters->KnockSaturation);
+  can_signal_append_float(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockAdvance, parameters->KnockAdvance);
+  can_signal_append_uint(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockCountCy1, parameters->KnockCountCy[0]);
+  can_signal_append_uint(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockCountCy2, parameters->KnockCountCy[1]);
+  can_signal_append_uint(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockCountCy3, parameters->KnockCountCy[2]);
+  can_signal_append_uint(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockCountCy4, parameters->KnockCountCy[3]);
+  can_signal_append_uint(&g_can_message_id021_ECU, &g_can_signal_id021_ECU_KnockCount, parameters->KnockCount);
+
+  can_signal_message_clear(&g_can_message_id022_ECU);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_AirTemp, parameters->AirTemp);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_EngineTemp, parameters->EngineTemp);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_CalculatedAirTemp, parameters->CalculatedAirTemp);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_ManifoldAirPressure, parameters->ManifoldAirPressure);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_ThrottlePosition, parameters->ThrottlePosition);
+  can_signal_append_float(&g_can_message_id022_ECU, &g_can_signal_id022_ECU_RPM, parameters->RPM);
+
+  can_signal_message_clear(&g_can_message_id023_ECU);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_FuelRatio, parameters->FuelRatio);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_FuelRatioDiff, parameters->FuelRatioDiff);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_LambdaValue, parameters->LambdaValue);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_LambdaTemperature, parameters->LambdaTemperature);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_LambdaHeaterVoltage, parameters->LambdaHeaterVoltage);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_ShortTermCorrection, parameters->ShortTermCorrection);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_LongTermCorrection, parameters->LongTermCorrection);
+  can_signal_append_float(&g_can_message_id023_ECU, &g_can_signal_id023_ECU_IdleCorrection, parameters->IdleCorrection);
+
+  can_signal_message_clear(&g_can_message_id024_ECU);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_Speed, parameters->Speed);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_MassAirFlow, parameters->MassAirFlow);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_CyclicAirFlow, parameters->CyclicAirFlow);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_EffectiveVolume, parameters->EffectiveVolume);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_EngineLoad, parameters->EngineLoad);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_EstimatedPower, parameters->EstimatedPower);
+  can_signal_append_float(&g_can_message_id024_ECU, &g_can_signal_id024_ECU_EstimatedTorque, parameters->EstimatedTorque);
+
+  can_signal_message_clear(&g_can_message_id025_ECU);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_WishFuelRatio, parameters->WishFuelRatio);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_IdleValvePosition, parameters->IdleValvePosition);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_IdleRegThrRPM, parameters->IdleRegThrRPM);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_WishIdleRPM, parameters->WishIdleRPM);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_WishIdleMassAirFlow, parameters->WishIdleMassAirFlow);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_WishIdleValvePosition, parameters->WishIdleValvePosition);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_WishIdleIgnitionAdvance, parameters->WishIdleIgnitionAdvance);
+  can_signal_append_float(&g_can_message_id025_ECU, &g_can_signal_id025_ECU_IdleSpeedShift, parameters->IdleSpeedShift);
+
+  can_signal_message_clear(&g_can_message_id026_ECU);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_InjectionPhase, parameters->InjectionPhase);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_InjectionPhaseDuration, parameters->InjectionPhaseDuration);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_InjectionPulse, parameters->InjectionPulse);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_InjectionDutyCycle, parameters->InjectionDutyCycle);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_IgnitionPulse, parameters->IgnitionPulse);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_InjectionLag, parameters->InjectionLag);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_TspsRelativePosition, parameters->TspsRelativePosition);
+  can_signal_append_float(&g_can_message_id026_ECU, &g_can_signal_id026_ECU_IgnitionAdvance, parameters->IgnitionAdvance);
+
+  can_signal_message_clear(&g_can_message_id027_ECU);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_EnrichmentSyncAmount, parameters->EnrichmentSyncAmount);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_EnrichmentAsyncAmount, parameters->EnrichmentAsyncAmount);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_EnrichmentStartLoad, parameters->EnrichmentStartLoad);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_EnrichmentLoadDerivative, parameters->EnrichmentLoadDerivative);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_InjectionEnrichment, parameters->InjectionEnrichment);
+  can_signal_append_float(&g_can_message_id027_ECU, &g_can_signal_id027_ECU_IdleWishToRpmRelation, parameters->IdleWishToRpmRelation);
+
+  can_signal_message_clear(&g_can_message_id028_ECU);
+  can_signal_append_float(&g_can_message_id028_ECU, &g_can_signal_id028_ECU_DrivenKilometers, parameters->DrivenKilometers);
+  can_signal_append_float(&g_can_message_id028_ECU, &g_can_signal_id028_ECU_FuelConsumption, parameters->FuelConsumption);
+  can_signal_append_float(&g_can_message_id028_ECU, &g_can_signal_id028_ECU_FuelConsumed, parameters->FuelConsumed);
+  can_signal_append_float(&g_can_message_id028_ECU, &g_can_signal_id028_ECU_FuelHourly, parameters->FuelHourly);
+
+  can_signal_message_clear(&g_can_message_id029_ECU);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_LambdaValid, parameters->LambdaValid > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_OilSensor, parameters->OilSensor > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_FanForceSwitch, parameters->FanForceSwitch > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_HandbrakeSensor, parameters->HandbrakeSensor > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_ChargeSensor, parameters->ChargeSensor > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_ClutchSensor, parameters->ClutchSensor > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IgnSensor, parameters->IgnSensor > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_FuelPumpRelay, parameters->FuelPumpRelay > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_FanRelay, parameters->FanRelay > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CheckEngine, parameters->CheckEngine > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_StarterRelay, parameters->StarterRelay > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_FanSwitch, parameters->FanSwitch > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IgnOutput, parameters->IgnOutput > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_StartAllowed, parameters->StartAllowed > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IsRunning, parameters->IsRunning > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IsCheckEngine, parameters->IsCheckEngine > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CylinderIgnitionBitmask, parameters->CylinderIgnitionBitmask);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CylinderInjectionBitmask, parameters->CylinderInjectionBitmask);
+  can_signal_append_float(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_PowerVoltage, parameters->PowerVoltage);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IdleFlag, parameters->IdleFlag > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IdleCorrFlag, parameters->IdleCorrFlag > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_IdleEconFlag, parameters->IdleEconFlag > 0);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_SwitchPosition, parameters->SwitchPosition);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CurrentTable, parameters->CurrentTable);
+  can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_InjectorChannel, parameters->InjectorChannel);
+
+
+  can_message_send(&g_can_message_id020_ECU);
+  can_message_send(&g_can_message_id021_ECU);
+  can_message_send(&g_can_message_id022_ECU);
+  can_message_send(&g_can_message_id023_ECU);
+  can_message_send(&g_can_message_id024_ECU);
+  can_message_send(&g_can_message_id025_ECU);
+  can_message_send(&g_can_message_id026_ECU);
+  can_message_send(&g_can_message_id027_ECU);
+  can_message_send(&g_can_message_id028_ECU);
+  can_message_send(&g_can_message_id029_ECU);
+}
+#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
+
+static void can_signals_update(const sParameters *parameters)
+{
+  static uint32_t last = 0;
+  uint32_t now = Delay_Tick;
+
+  if (DelayDiff(now, last) >= 10000) {
+    last = now;
+#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
+    can_signals_send(parameters);
+#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
+  }
+}
