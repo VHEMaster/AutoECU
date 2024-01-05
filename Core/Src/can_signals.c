@@ -81,6 +81,49 @@ INLINE HAL_StatusTypeDef can_signal_append_uint(sCanMessage *message, sCanSignal
   return ret;
 }
 
+HAL_StatusTypeDef can_signal_get_raw(const sCanMessage *message, const sCanSignal *signal, uint32_t *p_raw_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t value = 0;
+  uint64_t frame;
+  uint32_t mask;
+
+  memcpy(&frame, message->MessageBuffer, sizeof(uint64_t));
+
+  mask = (1 << signal->LengthBit) - 1;
+
+  //TODO: optimize it later to avoid U64 type usage
+  value = frame >> signal->StartBit;
+  value &= mask;
+
+  *p_raw_value = value;
+
+  ret = HAL_OK;
+
+  return ret;
+}
+
+HAL_StatusTypeDef can_signal_get_float(const sCanMessage *message, const sCanSignal *signal, float *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+  float value;
+
+  ret = can_signal_get_raw(message, signal, &raw_value);
+
+  value = raw_value;
+  if (signal->Gain != 1.0f) {
+    value *= signal->Gain;
+  }
+  value += signal->Offset;
+
+  if (p_value) {
+    *p_value = value;
+  }
+
+  return ret;
+}
+
 HAL_StatusTypeDef can_message_send(const sCanMessage *message)
 {
   HAL_StatusTypeDef ret = HAL_ERROR;

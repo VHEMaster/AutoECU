@@ -39,6 +39,8 @@ typedef struct {
 HAL_StatusTypeDef can_signal_append_uint(sCanMessage *message, sCanSignal *signal, uint32_t value);
 HAL_StatusTypeDef can_signal_append_float(sCanMessage *message, sCanSignal *signal, float value);
 HAL_StatusTypeDef can_signal_append_raw(sCanMessage *message, const sCanSignal *signal, uint32_t raw_value);
+HAL_StatusTypeDef can_signal_get_raw(const sCanMessage *message, const sCanSignal *signal, uint32_t *p_raw_value);
+HAL_StatusTypeDef can_signal_get_float(const sCanMessage *message, const sCanSignal *signal, float *p_value);
 HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message);
 HAL_StatusTypeDef can_message_send(const sCanMessage *message);
 
