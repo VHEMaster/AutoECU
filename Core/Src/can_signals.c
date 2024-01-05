@@ -14,6 +14,8 @@
 #include "can.h"
 #include "delay.h"
 
+static sCanMessage * gInitialMessage = NULL;
+
 HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message)
 {
   HAL_StatusTypeDef ret = HAL_ERROR;
@@ -30,6 +32,9 @@ HAL_StatusTypeDef can_signal_append_raw(sCanMessage *message, const sCanSignal *
   HAL_StatusTypeDef ret = HAL_ERROR;
   uint64_t frame;
   uint32_t mask;
+  uint32_t max = (1 << signal->LengthBit) - 1;
+
+  raw_value = MIN(raw_value, max);
 
   memcpy(&frame, message->MessageBuffer, sizeof(uint64_t));
 
@@ -141,4 +146,59 @@ HAL_StatusTypeDef can_message_send(const sCanMessage *message)
   }
 
   return ret;
+}
+
+HAL_StatusTypeDef can_message_register_msg(sCanMessage *message)
+{
+  HAL_StatusTypeDef ret = HAL_OK;
+  sCanMessage * msg = gInitialMessage;
+
+  do {
+    if(message == NULL) {
+      ret = HAL_ERROR;
+      break;
+    }
+
+    if(msg == NULL) {
+      gInitialMessage = message;
+      message->Next = NULL;
+      break;
+    } else {
+      while (msg) {
+        if(msg == message || msg->Id == message->Id) {
+          ret = HAL_ERROR;
+          break;
+        }
+        if(msg->Next) {
+          msg = msg->Next;
+        } else {
+          msg->Next = message;
+          message->Next = NULL;
+          ret = HAL_OK;
+          break;
+        }
+      }
+    }
+  } while(0);
+
+  return ret;
+}
+
+sCanMessage * can_message_get_msg(const sCanRawMessage *message)
+{
+  sCanMessage * retmsg = gInitialMessage;
+
+  while(retmsg) {
+    if(retmsg->Id == message->id) {
+      if(message->length >= retmsg->Length) {
+        memcpy(retmsg->MessageBuffer, message->data.bytes, message->length);
+      } else {
+        retmsg = NULL;
+      }
+      break;
+    }
+    retmsg = retmsg->Next;
+  }
+
+  return retmsg;
 }

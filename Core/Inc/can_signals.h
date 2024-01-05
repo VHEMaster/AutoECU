@@ -9,6 +9,7 @@
 #define INC_CAN_SIGNALS_H_
 
 #include "structs.h"
+#include "can.h"
 
 #define CAN_SIGNAL_BYTES_MAX  (8U)
 #define CAN_BITS_IN_BYTE      (8U)
@@ -30,9 +31,12 @@ typedef struct {
     float MaxValue;
 }sCanSignal;
 
-typedef struct {
+typedef struct sCanMessageTag sCanMessage;
+
+typedef struct sCanMessageTag{
     uint32_t Id;
     uint8_t Length;
+    sCanMessage *Next;
     uint8_t MessageBuffer[CAN_SIGNAL_BYTES_MAX];
 }sCanMessage;
 
@@ -43,5 +47,7 @@ HAL_StatusTypeDef can_signal_get_raw(const sCanMessage *message, const sCanSigna
 HAL_StatusTypeDef can_signal_get_float(const sCanMessage *message, const sCanSignal *signal, float *p_value);
 HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message);
 HAL_StatusTypeDef can_message_send(const sCanMessage *message);
+HAL_StatusTypeDef can_message_register_msg(sCanMessage *message);
+sCanMessage * can_message_get_msg(const sCanRawMessage *message);
 
 #endif /* INC_CAN_SIGNALS_H_ */
