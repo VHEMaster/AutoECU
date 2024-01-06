@@ -4699,10 +4699,22 @@ static void ecu_starter_process(void)
 
 static void ecu_can_init(void)
 {
-  gStatus.CanInitStatus = can_start(0x100, 0x7F0);
+  const uint16_t filter_ids[] = { 0x100, 0x10 };
+  const uint16_t filter_masks[] = { 0x7F0, 0x7F0 };
+  gStatus.CanInitStatus = can_start(filter_ids, filter_masks, ITEMSOF(filter_ids));
   if(gStatus.CanInitStatus == HAL_OK) {
     gCanTestStarted = 1;
   }
+
+  can_message_register_msg(&g_can_message_id010_ETC);
+  can_message_register_msg(&g_can_message_id011_ETC);
+  can_message_register_msg(&g_can_message_id012_ETC);
+  can_message_register_msg(&g_can_message_id013_ETC);
+  can_message_register_msg(&g_can_message_id018_ETC_ECU);
+  can_message_register_msg(&g_can_message_id019_ETC_ECU);
+  can_message_register_msg(&g_can_message_id01A_ETC_ECU);
+  can_message_register_msg(&g_can_message_id01B_ETC_ECU);
+  can_message_register_msg(&g_can_message_id01C_ETC_ECU);
 }
 
 static void ecu_kline_init(void)
@@ -4726,7 +4738,8 @@ static void ecu_can_loop(void)
   int8_t status;
   if(gStatus.CanInitStatus == HAL_OK) {
     if(gCanTestStarted) {
-      status = can_test();
+      //status = can_test();
+      status = 1;
       if(status != 0) {
         gCanTestStarted = 0;
         gStatus.CanTestStatus = status > 0 ? HAL_OK : HAL_ERROR;
@@ -5810,52 +5823,81 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
   sCanRawMessage transmit = {0};
   int8_t status = 0;
 
-  if(message->id == 0x100) { //Loopback
-    if(message->rtr == CAN_RTR_DATA) {
-      transmit.id = message->id + 0x100;
-      transmit.rtr = CAN_RTR_DATA;
-      transmit.length = message->length;
-      memcpy(transmit.data.bytes, message->data.bytes, message->length);
+  sCanMessage * can_msg = can_message_get_msg(message);
+  uint32_t now = Delay_Tick;
+  uint32_t value = 0;
+
+  if(can_msg != NULL) {
+    switch(can_msg->Id) {
+      case 0x010:
+        break;
+      case 0x011:
+        break;
+      case 0x012:
+        break;
+      case 0x013:
+        break;
+      case 0x018:
+        break;
+      case 0x019:
+        break;
+      case 0x01A:
+        break;
+      case 0x01B:
+        break;
+      case 0x01C:
+        break;
+      default:
+        break;
     }
-  } else if(message->id == 0x102) { //Parameter request
-    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-      if(message->data.dwords[0] < sizeof(gSharedParameters) / sizeof(uint32_t)) {
+  } else {
+    if(message->id == 0x100) { //Loopback
+      if(message->rtr == CAN_RTR_DATA) {
         transmit.id = message->id + 0x100;
         transmit.rtr = CAN_RTR_DATA;
-        transmit.length = 8;
-        transmit.data.dwords[0] = message->data.dwords[0];
-        transmit.data.dwords[1] = ((uint32_t *)&gSharedParameters)[message->data.dwords[0]];
+        transmit.length = message->length;
+        memcpy(transmit.data.bytes, message->data.bytes, message->length);
+      }
+    } else if(message->id == 0x102) { //Parameter request
+      if(message->rtr == CAN_RTR_DATA && message->length == 4) {
+        if(message->data.dwords[0] < sizeof(gSharedParameters) / sizeof(uint32_t)) {
+          transmit.id = message->id + 0x100;
+          transmit.rtr = CAN_RTR_DATA;
+          transmit.length = 8;
+          transmit.data.dwords[0] = message->data.dwords[0];
+          transmit.data.dwords[1] = ((uint32_t *)&gSharedParameters)[message->data.dwords[0]];
 
-        if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
-            OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
-          gLocalParams.RequestFillLast = 0;
+          if(OFFSETOF(sParameters, KnockSensor) / 4 == message->data.dwords[0] ||
+              OFFSETOF(sParameters, KnockSensorFiltered) / 4 == message->data.dwords[0]) {
+            gLocalParams.RequestFillLast = 0;
+          }
+        }
+      }
+    } else if(message->id == 0x103) { //Table memory request
+      if(message->rtr == CAN_RTR_DATA && message->length == 4) {
+        if(message->data.dwords[0] < sizeof(gEcuTable) / sizeof(uint32_t)) {
+          transmit.id = message->id + 0x100;
+          transmit.rtr = CAN_RTR_DATA;
+          transmit.length = 8;
+          transmit.data.dwords[0] = message->data.dwords[0];
+          transmit.data.dwords[1] = ((uint32_t *)&gEcuTable[0])[message->data.dwords[0]];
+        }
+      }
+    } else if(message->id == 0x104) { //Config memory request
+      if(message->rtr == CAN_RTR_DATA && message->length == 4) {
+        if(message->data.dwords[0] < sizeof(gEcuParams) / sizeof(uint32_t)) {
+          transmit.id = message->id + 0x100;
+          transmit.rtr = CAN_RTR_DATA;
+          transmit.length = 8;
+          transmit.data.dwords[0] = message->data.dwords[0];
+          transmit.data.dwords[1] = ((uint32_t *)&gEcuParams)[message->data.dwords[0]];
         }
       }
     }
-  } else if(message->id == 0x103) { //Table memory request
-    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-      if(message->data.dwords[0] < sizeof(gEcuTable) / sizeof(uint32_t)) {
-        transmit.id = message->id + 0x100;
-        transmit.rtr = CAN_RTR_DATA;
-        transmit.length = 8;
-        transmit.data.dwords[0] = message->data.dwords[0];
-        transmit.data.dwords[1] = ((uint32_t *)&gEcuTable[0])[message->data.dwords[0]];
-      }
-    }
-  } else if(message->id == 0x104) { //Config memory request
-    if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-      if(message->data.dwords[0] < sizeof(gEcuParams) / sizeof(uint32_t)) {
-        transmit.id = message->id + 0x100;
-        transmit.rtr = CAN_RTR_DATA;
-        transmit.length = 8;
-        transmit.data.dwords[0] = message->data.dwords[0];
-        transmit.data.dwords[1] = ((uint32_t *)&gEcuParams)[message->data.dwords[0]];
-      }
-    }
-  }
 
-  if(transmit.id > 0 || transmit.length > 0) {
-    status = can_send(&transmit);
+    if(transmit.id > 0 || transmit.length > 0) {
+      status = can_send(&transmit);
+    }
   }
 
   return status;
@@ -5867,6 +5909,7 @@ void ecu_hardfault_handle(void)
   config_save_critical_backup(&gEcuCriticalBackup);
 }
 
+volatile HAL_StatusTypeDef CanSendStatus = HAL_OK;
 
 #if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
 static void can_signals_send(const sParameters *parameters)
@@ -5981,17 +6024,16 @@ static void can_signals_send(const sParameters *parameters)
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CurrentTable, parameters->CurrentTable);
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_InjectorChannel, parameters->InjectorChannel);
 
-
-  can_message_send(&g_can_message_id020_ECU);
-  can_message_send(&g_can_message_id021_ECU);
-  can_message_send(&g_can_message_id022_ECU);
-  can_message_send(&g_can_message_id023_ECU);
-  can_message_send(&g_can_message_id024_ECU);
-  can_message_send(&g_can_message_id025_ECU);
-  can_message_send(&g_can_message_id026_ECU);
-  can_message_send(&g_can_message_id027_ECU);
-  can_message_send(&g_can_message_id028_ECU);
-  can_message_send(&g_can_message_id029_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id020_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id021_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id022_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id023_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id024_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id025_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id026_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id027_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id028_ECU);
+  CanSendStatus |= can_message_send(&g_can_message_id029_ECU);
 }
 #endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
 

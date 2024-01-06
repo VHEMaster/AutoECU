@@ -65,24 +65,26 @@ HAL_StatusTypeDef can_init(CAN_HandleTypeDef *_hcan)
   return status;
 }
 
-HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask)
+HAL_StatusTypeDef can_start(const uint16_t *filter_ids, const uint16_t *filter_masks, uint8_t len)
 {
   HAL_StatusTypeDef status = HAL_OK;
 
-  can_filter.FilterActivation = CAN_FILTER_ENABLE;
-  can_filter.FilterBank = 0;
-  can_filter.FilterFIFOAssignment = CAN_RX_FIFO0;
-  can_filter.FilterIdHigh = filter_id<<5;
-  can_filter.FilterIdLow = 0;
-  can_filter.FilterMaskIdHigh = filter_mask<<5;
-  can_filter.FilterMaskIdLow = 0;
-  can_filter.FilterMode = CAN_FILTERMODE_IDMASK;
-  can_filter.FilterScale = CAN_FILTERSCALE_32BIT;
-  can_filter.SlaveStartFilterBank = 13;
+  for(int i = 0; i < len; i++) {
+    can_filter.FilterActivation = CAN_FILTER_ENABLE;
+    can_filter.FilterBank = i;
+    can_filter.FilterFIFOAssignment = ((i & 1) == 0) ? CAN_RX_FIFO0 : CAN_RX_FIFO1;
+    can_filter.FilterIdHigh = filter_ids[i] << 5;
+    can_filter.FilterIdLow = 0;
+    can_filter.FilterMaskIdHigh = filter_masks[i] << 5;
+    can_filter.FilterMaskIdLow = 0;
+    can_filter.FilterMode = CAN_FILTERMODE_IDMASK;
+    can_filter.FilterScale = CAN_FILTERSCALE_32BIT;
+    can_filter.SlaveStartFilterBank = 13;
 
-  status = HAL_CAN_ConfigFilter(hcan, &can_filter);
-  if(status != HAL_OK)
-    return status;
+    status = HAL_CAN_ConfigFilter(hcan, &can_filter);
+    if(status != HAL_OK)
+      return status;
+  }
 
   status = HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_TX_MAILBOX_EMPTY);
   if(status != HAL_OK)
@@ -127,7 +129,7 @@ int8_t can_test(void)
 
 
   for(int i = 0; i < 10; i++) {
-    txid = 0x100;
+    txid = can_filter.FilterIdHigh >> 5;
     txrtr = CAN_RTR_DATA;
     txlength = 4;
     for(int j = 0; j < txlength; j++)
@@ -197,11 +199,11 @@ int8_t can_send(const sCanRawMessage *message)
 
 void can_loop(void)
 {
+  static sCanRawMessage message = {0};
   static uint8_t state = 0;
   int8_t status;
-  static sCanRawMessage message = {0};
 
-  do {
+  while(1) {
     switch(state) {
       case 0:
         if(protPull(&cantxfifo, &message)) {
@@ -221,7 +223,8 @@ void can_loop(void)
         continue;
         break;
     }
-  } while (0);
+    break;
+  }
 }
 
 int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *data, uint32_t *p_tx_mailbox)
@@ -233,10 +236,9 @@ int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *d
   uint32_t now = Delay_Tick;
   HAL_StatusTypeDef hal_status;
   int8_t status = 0;
-  uint32_t is_busy;
   uint32_t level;
 
-  do {
+  while(1) {
     switch(state) {
       case 0:
         header.IDE = CAN_ID_STD;
@@ -261,37 +263,23 @@ int8_t can_transmit(uint32_t id, uint32_t rtr, uint32_t length, const uint8_t *d
       case 2:
         hal_status = HAL_CAN_AddTxMessage(hcan, &header, (uint8_t *)data, &mailbox);
         if(hal_status == HAL_OK) {
-          state++;
+          state = 0;
+          status = 1;
           time_last = now;
           if(p_tx_mailbox)
             *p_tx_mailbox = mailbox;
-          continue;
         }
         else if(DelayDiff(now, time_last) > 50000) {
           state = 0;
           status = -2;
         }
         break;
-      case 3:
-        is_busy = HAL_CAN_IsTxMessagePending(hcan, mailbox);
-        if(is_busy == 0) {
-          state = 0;
-          status = 1;
-        }
-        else if(DelayDiff(now, time_last) > 50000) {
-          status = -3;
-          state = 0;
-          hal_status = HAL_CAN_AbortTxRequest(hcan, mailbox);
-          if(hal_status != HAL_OK) {
-            status = -4;
-          }
-        }
-        break;
       default:
         state = 0;
         continue;
     }
-  } while(0);
+    break;
+  }
 
   return status;
 }

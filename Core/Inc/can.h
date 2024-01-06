@@ -24,7 +24,7 @@ typedef struct {
 }sCanRawMessage __attribute__((aligned(8)));
 
 HAL_StatusTypeDef can_init(CAN_HandleTypeDef *_hcan);
-HAL_StatusTypeDef can_start(uint16_t filter_id, uint16_t filter_mask);
+HAL_StatusTypeDef can_start(const uint16_t *filter_ids, const uint16_t *filter_masks, uint8_t len);
 void can_loop(void);
 int8_t can_test(void);
 
