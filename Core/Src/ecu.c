@@ -4677,6 +4677,7 @@ static int8_t ecu_shutdown_process(void)
   uint32_t now = Delay_Tick;
   int8_t status = 0;
   int8_t retval = 0;
+  uint8_t rotates = csps_isrotates();
   uint8_t is_idle_valve_moving = out_is_idle_valve_moving();
 
   switch(stage) {
@@ -4688,14 +4689,15 @@ static int8_t ecu_shutdown_process(void)
       if(is_idle_valve_moving) {
         last_idle_valve_moving = now;
       } else if(DelayDiff(now, last_idle_valve_moving) > 100000) {
+        gParameters.EtcMotorFullCloseFlag = 1;
         stage++;
       }
       break;
     case 2:
       status = out_reset_idle_valve(DEFAULT_IDLE_VALVE_POSITION);
       if(status) {
-    	  gEcuCriticalBackup.idle_valve_position = 1;
-    	  stage++;
+        gEcuCriticalBackup.idle_valve_position = 1;
+        stage++;
       }
       break;
     case 3:
@@ -4724,8 +4726,14 @@ static int8_t ecu_shutdown_process(void)
       break;
     case 7:
       Mem.lock = 0;
-      stage = 0;
-      retval = 1;
+      stage++;
+      break;
+    case 8:
+      if(!rotates) {
+        gParameters.EtcMotorFullCloseFlag = 0;
+        retval = 1;
+        stage = 0;
+      }
       break;
     default:
       stage = 0;
