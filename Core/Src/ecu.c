@@ -431,6 +431,7 @@ static void can_signals_update(const sParameters *parameters);
 #if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
 static void can_signals_send(const sParameters *parameters);
 #endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
+static void can_etc_send(const sParameters *parameters);
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 static sLearnParameters ecu_convert_learn_parameters(const sParameters * params);
@@ -2489,7 +2490,7 @@ static void ecu_update(void)
   gParameters.EngineTemp = engine_temp;
   gParameters.CalculatedAirTemp = calculated_air_temp;
   gParameters.ManifoldAirPressure = pressure;
-  gParameters.ThrottlePosition = throttle;
+  //gParameters.ThrottlePosition = throttle;
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
   gParameters.FuelRatio = fuel_ratio;
@@ -5188,6 +5189,10 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
 
   gEcuInitialized = 1;
 
+
+  gParameters.EtcStandaloneFlag = 0;
+  gParameters.EtcMotorActiveFlag = 1;
+
 }
 
 void ecu_irq_fast_loop(void)
@@ -5247,6 +5252,8 @@ void ecu_irq_slow_loop(void)
 #ifndef SIMULATION
   ecu_ign_process();
 #endif
+
+  gParameters.WishThrottleTargetPosition = gParameters.ThrottleDefaultPosition + powf(gParameters.PedalPosition * 0.01f, 2) * (100.0f - gParameters.ThrottleDefaultPosition);
 }
 
 void ecu_loop(void)
@@ -5818,6 +5825,25 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
   }
 }
 
+static void can_etc_send(const sParameters *parameters)
+{
+  can_signal_message_clear(&g_can_message_id080_ECU_ETC);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_StandaloneMode, parameters->EtcStandaloneFlag);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorActive, parameters->EtcMotorActiveFlag);
+  can_signal_append_float(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_TargetPosition, parameters->WishThrottleTargetPosition);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorErrorReset, 0);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorFullCloseRequest, parameters->EtcMotorFullCloseFlag);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_AdaptationRequest, 0);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_Rsvd1, 0);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_Rsvd2, 0);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_OutCruizeR, parameters->EtcOutCruizeR);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_OutCruizeG, parameters->EtcOutCruizeG);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_OutRsvd3, parameters->EtcOutRsvd3);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_OutRsvd4, parameters->EtcOutRsvd4);
+
+  can_message_send(&g_can_message_id080_ECU_ETC);
+}
+
 static int8_t ecu_can_process_message(const sCanRawMessage *message)
 {
   sCanRawMessage transmit = {0};
@@ -5830,22 +5856,87 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
   if(can_msg != NULL) {
     switch(can_msg->Id) {
       case 0x010:
+        can_signal_get_float(&g_can_message_id010_ETC, &g_can_signal_id010_ETC_Tps1, &gParameters.AdcEtcTps1);
+        can_signal_get_float(&g_can_message_id010_ETC, &g_can_signal_id010_ETC_Tps2, &gParameters.AdcEtcTps2);
+        can_signal_get_float(&g_can_message_id010_ETC, &g_can_signal_id010_ETC_Pedal1, &gParameters.AdcEtcPedal1);
+        can_signal_get_float(&g_can_message_id010_ETC, &g_can_signal_id010_ETC_Pedal2, &gParameters.AdcEtcPedal2);
         break;
       case 0x011:
+        can_signal_get_float(&g_can_message_id011_ETC, &g_can_signal_id011_ETC_Rsvd5, &gParameters.AdcEtcRsvd5);
+        can_signal_get_float(&g_can_message_id011_ETC, &g_can_signal_id011_ETC_Rsvd6, &gParameters.AdcEtcRsvd6);
+        can_signal_get_float(&g_can_message_id011_ETC, &g_can_signal_id011_ETC_ReferenceVoltage, &gParameters.AdcEtcReferenceVoltage);
+        can_signal_get_float(&g_can_message_id011_ETC, &g_can_signal_id011_ETC_PowerVoltage, &gParameters.AdcEtcPowerVoltage);
         break;
       case 0x012:
+        can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_ThrottlePosition, &gParameters.ThrottlePosition);
+        can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TargetPosition, &gParameters.ThrottleTargetPosition);
+        can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_DefaultPosition, &gParameters.ThrottleDefaultPosition);
+        can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gParameters.PedalPosition);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps1ErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps2ErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal1ErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal2ErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TpsMismatchFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalMismatchFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_MotorErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_StandaloneFlag, NULL);
         break;
       case 0x013:
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStart, &gParameters.EtcInCruizeStart);
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStop, &gParameters.EtcInCruizeStop);
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InBrake, &gParameters.EtcInBrake);
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd4, &gParameters.EtcInRsvd4);
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd5, &gParameters.EtcInRsvd5);
+        can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd6, &gParameters.EtcInRsvd6);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeG, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeR, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd3, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd4, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeGState, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeRState, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd3State, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd4State, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutputsAvailability, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorTemperature, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorOpenLoad, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToGND, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToSupply, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorSupplyFailure, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAlwaysHigh, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAvailability, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_AdcErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CommErrorFlag, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CanInitFlag, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CanTestFlag, NULL);
+        can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_AdaptationCompletedFlag, NULL);
         break;
       case 0x018:
+        can_signal_get_uint(&g_can_message_id018_ETC_ECU, &g_can_signal_id018_ETC_ECU_ConfigApplyIdAck, NULL);
         break;
       case 0x019:
+        can_signal_get_uint(&g_can_message_id019_ETC_ECU, &g_can_signal_id019_ETC_ECU_Tps1Min, NULL);
+        can_signal_get_uint(&g_can_message_id019_ETC_ECU, &g_can_signal_id019_ETC_ECU_Tps1Max, NULL);
+        can_signal_get_uint(&g_can_message_id019_ETC_ECU, &g_can_signal_id019_ETC_ECU_Tps1Limit, NULL);
+        can_signal_get_uint(&g_can_message_id019_ETC_ECU, &g_can_signal_id019_ETC_ECU_Rsvd, NULL);
         break;
       case 0x01A:
+        can_signal_get_uint(&g_can_message_id01A_ETC_ECU, &g_can_signal_id01A_ETC_ECU_Tps2Min, NULL);
+        can_signal_get_uint(&g_can_message_id01A_ETC_ECU, &g_can_signal_id01A_ETC_ECU_Tps2Max, NULL);
+        can_signal_get_uint(&g_can_message_id01A_ETC_ECU, &g_can_signal_id01A_ETC_ECU_Tps2Limit, NULL);
+        can_signal_get_uint(&g_can_message_id01A_ETC_ECU, &g_can_signal_id01A_ETC_ECU_Rsvd, NULL);
         break;
       case 0x01B:
+        can_signal_get_uint(&g_can_message_id01B_ETC_ECU, &g_can_signal_id01B_ETC_ECU_Pedal1Min, NULL);
+        can_signal_get_uint(&g_can_message_id01B_ETC_ECU, &g_can_signal_id01B_ETC_ECU_Pedal1Max, NULL);
+        can_signal_get_uint(&g_can_message_id01B_ETC_ECU, &g_can_signal_id01B_ETC_ECU_Pedal2Min, NULL);
+        can_signal_get_uint(&g_can_message_id01B_ETC_ECU, &g_can_signal_id01B_ETC_ECU_Pedal2Max, NULL);
         break;
       case 0x01C:
+        can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_PidP, NULL);
+        can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_PidI, NULL);
+        can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_PidD, NULL);
+        can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_TimPsc, NULL);
         break;
       default:
         break;
@@ -5908,8 +5999,6 @@ void ecu_hardfault_handle(void)
   gEcuCriticalBackup.CheckBitmapRecorded[CheckHardFaultException >> 3] |= 1 << (CheckHardFaultException & 7);
   config_save_critical_backup(&gEcuCriticalBackup);
 }
-
-volatile HAL_StatusTypeDef CanSendStatus = HAL_OK;
 
 #if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
 static void can_signals_send(const sParameters *parameters)
@@ -6024,28 +6113,34 @@ static void can_signals_send(const sParameters *parameters)
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CurrentTable, parameters->CurrentTable);
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_InjectorChannel, parameters->InjectorChannel);
 
-  CanSendStatus |= can_message_send(&g_can_message_id020_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id021_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id022_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id023_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id024_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id025_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id026_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id027_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id028_ECU);
-  CanSendStatus |= can_message_send(&g_can_message_id029_ECU);
+  can_message_send(&g_can_message_id020_ECU);
+  can_message_send(&g_can_message_id021_ECU);
+  can_message_send(&g_can_message_id022_ECU);
+  can_message_send(&g_can_message_id023_ECU);
+  can_message_send(&g_can_message_id024_ECU);
+  can_message_send(&g_can_message_id025_ECU);
+  can_message_send(&g_can_message_id026_ECU);
+  can_message_send(&g_can_message_id027_ECU);
+  can_message_send(&g_can_message_id028_ECU);
+  can_message_send(&g_can_message_id029_ECU);
 }
 #endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
 
 static void can_signals_update(const sParameters *parameters)
 {
-  static uint32_t last = 0;
+  static uint32_t signals_last = 0;
+  static uint32_t etc_last = 0;
   uint32_t now = Delay_Tick;
 
-  if (DelayDiff(now, last) >= 10000) {
-    last = now;
+  if (DelayDiff(now, signals_last) >= 10000) {
+    signals_last = now;
 #if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
     can_signals_send(parameters);
 #endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
+  }
+
+  if (DelayDiff(now, signals_last) >= 5000) {
+    signals_last = now;
+    can_etc_send(parameters);
   }
 }
