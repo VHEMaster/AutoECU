@@ -212,15 +212,28 @@ typedef struct {
         uint32_t sync_error_last;
     }Tsps;
     struct  {
-        union {
-            struct {
-                HAL_StatusTypeDef Comm : 2;
-                HAL_StatusTypeDef Pedal : 2;
-                HAL_StatusTypeDef Throttle : 2;
-            };
-            uint8_t Byte;
-        }Status;
-    }Ect;
+        HAL_StatusTypeDef Comm;
+
+        HAL_StatusTypeDef Pedal1;
+        HAL_StatusTypeDef Pedal2;
+        HAL_StatusTypeDef PedalMismatch;
+
+        HAL_StatusTypeDef Tps1;
+        HAL_StatusTypeDef Tps2;
+        HAL_StatusTypeDef TpsMismatch;
+        HAL_StatusTypeDef AdcErrorFlag;
+        HAL_StatusTypeDef EtcCommErrorFlag;
+        HAL_StatusTypeDef MotorAvailability;
+        struct {
+          HAL_StatusTypeDef OpenLoad;
+          HAL_StatusTypeDef ShortToGND;
+          HAL_StatusTypeDef ShortToSupply;
+          HAL_StatusTypeDef Temperature;
+          HAL_StatusTypeDef SupplyFailure;
+          HAL_StatusTypeDef ErrorFlag;
+          HAL_StatusTypeDef AlwaysHigh;
+        }Motor;
+    }Etc;
 }sStatus;
 
 typedef volatile struct {
@@ -397,6 +410,9 @@ static sMathPid gPidShortTermCorr = {0};
 
 static const float gKnockDetectStartAngle = -100;
 static const float gKnockDetectEndAngle = 70;
+
+volatile static uint8_t gEtcErrorReset = 0;
+volatile static uint32_t gEtcCommLast = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -668,10 +684,15 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
   }
 
   if(isidle) {
-    math_pid_set_koffs(&gPidIdleThrottleAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_d));
-    math_pid_set_koffs(&gPidIdleThrottleRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_d));
+    if(gEcuParams.useEtc) {
+      math_pid_set_koffs(&gPidIdleThrottleAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_p),
+          math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_d));
+      math_pid_set_koffs(&gPidIdleThrottleRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_p),
+          math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_d));
+    } else {
+      math_pid_set_koffs(&gPidIdleThrottleAirFlow, 0, 0, 0);
+      math_pid_set_koffs(&gPidIdleThrottleRpm, 0, 0, 0);
+    }
     math_pid_set_koffs(&gPidIdleValveAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p),
         math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d));
     math_pid_set_koffs(&gPidIdleValveRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_p),
@@ -679,10 +700,10 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
     math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_p),
         math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_d));
   } else {
-    math_pid_set_koffs(&gPidIdleValveAirFlow, 0, 0, 0);
-    math_pid_set_koffs(&gPidIdleValveRpm, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleThrottleAirFlow, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleThrottleRpm, 0, 0, 0);
+    math_pid_set_koffs(&gPidIdleValveAirFlow, 0, 0, 0);
+    math_pid_set_koffs(&gPidIdleValveRpm, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleIgnition, 0, 0, 0);
   }
 
@@ -1046,6 +1067,7 @@ static void ecu_update(void)
   static float knock_running_time = 0;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
+  HAL_StatusTypeDef tps_status = gStatus.Etc.Comm;
 
   float map_lpf;
 
@@ -1115,7 +1137,10 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
   if(gEcuParams.useEtc) {
-    gStatus.Sensors.Struct.ThrottlePos = gStatus.Ect.Status.Byte ? HAL_ERROR : HAL_OK;
+    tps_status |= gStatus.Etc.Tps1;
+    tps_status |= gStatus.Etc.Tps2;
+    tps_status |= gStatus.Etc.TpsMismatch;
+    gStatus.Sensors.Struct.ThrottlePos = tps_status;
     throttle = gParameters.ThrottlePosition;
     pedal = gParameters.PedalPosition;
   } else {
@@ -1902,8 +1927,12 @@ static void ecu_update(void)
         if(halfturns_performed) {
           idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
           idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
-          throttle_target_idle_correction = math_pid_update(&gPidIdleThrottleAirFlow, mass_air_flow, now);
-          throttle_target_idle_correction += math_pid_update(&gPidIdleThrottleRpm, rpm, now);
+          if (gEcuParams.useEtc && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
+            throttle_target_idle_correction = math_pid_update(&gPidIdleThrottleAirFlow, mass_air_flow, now);
+            throttle_target_idle_correction += math_pid_update(&gPidIdleThrottleRpm, rpm, now);
+          } else {
+            throttle_target_idle_correction = 0;
+          }
         }
       } else {
         math_pid_reset(&gPidIdleValveAirFlow, now);
@@ -4124,6 +4153,27 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckIdleValveFailure, gStatus.OutputDiagnostic.IdleValvePosition.Status != HAL_OK);
     CHECK_STATUS(iserror, CheckIdleValveDriverFailure, gStatus.IdleValvePosition != HAL_OK);
   }
+
+  if(gEcuParams.useEtc) {
+    CHECK_STATUS(iserror, CheckEtcCommError, gStatus.Etc.Comm != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcPedal1, gStatus.Etc.Pedal1 != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcPedal2, gStatus.Etc.Pedal2 != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcPedalMismatch, gStatus.Etc.PedalMismatch != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcTps1, gStatus.Etc.Tps1 != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcTps2, gStatus.Etc.Tps2 != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcTpsMismatch, gStatus.Etc.TpsMismatch != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcAdcError, gStatus.Etc.AdcErrorFlag != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcInternalComm, gStatus.Etc.EtcCommErrorFlag != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorAvailability, gStatus.Etc.MotorAvailability != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorOpenLoad, gStatus.Etc.Motor.OpenLoad != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorShortToGND, gStatus.Etc.Motor.ShortToGND != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorShortToSupply, gStatus.Etc.Motor.ShortToSupply != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorTemperature, gStatus.Etc.Motor.Temperature != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorSupplyFailure, gStatus.Etc.Motor.SupplyFailure != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorErrorFlag, gStatus.Etc.Motor.ErrorFlag != HAL_OK);
+    CHECK_STATUS(iserror, CheckEtcMotorAlwaysHigh, gStatus.Etc.Motor.AlwaysHigh != HAL_OK);
+  }
+
   CHECK_STATUS(iserror, CheckInjectionUnderflow, gStatus.InjectionUnderflow.is_error && gStatus.InjectionUnderflow.error_time > 1000);
   CHECK_STATUS(iserror, CheckAdcFailure, gStatus.AdcStatus != HAL_OK);
 
@@ -4849,6 +4899,7 @@ static void ecu_can_process(void)
 static void ecu_can_loop(void)
 {
   static sCanRawMessage message = {0};
+  uint32_t now = Delay_Tick;
   int8_t status;
   if(gStatus.CanInitStatus == HAL_OK) {
     if(gCanTestStarted) {
@@ -4864,6 +4915,18 @@ static void ecu_can_loop(void)
         ecu_can_process_message(&message);
       }
     }
+  }
+
+  if(gEcuParams.useEtc) {
+    if(gStatus.Etc.Comm == HAL_OK) {
+      now = Delay_Tick;
+      if(DelayDiff(now, gEtcCommLast) > 500000) {
+        gStatus.Etc.Comm = HAL_ERROR;
+      }
+    }
+  } else {
+    gEtcCommLast = now;
+    gStatus.Etc.Comm = HAL_OK;
   }
 }
 
@@ -5899,6 +5962,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
     case PK_ResetStatusRequestID :
       //PK_Copy(&PK_StatusRequest, msgBuf);
       gStatusReset = 1;
+      gEtcErrorReset = 1;
       memset(&gStatus, 0, sizeof(gStatus));
       memset(&gCheckBitmap, 0, sizeof(gCheckBitmap));
       memset(&gEcuCriticalBackup.CheckBitmapRecorded, 0, sizeof(gEcuCriticalBackup.CheckBitmapRecorded));
@@ -5942,7 +6006,7 @@ static void can_etc_send(const sParameters *parameters)
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_StandaloneMode, parameters->EtcStandaloneFlag);
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorActive, parameters->EtcMotorActiveFlag);
   can_signal_append_float(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_TargetPosition, parameters->WishThrottleTargetPosition);
-  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorErrorReset, 0);
+  can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorErrorReset, gEtcErrorReset); gEtcErrorReset = 0;
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_MotorFullCloseRequest, parameters->EtcMotorFullCloseFlag);
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_AdaptationRequest, 0);
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_Rsvd1, 0);
@@ -5958,7 +6022,9 @@ static void can_etc_send(const sParameters *parameters)
 static int8_t ecu_can_process_message(const sCanRawMessage *message)
 {
   sCanRawMessage transmit = {0};
+  uint32_t now = Delay_Tick;
   int8_t status = 0;
+  uint32_t value = 0;
 
   sCanMessage * can_msg = can_message_get_msg(message);
 
@@ -5982,14 +6048,17 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TargetPosition, &gParameters.ThrottleTargetPosition);
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_DefaultPosition, &gParameters.ThrottleDefaultPosition);
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gParameters.PedalPosition);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps1ErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps2ErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal1ErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal2ErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TpsMismatchFlag, NULL);
-          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalMismatchFlag, NULL);
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps1ErrorFlag, &value); gStatus.Etc.Tps1 = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps2ErrorFlag, &value); gStatus.Etc.Tps2 = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal1ErrorFlag, &value); gStatus.Etc.Pedal1 = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal2ErrorFlag, &value); gStatus.Etc.Pedal2 = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TpsMismatchFlag, &value); gStatus.Etc.TpsMismatch = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalMismatchFlag, &value); gStatus.Etc.PedalMismatch = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_MotorErrorFlag, NULL);
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_StandaloneFlag, NULL);
+
+          gEtcCommLast = now;
+          gStatus.Etc.Comm = HAL_OK;
           break;
         case 0x013:
           can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStart, &gParameters.EtcInCruizeStart);
@@ -6007,16 +6076,16 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd3State, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd4State, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutputsAvailability, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorTemperature, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorOpenLoad, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToGND, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToSupply, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorSupplyFailure, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAlwaysHigh, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAvailability, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_AdcErrorFlag, NULL);
-          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CommErrorFlag, NULL);
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorErrorFlag, &value); gStatus.Etc.Motor.ErrorFlag = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorTemperature, &value); gStatus.Etc.Motor.Temperature = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorOpenLoad, &value); gStatus.Etc.Motor.OpenLoad = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToGND, &value); gStatus.Etc.Motor.ShortToGND = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorShortToSupply, &value); gStatus.Etc.Motor.ShortToSupply = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorSupplyFailure, &value); gStatus.Etc.Motor.SupplyFailure = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAlwaysHigh, &value); gStatus.Etc.Motor.AlwaysHigh = value ? HAL_OK : HAL_ERROR;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_MotorAvailability, &value); gStatus.Etc.MotorAvailability = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_AdcErrorFlag, &value); gStatus.Etc.AdcErrorFlag = value ? HAL_ERROR : HAL_OK;
+          can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CommErrorFlag, &value); gStatus.Etc.EtcCommErrorFlag = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CanInitFlag, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_CanTestFlag, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_AdaptationCompletedFlag, NULL);
