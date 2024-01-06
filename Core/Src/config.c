@@ -103,17 +103,17 @@ static const float default_throttle_position[TABLE_PEDALS_MAX][TABLE_ROTATES_MAX
     { 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, },
     { 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, },
     { 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, },
-    { 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, },
-    { 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, },
-    { 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, },
-    { 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, },
-    { 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, },
-    { 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, },
-    { 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, },
-    { 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, },
-    { 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, },
-    { 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, },
-    { 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, },
+    { 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, },
+    { 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, },
+    { 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, },
+    { 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, },
+    { 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, },
+    { 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, },
+    { 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, },
+    { 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, },
+    { 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, },
+    { 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, },
+    { 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, },
 };
 
 static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -642,6 +642,11 @@ static const float default_idle_throttle_econ_position[TABLE_ROTATES_MAX] = {
     9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
 };
 
+static const float default_pedal_ignition_control[TABLE_ROTATES_MAX] = {
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+};
+
 static const float default_start_throttle_position[TABLE_TEMPERATURES_MAX] = {
     9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
     9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
@@ -757,6 +762,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_valve_econ_position, default_idle_valve_econ_position, sizeof(default_idle_valve_econ_position));
   memcpy(table->idle_throttle_position, default_idle_throttle_position, sizeof(default_idle_throttle_position));
   memcpy(table->idle_throttle_econ_position, default_idle_throttle_econ_position, sizeof(default_idle_throttle_econ_position));
+  memcpy(table->pedal_ignition_control, default_pedal_ignition_control, sizeof(default_pedal_ignition_control));
 
   memcpy(table->warmup_mixtures, default_warmup_mixtures, sizeof(default_warmup_mixtures));
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));

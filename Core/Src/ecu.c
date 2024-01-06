@@ -800,6 +800,8 @@ static void ecu_update(void)
   float throttle_target_adaptation;
   float throttle_target_econ;
   float throttle_target;
+  float pedal_ignition_control;
+  float pedal_ignition_control_value;
   float pedal = 0;
 
   static uint32_t short_term_last = 0;
@@ -1268,6 +1270,7 @@ static void ecu_update(void)
   throttle_target_stop = math_interpolate_1d(ipPedal, table->stop_throttle_position);
   throttle_target_idle = math_interpolate_1d(ipEngineTemp, table->idle_throttle_position);
   throttle_target_adaptation = 0;
+  pedal_ignition_control = math_interpolate_1d(ipRpm, table->pedal_ignition_control);
 
   if(use_tps_sensor) {
     ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
@@ -1458,9 +1461,16 @@ static void ecu_update(void)
   if(!running) {
     idle_wish_ignition = start_ignition_advance;
     idle_ignition_time_by_tps_value = 0;
+    pedal_ignition_control_value = 1.0f;
   } else {
     idle_wish_ignition = idle_wish_ignition_table * idle_rpm_flag_value + idle_wish_ignition_static * (1.0f - idle_rpm_flag_value);
     idle_ignition_time_by_tps_value = idle_flag * idle_ignition_time_by_tps_lpf + idle_ignition_time_by_tps_value * (1.0f - idle_ignition_time_by_tps_lpf);
+    if(pedal_ignition_control > 0) {
+      pedal_ignition_control_value = (pedal / pedal_ignition_control);
+      pedal_ignition_control_value = CLAMP(pedal_ignition_control_value, 0.0f, 1.0f);
+    } else {
+      pedal_ignition_control_value = throttle_idle_flag ? 0.0f : 1.0f;
+    }
   }
 
   if(idle_flag) {
@@ -1484,7 +1494,11 @@ static void ecu_update(void)
     }
   }
 
-  ignition_advance = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_advance * (1.0f - idle_ignition_time_by_tps_value);
+  if(gEcuParams.useEtc) {
+    ignition_advance = ignition_advance * pedal_ignition_control_value + idle_wish_ignition  * (1.0f - pedal_ignition_control_value);
+  } else {
+    ignition_advance = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_advance * (1.0f - idle_ignition_time_by_tps_value);
+  }
 
   ignition_advance += air_temp_ign_corr;
   ignition_advance += engine_temp_ign_corr;
@@ -1932,7 +1946,7 @@ static void ecu_update(void)
 
   if(gForceParameters.Enable.IgnitionAdvance)
     ignition_advance = gForceParameters.IgnitionAdvance;
-  if(gForceParameters.Enable.IgnitionOctane)
+  if(gForceParameters.Enable.IgnitionOctane && !idle_flag)
     ignition_advance += gForceParameters.IgnitionOctane;
 
   if(idle_flag && running) {
