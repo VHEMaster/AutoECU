@@ -1885,8 +1885,7 @@ static void ecu_update(void)
 
   if(running) {
     throttle_target = throttle_target_idle;
-    throttle_target *= throttle_target_adaptation + 1.0f;
-    throttle_target += throttle_target_pedal;
+    throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
 
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
@@ -1915,13 +1914,17 @@ static void ecu_update(void)
         throttle_target_idle_correction = 0;
       }
     } else {
+      math_pid_reset(&gPidIdleValveAirFlow, now);
+      math_pid_reset(&gPidIdleValveRpm, now);
+      math_pid_reset(&gPidIdleThrottleAirFlow, now);
+      math_pid_reset(&gPidIdleThrottleRpm, now);
       idle_valve_pos_correction = 0;
       throttle_target_idle_correction = 0;
     }
   } else {
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
     throttle_target = throttle_target_start;
-    throttle_target += throttle_target_stop;
+    throttle_target += throttle_target_stop * 0.01f * (100.0f - throttle_target);
   }
 
   idle_wish_valve_pos = idle_table_valve_pos;
@@ -1930,6 +1933,7 @@ static void ecu_update(void)
 
   if(idle_corr_flag) {
     idle_wish_valve_pos += idle_valve_pos_correction;
+    throttle_target += throttle_target_adaptation;
     throttle_target += throttle_target_idle_correction;
     ignition_advance += idle_advance_correction;
   }
@@ -1940,7 +1944,7 @@ static void ecu_update(void)
     if(!idle_rpm_flag) {
       idle_wish_valve_pos = idle_valve_econ_position;
       throttle_target = throttle_target_econ;
-      throttle_target += throttle_target_pedal;
+      throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
     }
   }
 
