@@ -44,6 +44,11 @@ static const float default_throttles[TABLE_THROTTLES_MAX] = {
     24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
 };
 
+static const float default_pedals[TABLE_PEDALS_MAX] = {
+    0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
+    24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
+};
+
 static const float default_fillings[TABLE_FILLING_MAX] = {
     33, 65, 98, 130, 163, 195, 228, 260,
     293, 325, 358, 390, 423, 455, 488, 520,
@@ -90,6 +95,25 @@ static const float default_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MA
     { 0.739f, 0.758f, 0.748f, 0.738f, 0.752f, 0.767f, 0.788f, 0.900f, 0.893f, 0.882f, 0.899f, 1.000f, 1.000f, 0.999f, 0.989f, 0.974f, },
     { 0.739f, 0.776f, 0.780f, 0.762f, 0.770f, 0.782f, 0.798f, 0.900f, 0.895f, 0.885f, 0.899f, 1.000f, 1.001f, 0.998f, 1.000f, 1.000f, },
     { 0.751f, 0.781f, 0.784f, 0.780f, 0.785f, 0.795f, 0.807f, 0.900f, 0.900f, 0.900f, 0.900f, 1.000f, 1.001f, 0.982f, 1.000f, 1.000f, },
+};
+
+static const float default_throttle_position[TABLE_PEDALS_MAX][TABLE_ROTATES_MAX] = {
+    { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
+    { 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, 1.73f, },
+    { 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, 3.47f, },
+    { 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, 5.65f, },
+    { 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, 8.26f, },
+    { 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, 11.30f, },
+    { 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, 15.22f, },
+    { 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, 19.56f, },
+    { 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, 24.78f, },
+    { 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, 30.87f, },
+    { 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, 37.83f, },
+    { 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, 46.96f, },
+    { 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, 56.96f, },
+    { 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, 69.13f, },
+    { 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, 83.48f, },
+    { 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, },
 };
 
 static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
@@ -573,6 +597,56 @@ static const float default_fan_advance_control[TABLE_TEMPERATURES_MAX][TABLE_SPE
     { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
 };
 
+static const float default_idle_throttle_to_massair_pid_p[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_throttle_to_massair_pid_i[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_throttle_to_massair_pid_d[TABLE_ROTATES_MAX] = {
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+};
+
+static const float default_idle_throttle_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_throttle_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+    0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
+};
+
+static const float default_idle_throttle_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+    0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
+};
+
+static const float default_stop_throttle_position[TABLE_PEDALS_MAX] = {
+    0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
+    24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
+};
+
+static const float default_idle_throttle_position[TABLE_TEMPERATURES_MAX] = {
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+};
+
+static const float default_idle_throttle_econ_position[TABLE_ROTATES_MAX] = {
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+};
+
+static const float default_start_throttle_position[TABLE_TEMPERATURES_MAX] = {
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+    9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f, 9.6f,
+};
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -609,6 +683,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->idle_valve_pos_min = -15;
   table->idle_valve_pos_max = 20;
+  table->idle_throttle_pos_min = -10;
+  table->idle_throttle_pos_max = 15;
 
   table->cylinders_count = ITEMSOF(default_cylinders);
   memcpy(table->cylinders, default_cylinders, sizeof(default_cylinders));
@@ -628,8 +704,13 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->throttles_count = ITEMSOF(default_throttles);
   memcpy(table->throttles, default_throttles, sizeof(default_throttles));
 
+  table->pedals_count = ITEMSOF(default_pedals);
+  memcpy(table->pedals, default_pedals, sizeof(default_pedals));
+
   memcpy(table->filling_gbc_map, default_filling_gbc_map, sizeof(default_filling_gbc_map));
   memcpy(table->filling_gbc_tps, default_filling_gbc_tps, sizeof(default_filling_gbc_tps));
+  memcpy(table->throttle_position, default_throttle_position, sizeof(default_throttle_position));
+  memcpy(table->stop_throttle_position, default_stop_throttle_position, sizeof(default_stop_throttle_position));
   memcpy(table->filling_select_koff_tps, default_filling_select_koff_tps, sizeof(default_filling_select_koff_tps));
 
   table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
@@ -674,6 +755,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_wish_ignition, default_idle_wish_ignition, sizeof(default_idle_wish_ignition));
   memcpy(table->idle_valve_position, default_idle_valve_position, sizeof(default_idle_valve_position));
   memcpy(table->idle_valve_econ_position, default_idle_valve_econ_position, sizeof(default_idle_valve_econ_position));
+  memcpy(table->idle_throttle_position, default_idle_throttle_position, sizeof(default_idle_throttle_position));
+  memcpy(table->idle_throttle_econ_position, default_idle_throttle_econ_position, sizeof(default_idle_throttle_econ_position));
 
   memcpy(table->warmup_mixtures, default_warmup_mixtures, sizeof(default_warmup_mixtures));
   memcpy(table->warmup_mix_koffs, default_warmup_mix_koffs, sizeof(default_warmup_mix_koffs));
@@ -689,6 +772,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_ignition, default_start_ignition, sizeof(default_start_ignition));
   memcpy(table->start_injection_phase, default_start_injection_phase, sizeof(default_start_injection_phase));
   memcpy(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(default_start_idle_valve_pos));
+  memcpy(table->start_throttle_position, default_start_throttle_position, sizeof(default_start_throttle_position));
   table->start_large_count = 12;
 
   table->idle_pids_rpm_koffs_count = ITEMSOF(default_idle_pids_rpm_koffs);
@@ -700,6 +784,14 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_valve_to_rpm_pid_p, default_idle_valve_to_rpm_pid_p, sizeof(default_idle_valve_to_rpm_pid_p));
   memcpy(table->idle_valve_to_rpm_pid_i, default_idle_valve_to_rpm_pid_i, sizeof(default_idle_valve_to_rpm_pid_i));
   memcpy(table->idle_valve_to_rpm_pid_d, default_idle_valve_to_rpm_pid_d, sizeof(default_idle_valve_to_rpm_pid_d));
+
+  memcpy(table->idle_throttle_to_massair_pid_p, default_idle_throttle_to_massair_pid_p, sizeof(default_idle_throttle_to_massair_pid_p));
+  memcpy(table->idle_throttle_to_massair_pid_i, default_idle_throttle_to_massair_pid_i, sizeof(default_idle_throttle_to_massair_pid_i));
+  memcpy(table->idle_throttle_to_massair_pid_d, default_idle_throttle_to_massair_pid_d, sizeof(default_idle_throttle_to_massair_pid_d));
+
+  memcpy(table->idle_throttle_to_rpm_pid_p, default_idle_throttle_to_rpm_pid_p, sizeof(default_idle_throttle_to_rpm_pid_p));
+  memcpy(table->idle_throttle_to_rpm_pid_i, default_idle_throttle_to_rpm_pid_i, sizeof(default_idle_throttle_to_rpm_pid_i));
+  memcpy(table->idle_throttle_to_rpm_pid_d, default_idle_throttle_to_rpm_pid_d, sizeof(default_idle_throttle_to_rpm_pid_d));
 
   memcpy(table->idle_ign_to_rpm_pid_p, default_idle_ign_to_rpm_pid_p, sizeof(default_idle_ign_to_rpm_pid_p));
   memcpy(table->idle_ign_to_rpm_pid_i, default_idle_ign_to_rpm_pid_i, sizeof(default_idle_ign_to_rpm_pid_i));
@@ -792,7 +884,8 @@ void config_default_params(sEcuParams *table)
   table->shiftAdvance = 3.0f;
   table->shiftMixture = 12.1f;
 
-  table->useIdleValve = 1;
+  table->useIdleValve = 0;
+  table->useEtc = 1;
   table->useShortTermCorr = 0;
   table->useLongTermCorr = 0;
 
