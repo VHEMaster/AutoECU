@@ -825,6 +825,7 @@ static void ecu_update(void)
   float pedal_ignition_control;
   float pedal_ignition_control_value;
   float pedal = 0;
+  uint8_t throttle_position_use_2d = table->throttle_position_use_2d;
 
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
@@ -1299,7 +1300,11 @@ static void ecu_update(void)
   idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
 
   ipPedal = math_interpolate_input(pedal, table->pedals, table->pedals_count);
-  throttle_target_pedal = math_interpolate_2d_limit(ipRpm, ipPedal, TABLE_ROTATES_MAX, table->throttle_position);
+  if(throttle_position_use_2d) {
+    throttle_target_pedal = math_interpolate_1d(ipRpm, table->throttle_position_2d);
+  } else {
+    throttle_target_pedal = math_interpolate_2d_limit(ipRpm, ipPedal, TABLE_ROTATES_MAX, table->throttle_position);
+  }
   throttle_target_start = math_interpolate_1d(ipEngineTemp, table->start_throttle_position);
   throttle_target_stop = math_interpolate_1d(ipPedal, table->stop_throttle_position);
   throttle_target_idle = math_interpolate_1d(ipEngineTemp, table->idle_throttle_position);
