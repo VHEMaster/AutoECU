@@ -206,9 +206,13 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
 
 INLINE void csps_tsps_exti(uint32_t timestamp)
 {
-  if(csps_tsps_enabled && csps_found && csps_rotates) {
+  if(csps_tsps_enabled && csps_found && csps_rotates && !csps_phased) {
     csps_tsps_rel_pos_initial = csps_getangle14(csps_data());
-    csps_phase_found_initial = 1;
+
+    //csps_phase_found_initial = 1;
+    csps_tsps_rel_pos = csps_tsps_rel_pos_initial;
+    csps_phase_found = 1;
+
     csps_phase_is_simulating = 0;
     csps_phase_simulated = 0;
   } else {
@@ -218,6 +222,8 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
 
 INLINE void csps_tsps_exti2(uint32_t timestamp)
 {
+  return;
+
   if(csps_tsps_enabled && csps_found && csps_rotates) {
     csps_tsps_rel_pos_secondary = csps_getangle14(csps_data());
     if(csps_phase_found_initial && csps_tsps_rel_pos_initial != 0.0f) {
@@ -480,11 +486,11 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
       csps_phase_found = 0;
       csps_phase_found_initial = 0;
       csps_phase_simulated = 0;
-    } else if(!csps_phase_is_simulating) {
+    } /* else if(!csps_phase_is_simulating) {
       if(csps_turns - csps_turns_phase > 5) {
         csps_phased = 0;
       }
-    }
+    } */
 
 #if defined(CSPS_ACCELERATION_FEATURE) && CSPS_ACCELERATION_FEATURE > 0
     if (csps_phased) {
