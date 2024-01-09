@@ -643,8 +643,8 @@ static const float default_idle_throttle_econ_position[TABLE_ROTATES_MAX] = {
 };
 
 static const float default_pedal_ignition_control[TABLE_ROTATES_MAX] = {
-    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
-    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
+    3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
 static const float default_start_throttle_position[TABLE_TEMPERATURES_MAX] = {

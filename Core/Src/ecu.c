@@ -207,6 +207,7 @@ typedef struct {
         uint32_t run_time;
     }BatteryCharge;
     struct {
+        uint8_t critical_error;
         uint8_t sync_error;
         uint32_t sync_error_time;
         uint32_t sync_error_last;
@@ -1246,15 +1247,23 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Tsps = HAL_OK;
   }
 
-  if(running && phased_mode == PhasedModeWithSensor && phased && fabsf(tsps_rel_pos) >= tsps_desync_thr) {
-    if(!gStatus.Tsps.sync_error) {
-      gStatus.Tsps.sync_error_time = 0;
+  if(running && phased_mode == PhasedModeWithSensor && phased) {
+    if(fabsf(tsps_rel_pos) >= tsps_desync_thr) {
+      if(!gStatus.Tsps.sync_error) {
+        gStatus.Tsps.sync_error_time = 0;
+      } else {
+        gStatus.Tsps.sync_error_time += HAL_DelayDiff(hal_now, gStatus.Tsps.sync_error_last);
+      }
+      gStatus.Tsps.sync_error = 1;
+    } else if(fabsf(tsps_rel_pos) > 45.0f) {
+      gStatus.Tsps.critical_error = 1;
     } else {
-      gStatus.Tsps.sync_error_time += HAL_DelayDiff(hal_now, gStatus.Tsps.sync_error_last);
+      gStatus.Tsps.sync_error = 0;
+      gStatus.Tsps.critical_error = 0;
     }
-    gStatus.Tsps.sync_error = 1;
   } else {
     gStatus.Tsps.sync_error = 0;
+    gStatus.Tsps.critical_error = 0;
   }
   gStatus.Tsps.sync_error_last = hal_now;
 
@@ -4214,7 +4223,7 @@ static void ecu_checkengine_loop(void)
     }
   }
   if(gEcuParams.phasedMode == PhasedModeWithSensor) {
-    CHECK_STATUS(iserror, CheckTspsDesynchronized, gStatus.Tsps.sync_error && gStatus.Tsps.sync_error_time > 100);
+    CHECK_STATUS(iserror, CheckTspsDesynchronized, (gStatus.Tsps.sync_error && gStatus.Tsps.sync_error_time > 100) || (gStatus.Tsps.critical_error));
   }
   CHECK_STATUS(iserror, CheckSensorMapTpsMismatch, gStatus.MapTpsRelation.is_error && gStatus.MapTpsRelation.error_time > 5000);
 
