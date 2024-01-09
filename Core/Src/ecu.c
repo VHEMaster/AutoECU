@@ -4219,7 +4219,7 @@ static void ecu_checkengine_loop(void)
     CHECK_STATUS(iserror, CheckKnockLowNoiseLevel, (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0);
 
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      CHECK_STATUS(iserror, (CheckKnockDetonationCy1 + 1), (gStatus.Knock.CylinderStatus[i] & KnockStatusStrongDedonation) > 0);
+      CHECK_STATUS(iserror, (CheckKnockDetonationCy1 + i), (gStatus.Knock.CylinderStatus[i] & KnockStatusStrongDedonation) > 0);
     }
   }
   if(gEcuParams.phasedMode == PhasedModeWithSensor) {
