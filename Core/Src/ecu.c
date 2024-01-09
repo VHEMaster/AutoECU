@@ -1303,7 +1303,7 @@ static void ecu_update(void)
   if(throttle_position_use_2d) {
     throttle_target_pedal = math_interpolate_1d(ipRpm, table->throttle_position_2d);
   } else {
-    throttle_target_pedal = math_interpolate_2d_limit(ipRpm, ipPedal, TABLE_ROTATES_MAX, table->throttle_position);
+    throttle_target_pedal = math_interpolate_2d_limit(ipPedal, ipRpm, TABLE_PEDALS_MAX, table->throttle_position);
   }
   throttle_target_start = math_interpolate_1d(ipEngineTemp, table->start_throttle_position);
   throttle_target_stop = math_interpolate_1d(ipPedal, table->stop_throttle_position);
