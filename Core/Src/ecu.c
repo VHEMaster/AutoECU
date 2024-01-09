@@ -1265,7 +1265,7 @@ static void ecu_update(void)
   }
 
   if(gEcuParams.useEtc) {
-    throttle_idle_flag = pedal > 0.0f;
+    throttle_idle_flag = pedal <= 0.05f;
   } else {
     throttle_idle_flag = throttle < 0.2f;
   }
