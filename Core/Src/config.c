@@ -632,6 +632,11 @@ static const float default_throttle_position_1d[TABLE_PEDALS_MAX] = {
     24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
 };
 
+static const float default_throttle_startup_move_time[TABLE_TEMPERATURES_MAX] = {
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+};
+
 static const float default_stop_throttle_position[TABLE_PEDALS_MAX] = {
     0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
     24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
@@ -722,6 +727,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->throttle_position, default_throttle_position, sizeof(default_throttle_position));
   memcpy(table->stop_throttle_position, default_stop_throttle_position, sizeof(default_stop_throttle_position));
   memcpy(table->throttle_position_1d, default_throttle_position_1d, sizeof(default_throttle_position_1d));
+  memcpy(table->throttle_startup_move_time, default_throttle_startup_move_time, sizeof(default_throttle_startup_move_time));
   memcpy(table->filling_select_koff_tps, default_filling_select_koff_tps, sizeof(default_filling_select_koff_tps));
   table->throttle_position_use_1d = 0;
 

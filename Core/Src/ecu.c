@@ -817,8 +817,10 @@ static void ecu_update(void)
   sMathInterpolateInput ipPedal;
   float throttle_target_pedal;
   float throttle_target_stop;
+  float throttle_startup_move_time;
   float throttle_target_start;
   float throttle_target_idle;
+  float throttle_startup_move_koff;
   float throttle_target_adaptation;
   float throttle_target_econ;
   float throttle_target;
@@ -1310,6 +1312,8 @@ static void ecu_update(void)
   throttle_target_idle = math_interpolate_1d(ipEngineTemp, table->idle_throttle_position);
   throttle_target_adaptation = 0;
   pedal_ignition_control = math_interpolate_1d(ipRpm, table->pedal_ignition_control);
+  throttle_startup_move_time = math_interpolate_1d(ipEngineTemp, table->throttle_startup_move_time);
+  throttle_startup_move_time *= 1000000.0f;
 
   if(use_tps_sensor) {
     ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
@@ -1922,8 +1926,15 @@ static void ecu_update(void)
   idle_valve_econ_position = math_interpolate_1d(ipRpm, table->idle_valve_econ_position);
   throttle_target_econ = math_interpolate_1d(ipRpm, table->idle_throttle_econ_position);
 
+  if (running_time_latest >= throttle_startup_move_time || throttle_startup_move_time <= 0.0f) {
+    throttle_startup_move_koff = 1.0f;
+  } else {
+    throttle_startup_move_koff = running_time_latest / throttle_startup_move_time;
+  }
+  throttle_startup_move_koff = CLAMP(throttle_startup_move_koff, 0.0f, 1.0f);
+
   if(running) {
-    throttle_target = throttle_target_idle;
+    throttle_target = throttle_target_idle * throttle_startup_move_koff + throttle_target_start * (1.0f - throttle_startup_move_koff);
     throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
 
     idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
