@@ -912,6 +912,7 @@ static void ecu_update(void)
   uint32_t halfturns_performed = 0;
   float running_time = 0;
   static float running_time_latest = 0;
+  static float throttle_idle_time = 0;
   static float injection_phase = 100;
   static float short_term_correction = 0.0f;
   float short_term_correction_pid = 0.0f;
@@ -1280,6 +1281,16 @@ static void ecu_update(void)
     throttle_idle_flag = pedal <= 0.05f;
   } else {
     throttle_idle_flag = throttle < 0.2f;
+  }
+
+  if(rotates && running) {
+    throttle_idle_time = 0;
+  } else {
+    if(throttle_idle_flag) {
+      throttle_idle_time += diff_sec;
+    } else {
+      throttle_idle_time = 0;
+    }
   }
 
   idle_flag = throttle_idle_flag && running;
@@ -2041,8 +2052,19 @@ static void ecu_update(void)
 
   idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
 
-  if(!gIgnCanShutdown)
+  if(!gIgnCanShutdown) {
 	  out_set_idle_valve(roundf(idle_wish_valve_pos));
+	  if (throttle_target <= 0.001f) {
+      gParameters.EtcMotorFullCloseFlag = 1;
+	  } else {
+      gParameters.EtcMotorFullCloseFlag = 0;
+	  }
+	  if(throttle_idle_time > 10.0f) {
+	    gParameters.EtcMotorActiveFlag = 0;
+	  } else {
+      gParameters.EtcMotorActiveFlag = 1;
+	  }
+  }
 
   gStatus.Knock.Voltage = 0;
   gStatus.Knock.Filtered = 0;
@@ -4757,6 +4779,14 @@ static int8_t ecu_shutdown_process(void)
 
   switch(stage) {
     case 0:
+      if(rotates) {
+        gParameters.EtcMotorFullCloseFlag = 1;
+        gParameters.EtcMotorActiveFlag = 1;
+      } else {
+        gParameters.EtcMotorFullCloseFlag = 0;
+        gParameters.EtcMotorActiveFlag = 0;
+      }
+
       last_idle_valve_moving = now;
       stage++;
       break;
@@ -4764,7 +4794,6 @@ static int8_t ecu_shutdown_process(void)
       if(is_idle_valve_moving) {
         last_idle_valve_moving = now;
       } else if(DelayDiff(now, last_idle_valve_moving) > 100000) {
-        gParameters.EtcMotorFullCloseFlag = 1;
         stage++;
       }
       break;
@@ -4806,6 +4835,7 @@ static int8_t ecu_shutdown_process(void)
     case 8:
       if(!rotates) {
         gParameters.EtcMotorFullCloseFlag = 0;
+        gParameters.EtcMotorActiveFlag = 0;
         retval = 1;
         stage = 0;
       }
