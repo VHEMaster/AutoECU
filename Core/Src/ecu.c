@@ -1040,6 +1040,7 @@ static void ecu_update(void)
   float learn_cycles_to_delay;
   float learn_cycles_delay_mult;
 
+  uint8_t etc_econ_flag;
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
   uint8_t enrichment_sync_enabled;
@@ -1314,7 +1315,7 @@ static void ecu_update(void)
 
   ipPedal = math_interpolate_input(pedal, table->pedals, table->pedals_count);
   if(throttle_position_use_1d) {
-    throttle_target_pedal = math_interpolate_1d(ipRpm, table->throttle_position_1d);
+    throttle_target_pedal = math_interpolate_1d(ipPedal, table->throttle_position_1d);
   } else {
     throttle_target_pedal = math_interpolate_2d_limit(ipPedal, ipRpm, TABLE_PEDALS_MAX, table->throttle_position);
   }
@@ -1661,6 +1662,7 @@ static void ecu_update(void)
 
   start_large_count = table->start_large_count;
   injection_start_mult = math_interpolate_1d(ipThrottle, table->start_tps_corrs);
+  etc_econ_flag = econ_flag;
   econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
 
   if(econ_flag) {
@@ -2008,6 +2010,8 @@ static void ecu_update(void)
 
     if(!idle_rpm_flag) {
       idle_wish_valve_pos = idle_valve_econ_position;
+    }
+    if(etc_econ_flag) {
       throttle_target = throttle_target_econ;
       throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
     }
