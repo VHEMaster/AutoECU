@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <limits.h>
 #include <math.h>
 #include "main.h"
 #include "defines.h"
@@ -140,6 +141,35 @@ HAL_StatusTypeDef can_signal_get_uint(const sCanMessage *message, const sCanSign
     ret = can_signal_get_raw(message, signal, &raw_value);
 
     *p_value = raw_value;
+  }
+
+  return ret;
+}
+
+HAL_StatusTypeDef can_signal_get_uint8(const sCanMessage *message, const sCanSignal *signal, uint8_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = MIN(raw_value, UCHAR_MAX);
+  }
+
+  return ret;
+}
+
+
+HAL_StatusTypeDef can_signal_get_uint16(const sCanMessage *message, const sCanSignal *signal, uint16_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = MIN(raw_value, USHRT_MAX);
   }
 
   return ret;

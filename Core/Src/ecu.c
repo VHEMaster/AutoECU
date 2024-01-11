@@ -6135,12 +6135,12 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           gStatus.Etc.Comm = HAL_OK;
           break;
         case 0x013:
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStart, &gParameters.EtcInCruizeStart);
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStop, &gParameters.EtcInCruizeStop);
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InBrake, &gParameters.EtcInBrake);
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd4, &gParameters.EtcInRsvd4);
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd5, &gParameters.EtcInRsvd5);
-          can_signal_get_int(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd6, &gParameters.EtcInRsvd6);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStart, &gParameters.EtcInCruizeStart);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InCruizeStop, &gParameters.EtcInCruizeStop);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InBrake, &gParameters.EtcInBrake);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd4, &gParameters.EtcInRsvd4);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd5, &gParameters.EtcInRsvd5);
+          can_signal_get_uint8(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_InRsvd6, &gParameters.EtcInRsvd6);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeG, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutCruizeR, NULL);
           can_signal_get_uint(&g_can_message_id013_ETC, &g_can_signal_id013_ETC_OutRsvd3, NULL);

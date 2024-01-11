@@ -45,6 +45,8 @@ HAL_StatusTypeDef can_signal_append_float(sCanMessage *message, sCanSignal *sign
 HAL_StatusTypeDef can_signal_append_raw(sCanMessage *message, const sCanSignal *signal, uint32_t raw_value);
 HAL_StatusTypeDef can_signal_get_raw(const sCanMessage *message, const sCanSignal *signal, uint32_t *p_raw_value);
 HAL_StatusTypeDef can_signal_get_float(const sCanMessage *message, const sCanSignal *signal, float *p_value);
+HAL_StatusTypeDef can_signal_get_uint8(const sCanMessage *message, const sCanSignal *signal, uint8_t *p_value);
+HAL_StatusTypeDef can_signal_get_uint16(const sCanMessage *message, const sCanSignal *signal, uint16_t *p_value);
 HAL_StatusTypeDef can_signal_get_uint(const sCanMessage *message, const sCanSignal *signal, uint32_t *p_value);
 HAL_StatusTypeDef can_signal_get_int(const sCanMessage *message, const sCanSignal *signal, int32_t *p_value);
 HAL_StatusTypeDef can_signal_message_clear(sCanMessage *message);
