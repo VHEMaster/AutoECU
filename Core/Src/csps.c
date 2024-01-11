@@ -60,6 +60,9 @@ static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
 static volatile float csps_tsps_rel_pos = 0;
 
+static volatile float csps_tsps_expected_position = ANGLE_INITIAL;
+static volatile float csps_tsps_maximum_desync = 3.0f;
+
 static volatile uint32_t csps_turns = 0;
 static volatile uint32_t csps_turns_phase = 0;
 static volatile uint32_t csps_halfturns = 0;
@@ -202,11 +205,19 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
 
 INLINE void csps_tsps_exti(uint32_t timestamp)
 {
+  float tsps_pos = csps_getangle14(csps_data());
+  float desync = fabsf(tsps_pos - csps_tsps_expected_position);
+
   if(csps_tsps_enabled && csps_found && csps_rotates) {
-    csps_tsps_rel_pos = csps_getangle14(csps_data());
-    csps_phase_found = 1;
-    csps_phase_is_simulating = 0;
-    csps_phase_simulated = 0;
+    csps_tsps_rel_pos = tsps_pos;
+
+    if(desync <= csps_tsps_maximum_desync) {
+      csps_phase_found = 1;
+      csps_phase_is_simulating = 0;
+      csps_phase_simulated = 0;
+    } else {
+      // TODO: error handling
+    }
   }
 }
 
@@ -220,6 +231,12 @@ INLINE void csps_tsps_simulate(uint8_t cy)
     }
     csps_phase_is_simulating = 1;
   }
+}
+
+INLINE void csps_tsps_set_expected_position(float expected_position, float limit)
+{
+  csps_tsps_expected_position = expected_position;
+  csps_tsps_maximum_desync = limit;
 }
 
 ITCM_FUNC void csps_handle(uint32_t timestamp)

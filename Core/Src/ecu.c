@@ -832,6 +832,8 @@ static void ecu_update(void)
   static uint32_t short_term_last = 0;
   static uint32_t rotates_last = 0;
   uint32_t request_fill_last = gLocalParams.RequestFillLast;
+  float tsps_relative_position_table;
+  float tsps_desync_thr_table;
 
   float rpm;
   float pressure;
@@ -1203,12 +1205,17 @@ static void ecu_update(void)
 
   ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
 
+  tsps_relative_position_table = math_interpolate_1d(ipRpm, table->tsps_relative_pos);
+  tsps_desync_thr_table = math_interpolate_1d(ipRpm, table->tsps_desync_thr);
+
   if(csps_phased_valid()) {
-    tsps_rel_pos = csps_gettspsrelpos() - math_interpolate_1d(ipRpm, table->tsps_relative_pos);
+    tsps_rel_pos = csps_gettspsrelpos() - tsps_relative_position_table;
   } else {
     tsps_rel_pos = 0;
   }
-  tsps_desync_thr = fabsf(math_interpolate_1d(ipRpm, table->tsps_desync_thr));
+
+  tsps_desync_thr = fabsf(tsps_desync_thr_table);
+  csps_tsps_set_expected_position(tsps_relative_position_table, tsps_desync_thr);
 
   if(gStatus.Sensors.Struct.EngineTemp != HAL_OK)
     engine_temp = 0.0f;
