@@ -943,7 +943,7 @@ static void ecu_update(void)
 
   float enrichment_load_value_start = 0;
   static float enrichment_load_value_start_accept = 0;
-  float enrichment_load_value = -1;
+  float enrichment_load_value = 0;
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
@@ -1735,8 +1735,23 @@ static void ecu_update(void)
 
   enrichment_detect_duration *= 1000.0f;
 
-  if(enrichment_load_type == 0 && use_tps_sensor) enrichment_load_value = throttle;
-  else if(enrichment_load_type == 1 && use_map_sensor) enrichment_load_value = pressure;
+  enrichment_load_value = 0;
+  if(enrichment_load_type == 0) {
+    if(use_tps_sensor) {
+      if(gEcuParams.useEtc) {
+        if(gParameters.EtcMotorActiveFlag && !gParameters.EtcMotorFullCloseFlag) {
+          enrichment_load_value = throttle_target_pedal;
+        }
+      } else {
+        enrichment_load_value = throttle;
+      }
+    }
+  }
+  else if(enrichment_load_type == 1) {
+    if(use_map_sensor) {
+      enrichment_load_value = pressure;
+    }
+  }
   else enrichment_load_type = -1;
 
   if(enrichment_load_values_count > 4 && enrichment_load_type >= 0) {
