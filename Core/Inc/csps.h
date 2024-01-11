@@ -22,7 +22,6 @@ void csps_loop(void);
 void csps_init(volatile uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t channel);
 void csps_exti(uint32_t timestamp);
 void csps_tsps_exti(uint32_t timestamp);
-void csps_tsps_exti2(uint32_t timestamp);
 void csps_tsps_simulate(uint8_t cy);
 float csps_getangle14(sCspsData data);
 float csps_getangle23from14(float angle);

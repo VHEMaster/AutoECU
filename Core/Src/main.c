@@ -240,10 +240,6 @@ INLINE ITCM_FUNC void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 #ifndef SIMULATION
       csps_tsps_exti(Delay_Tick);
 #endif
-    } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
-#ifndef SIMULATION
-      csps_tsps_exti2(Delay_Tick);
-#endif
     }
   }
 }
@@ -517,7 +513,6 @@ int main(void)
 #endif
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_3);
-  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_4);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
 
@@ -1160,15 +1155,8 @@ static void MX_TIM8_Init(void)
     Error_Handler();
   }
 
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_3) != HAL_OK) {
-    Error_Handler();
-  }
-
-  sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
-  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_4) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM8_Init 2 */

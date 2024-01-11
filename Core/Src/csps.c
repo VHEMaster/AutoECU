@@ -51,7 +51,6 @@ static volatile uint8_t csps_rotates = 0;
 static volatile uint8_t csps_running = 0;
 static volatile uint8_t csps_phased = 0;
 static volatile uint8_t csps_phase_found = 0;
-static volatile uint8_t csps_phase_found_initial = 0;
 static volatile uint8_t csps_phase_simulated = 0;
 static volatile uint8_t csps_phase_is_simulating = 0;
 static volatile uint32_t csps_last = 0;
@@ -59,8 +58,6 @@ static volatile float csps_errors = 0;
 static volatile float csps_rpm = 0;
 static volatile float csps_uspa = 0;
 static volatile float csps_period = 0;
-static volatile float csps_tsps_rel_pos_initial = 0;
-static volatile float csps_tsps_rel_pos_secondary = 0;
 static volatile float csps_tsps_rel_pos = 0;
 
 static volatile uint32_t csps_turns = 0;
@@ -155,14 +152,13 @@ void csps_emulate(uint32_t timestamp, float rpm, uint8_t phased)
     if(step == 3) {
       phase ^= 1;
       if(phase) {
-        csps_tsps_exti(timestamp);
         HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_RESET);
       }
     }
     if(step == 24 && phase) {
       HAL_GPIO_WritePin(TIM8_CH3_SENS_TSPS_GPIO_Port, TIM8_CH3_SENS_TSPS_Pin, GPIO_PIN_SET);
       if(phased) {
-        csps_tsps_exti2(timestamp);
+        csps_tsps_exti(timestamp);
       }
     }
 
@@ -206,43 +202,11 @@ void csps_init(__IO uint32_t *timebase, TIM_HandleTypeDef *_htim, uint32_t chann
 
 INLINE void csps_tsps_exti(uint32_t timestamp)
 {
-  if(csps_tsps_enabled && csps_found && csps_rotates && !csps_phased) {
-    csps_tsps_rel_pos_initial = csps_getangle14(csps_data());
-
-    //csps_phase_found_initial = 1;
-    csps_tsps_rel_pos = csps_tsps_rel_pos_initial;
+  if(csps_tsps_enabled && csps_found && csps_rotates) {
+    csps_tsps_rel_pos = csps_getangle14(csps_data());
     csps_phase_found = 1;
-
     csps_phase_is_simulating = 0;
     csps_phase_simulated = 0;
-  } else {
-    csps_phase_found_initial = 0;
-  }
-}
-
-INLINE void csps_tsps_exti2(uint32_t timestamp)
-{
-  return;
-
-  if(csps_tsps_enabled && csps_found && csps_rotates) {
-    csps_tsps_rel_pos_secondary = csps_getangle14(csps_data());
-    if(csps_phase_found_initial && csps_tsps_rel_pos_initial != 0.0f) {
-      float diff = csps_tsps_rel_pos_secondary - csps_tsps_rel_pos_initial;
-      if(diff > 15.0f && diff < 70.0f) {
-        csps_tsps_rel_pos = csps_tsps_rel_pos_initial;
-        csps_phase_found = 1;
-        csps_phase_found_initial = 0;
-        csps_phase_is_simulating = 0;
-        csps_phase_simulated = 0;
-      }
-    } else {
-      csps_phase_found_initial = 0;
-    }
-  } else {
-    csps_phase_found_initial = 0;
-    csps_tsps_rel_pos_initial = 0;
-    csps_tsps_rel_pos_secondary = 0;
-
   }
 }
 
@@ -484,13 +448,12 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
         cs_phased_p = cs14_p;
       }
       csps_phase_found = 0;
-      csps_phase_found_initial = 0;
       csps_phase_simulated = 0;
-    } /* else if(!csps_phase_is_simulating) {
+    } else if(!csps_phase_is_simulating) {
       if(csps_turns - csps_turns_phase > 5) {
         csps_phased = 0;
       }
-    } */
+    }
 
 #if defined(CSPS_ACCELERATION_FEATURE) && CSPS_ACCELERATION_FEATURE > 0
     if (csps_phased) {
@@ -572,7 +535,6 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
     csps_period = 1000000.0f;
     csps_rpm = 0;
     csps_phase_found = 0;
-    csps_phase_found_initial = 0;
   }
 
   data.Period = csps_period;
@@ -818,7 +780,6 @@ void csps_loop(void)
     csps_rpm = 0;
     csps_rotates = 0;
     csps_phase_found = 0;
-    csps_phase_found_initial = 0;
     csps_phase_simulated = 0;
     csps_phase_is_simulating = 0;
     csps_phased = 0;
