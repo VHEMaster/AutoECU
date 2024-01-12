@@ -60,7 +60,6 @@
 #define LEARN_ENLEANMENT_POST_CYCLES_DELAY  (ECU_CYLINDERS_COUNT * 16)
 #define IDLE_ACCELERATE_POST_CYCLES_DELAY   (ECU_CYLINDERS_COUNT * 16)
 #define LEARN_ACCEPT_CYCLES_BUFFER_SIZE     0
-#define CAN_SIGNALS_SEND_GENERIC_MESSAGES   0
 
 typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
@@ -414,6 +413,7 @@ static const float gKnockDetectEndAngle = 70;
 
 volatile static uint8_t gEtcErrorReset = 0;
 volatile static uint32_t gEtcCommLast = 0;
+volatile static uint32_t gLoggetCommLast = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -457,10 +457,8 @@ static volatile float gLearnTps = 0;
 static int8_t ecu_can_process_message(const sCanRawMessage *message);
 static void can_signals_update(const sParameters *parameters);
 
-#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
-static void can_signals_send(const sParameters *parameters);
-#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
-static void can_etc_send(const sParameters *parameters);
+static void can_log_signals_send(const sParameters *parameters);
+static void can_etc_signals_send(const sParameters *parameters);
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
 static sLearnParameters ecu_convert_learn_parameters(const sParameters * params);
@@ -4944,7 +4942,7 @@ static void ecu_starter_process(void)
 
 static void ecu_can_init(void)
 {
-  const uint16_t filter_ids[] = { 0x100, 0x10 };
+  const uint16_t filter_ids[] = { 0x110, 0x010 };
   const uint16_t filter_masks[] = { 0x7F0, 0x7F0 };
   gStatus.CanInitStatus = can_start(filter_ids, filter_masks, ITEMSOF(filter_ids));
   if(gStatus.CanInitStatus == HAL_OK) {
@@ -4960,6 +4958,8 @@ static void ecu_can_init(void)
   can_message_register_msg(&g_can_message_id01A_ETC_ECU);
   can_message_register_msg(&g_can_message_id01B_ETC_ECU);
   can_message_register_msg(&g_can_message_id01C_ETC_ECU);
+
+  can_message_register_msg(&g_can_message_id110_LOG_ECU);
 }
 
 static void ecu_kline_init(void)
@@ -6081,7 +6081,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
   }
 }
 
-static void can_etc_send(const sParameters *parameters)
+static void can_etc_signals_send(const sParameters *parameters)
 {
   can_signal_message_clear(&g_can_message_id080_ECU_ETC);
   can_signal_append_uint(&g_can_message_id080_ECU_ETC, &g_can_signal_id080_ECU_ETC_StandaloneMode, parameters->EtcStandaloneFlag);
@@ -6198,6 +6198,10 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_PidD, NULL);
           can_signal_get_uint(&g_can_message_id01C_ETC_ECU, &g_can_signal_id01C_ETC_ECU_TimPsc, NULL);
           break;
+        case 0x110:
+          can_signal_get_uint(&g_can_message_id110_LOG_ECU, &g_can_signal_id110_LOG_ECU_Unique, NULL);
+          gLoggetCommLast = now;
+          break;
         default:
           break;
       }
@@ -6261,8 +6265,7 @@ void ecu_hardfault_handle(void)
   config_save_critical_backup(&gEcuCriticalBackup);
 }
 
-#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
-static void can_signals_send(const sParameters *parameters)
+static void can_log_signals_send(const sParameters *parameters)
 {
   can_signal_message_clear(&g_can_message_id020_ECU);
   can_signal_append_float(&g_can_message_id020_ECU, &g_can_signal_id020_ECU_AdcKnockVoltage, parameters->AdcKnockVoltage);
@@ -6385,7 +6388,6 @@ static void can_signals_send(const sParameters *parameters)
   can_message_send(&g_can_message_id028_ECU);
   can_message_send(&g_can_message_id029_ECU);
 }
-#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
 
 static void can_signals_update(const sParameters *parameters)
 {
@@ -6395,15 +6397,15 @@ static void can_signals_update(const sParameters *parameters)
 
   if (DelayDiff(now, signals_last) >= 10000) {
     signals_last = now;
-#if defined(CAN_SIGNALS_SEND_GENERIC_MESSAGES) && CAN_SIGNALS_SEND_GENERIC_MESSAGES > 0
-    can_signals_send(parameters);
-#endif /* CAN_SIGNALS_SEND_GENERIC_MESSAGES */
+    if (DelayDiff(now, gLoggetCommLast) >= 3000000) {
+      can_log_signals_send(parameters);
+    }
   }
 
   if (DelayDiff(now, etc_last) >= 5000) {
     etc_last = now;
     if(gEcuParams.useEtc) {
-      can_etc_send(parameters);
+      can_etc_signals_send(parameters);
     }
   }
 }
