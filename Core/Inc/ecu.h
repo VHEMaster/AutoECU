@@ -14,6 +14,7 @@
 void ecu_init(RTC_HandleTypeDef *_hrtc);
 void ecu_loop(void);
 void ecu_irq_slow_loop(void);
+void ecu_irq_mid_loop(void);
 void ecu_irq_fast_loop(void);
 void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length);
 void ecu_hardfault_handle(void);

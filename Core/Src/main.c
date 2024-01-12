@@ -49,6 +49,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim9;
 TIM_HandleTypeDef htim10;
@@ -72,6 +73,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM6_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_TIM10_Init(void);
@@ -106,6 +108,13 @@ volatile static uint16_t fast_irq_times = 0;
 volatile static uint32_t fast_irq_time = 0;
 volatile static float fast_irq_avg = 0;
 volatile static float fast_irq_max = 0;
+
+volatile static uint32_t mid_irq_start = 0;
+volatile static uint32_t mid_irq_end = 0;
+volatile static uint16_t mid_irq_times = 0;
+volatile static uint32_t mid_irq_time = 0;
+volatile static float mid_irq_avg = 0;
+volatile static float mid_irq_max = 0;
 
 volatile static uint32_t slow_irq_start = 0;
 volatile static uint32_t slow_irq_end = 0;
@@ -203,6 +212,36 @@ STATIC_INLINE void slow_loop(void)
 #endif
 }
 
+STATIC_INLINE void mid_loop(void)
+{
+#ifdef DEBUG
+  mid_irq_start = Delay_Tick;
+#endif
+
+  ecu_irq_mid_loop();
+
+#ifdef DEBUG
+  //For time measurement taken by the mid irq handler. No need to optimize anything here
+  mid_irq_end = Delay_Tick;
+  mid_irq_time = DelayDiff(mid_irq_end, mid_irq_start);
+
+  if(mid_irq_avg == 0)
+    mid_irq_avg = mid_irq_time;
+  else if(mid_irq_times < 1000) {
+    mid_irq_avg = mid_irq_avg * 0.99f + mid_irq_time * 0.01f;
+    if(mid_irq_time > mid_irq_max)
+      mid_irq_max = mid_irq_time;
+    else mid_irq_max = mid_irq_max * 0.99f + mid_irq_time * 0.01f;
+    mid_irq_times++;
+  } else {
+    mid_irq_avg = mid_irq_avg * 0.99999f + mid_irq_time * 0.00001f;
+    if(mid_irq_time > mid_irq_max)
+      mid_irq_max = mid_irq_time;
+    else mid_irq_max = mid_irq_max * 0.99999f + mid_irq_time * 0.00001f;
+  }
+#endif
+}
+
 INLINE ITCM_FUNC void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim13) {
@@ -215,6 +254,8 @@ INLINE ITCM_FUNC void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     injector_irq(InjectorCy4);
   } else if (htim == &htim3) {
     fast_loop();
+  } else if (htim == &htim6) {
+    mid_loop();
   } else if (htim == &htim4) {
     slow_loop();
   }
@@ -412,6 +453,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_TIM5_Init();
+  MX_TIM6_Init();
   MX_TIM8_Init();
   MX_TIM9_Init();
   MX_TIM10_Init();
@@ -515,6 +557,7 @@ int main(void)
   HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_3);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim6);
 
   Mics_Knock_Init();
 
@@ -1104,6 +1147,48 @@ static void MX_TIM5_Init(void)
   /* USER CODE BEGIN TIM5_Init 2 */
 
   /* USER CODE END TIM5_Init 2 */
+
+}
+
+/**
+ * @brief TIM6 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
+  TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) - 1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 1000000 / 5000 - 1;
+  htim6.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK) {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim6, &sClockSourceConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK) {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
 
 }
 

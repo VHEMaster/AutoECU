@@ -413,7 +413,7 @@ static const float gKnockDetectEndAngle = 70;
 
 volatile static uint8_t gEtcErrorReset = 0;
 volatile static uint32_t gEtcCommLast = 0;
-volatile static uint32_t gLoggetCommLast = 0;
+volatile static uint32_t gLoggerCommLast = 0;
 
 static sDrag Drag = {0};
 static sMem Mem = {0};
@@ -4967,12 +4967,20 @@ static void ecu_kline_init(void)
   kline_start();
 }
 
-static void ecu_can_process(void)
+static void ecu_can_mid_process(void)
+{
+  if(gStatus.CanInitStatus == HAL_OK) {
+    if(!gCanTestStarted) {
+      can_loop();
+    }
+  }
+}
+
+static void ecu_can_slow_process(void)
 {
   if(gStatus.CanInitStatus == HAL_OK) {
     if(!gCanTestStarted) {
       can_signals_update(&gParameters);
-      can_loop();
     }
   }
 }
@@ -5484,6 +5492,14 @@ void ecu_irq_fast_loop(void)
 #endif
 }
 
+void ecu_irq_mid_loop(void)
+{
+  if(!gEcuInitialized)
+    return;
+
+  ecu_can_mid_process();
+}
+
 void ecu_irq_slow_loop(void)
 {
   if(!gEcuInitialized)
@@ -5504,7 +5520,7 @@ void ecu_irq_slow_loop(void)
 
   ecu_drag_process();
   ecu_specific_parameters_loop();
-  ecu_can_process();
+  ecu_can_slow_process();
 
 #ifndef SIMULATION
   ecu_ign_process();
@@ -6200,7 +6216,7 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           break;
         case 0x110:
           can_signal_get_uint(&g_can_message_id110_LOG_ECU, &g_can_signal_id110_LOG_ECU_Unique, NULL);
-          gLoggetCommLast = now;
+          gLoggerCommLast = now;
           break;
         default:
           break;
@@ -6397,7 +6413,7 @@ static void can_signals_update(const sParameters *parameters)
 
   if (DelayDiff(now, signals_last) >= 10000) {
     signals_last = now;
-    if (DelayDiff(now, gLoggetCommLast) >= 3000000) {
+    if (DelayDiff(now, gLoggerCommLast) < 3000000) {
       can_log_signals_send(parameters);
     }
   }
