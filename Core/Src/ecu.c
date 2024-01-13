@@ -6393,6 +6393,35 @@ static void can_log_signals_send(const sParameters *parameters)
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_CurrentTable, parameters->CurrentTable);
   can_signal_append_uint(&g_can_message_id029_ECU, &g_can_signal_id029_ECU_InjectorChannel, parameters->InjectorChannel);
 
+  can_signal_message_clear(&g_can_message_id02A_ECU);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcTps1, parameters->AdcEtcTps1);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcTps2, parameters->AdcEtcTps2);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcPedal1, parameters->AdcEtcPedal1);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcPedal2, parameters->AdcEtcPedal2);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcRsvd5, parameters->AdcEtcRsvd5);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcRsvd6, parameters->AdcEtcRsvd6);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcReferenceVoltage, parameters->AdcEtcReferenceVoltage);
+  can_signal_append_float(&g_can_message_id02A_ECU, &g_can_signal_id02A_ECU_EtcAdcPowerVoltage, parameters->AdcEtcPowerVoltage);
+
+  can_signal_message_clear(&g_can_message_id02B_ECU);
+  can_signal_append_float(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcThrottleTargetPosition, parameters->ThrottleTargetPosition);
+  can_signal_append_float(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcThrottleDefaultPosition, parameters->ThrottleDefaultPosition);
+  can_signal_append_float(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcWishThrottleTargetPosition, parameters->WishThrottleTargetPosition);
+  can_signal_append_float(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcPedalPosition, parameters->PedalPosition);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcStandaloneFlag, parameters->EtcStandaloneFlag > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcMotorActive, parameters->EtcMotorActiveFlag > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcMotorFullCloseFlag, parameters->EtcMotorFullCloseFlag > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInCruizeStart, parameters->EtcInCruizeStart > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInCruizeStop, parameters->EtcInCruizeStop > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInBrake, parameters->EtcInBrake > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInRsvd4, parameters->EtcInRsvd4 > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInRsvd5, parameters->EtcInRsvd5 > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcInRsvd6, parameters->EtcInRsvd6 > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcOutCruizeG, parameters->EtcOutCruizeG > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcOutCruizeR, parameters->EtcOutCruizeR > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcOutRsvd3, parameters->EtcOutRsvd3 > 0);
+  can_signal_append_uint(&g_can_message_id02B_ECU, &g_can_signal_id02B_ECU_EtcOutRsvd4, parameters->EtcOutRsvd4 > 0);
+
   can_message_send(&g_can_message_id020_ECU);
   can_message_send(&g_can_message_id021_ECU);
   can_message_send(&g_can_message_id022_ECU);
@@ -6403,6 +6432,8 @@ static void can_log_signals_send(const sParameters *parameters)
   can_message_send(&g_can_message_id027_ECU);
   can_message_send(&g_can_message_id028_ECU);
   can_message_send(&g_can_message_id029_ECU);
+  can_message_send(&g_can_message_id02A_ECU);
+  can_message_send(&g_can_message_id02B_ECU);
 }
 
 static void can_signals_update(const sParameters *parameters)
