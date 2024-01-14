@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <limits.h>
 #include <math.h>
 #include "main.h"
 #include "defines.h"
@@ -93,17 +94,19 @@ HAL_StatusTypeDef can_signal_get_raw(const sCanMessage *message, const sCanSigna
   uint64_t frame;
   uint32_t mask;
 
-  memcpy(&frame, message->MessageBuffer, sizeof(uint64_t));
+  if(p_raw_value) {
+    memcpy(&frame, message->MessageBuffer, sizeof(uint64_t));
 
-  mask = (1 << signal->LengthBit) - 1;
+    mask = (1 << signal->LengthBit) - 1;
 
-  //TODO: optimize it later to avoid U64 type usage
-  value = frame >> signal->StartBit;
-  value &= mask;
+    //TODO: optimize it later to avoid U64 type usage
+    value = frame >> signal->StartBit;
+    value &= mask;
 
-  *p_raw_value = value;
+    *p_raw_value = value;
 
-  ret = HAL_OK;
+    ret = HAL_OK;
+  }
 
   return ret;
 }
@@ -114,16 +117,73 @@ HAL_StatusTypeDef can_signal_get_float(const sCanMessage *message, const sCanSig
   uint32_t raw_value;
   float value;
 
-  ret = can_signal_get_raw(message, signal, &raw_value);
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
 
-  value = raw_value;
-  if (signal->Gain != 1.0f) {
-    value *= signal->Gain;
-  }
-  value += signal->Offset;
+    value = raw_value;
+    if (signal->Gain != 1.0f) {
+      value *= signal->Gain;
+    }
+    value += signal->Offset;
 
-  if (p_value) {
     *p_value = value;
+  }
+
+  return ret;
+}
+
+HAL_StatusTypeDef can_signal_get_uint(const sCanMessage *message, const sCanSignal *signal, uint32_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = raw_value;
+  }
+
+  return ret;
+}
+
+HAL_StatusTypeDef can_signal_get_uint8(const sCanMessage *message, const sCanSignal *signal, uint8_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = MIN(raw_value, UCHAR_MAX);
+  }
+
+  return ret;
+}
+
+
+HAL_StatusTypeDef can_signal_get_uint16(const sCanMessage *message, const sCanSignal *signal, uint16_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = MIN(raw_value, USHRT_MAX);
+  }
+
+  return ret;
+}
+
+HAL_StatusTypeDef can_signal_get_int(const sCanMessage *message, const sCanSignal *signal, int32_t *p_value)
+{
+  HAL_StatusTypeDef ret = HAL_ERROR;
+  uint32_t raw_value;
+
+  if(p_value) {
+    ret = can_signal_get_raw(message, signal, &raw_value);
+
+    *p_value = raw_value;
   }
 
   return ret;
