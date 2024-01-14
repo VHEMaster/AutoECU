@@ -2057,6 +2057,15 @@ static void ecu_update(void)
     idle_wish_valve_pos = gForceParameters.WishIdleValvePosition;
   }
 
+  if(gForceParameters.Enable.MaximumThrottlePosition) {
+    if(throttle_target > gForceParameters.MaximumThrottlePosition) {
+      throttle_target = gForceParameters.MaximumThrottlePosition;
+    }
+    gParameters.MaximumThrottlePosition = gForceParameters.MaximumThrottlePosition;
+  } else {
+    gParameters.MaximumThrottlePosition = 100.0f;
+  }
+
   if(gForceParameters.Enable.WishThrottleTargetPosition) {
     math_pid_reset(&gPidIdleThrottleAirFlow, now);
     math_pid_reset(&gPidIdleThrottleRpm, now);
