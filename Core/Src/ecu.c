@@ -784,6 +784,7 @@ static void ecu_update(void)
   uint8_t calibration_permitted_to_perform = 0;
   uint8_t idle_calibration = gEcuParams.performIdleAdaptation;
   uint8_t use_idle_valve = gEcuParams.useIdleValve;
+  uint8_t use_etc = gEcuParams.useEtc;
   uint8_t use_map_sensor = 1;
   uint8_t use_tps_sensor = 1;
   uint32_t now = Delay_Tick;
@@ -1142,7 +1143,7 @@ static void ecu_update(void)
 #else
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
-  if(gEcuParams.useEtc) {
+  if(use_etc) {
     tps_status |= gStatus.Etc.Tps1;
     tps_status |= gStatus.Etc.Tps2;
     tps_status |= gStatus.Etc.TpsMismatch;
@@ -1283,7 +1284,7 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Knock = HAL_OK;
   }
 
-  if(gEcuParams.useEtc) {
+  if(use_etc) {
     throttle_idle_flag = pedal <= 0.05f;
   } else {
     throttle_idle_flag = throttle < 0.2f;
@@ -1554,7 +1555,7 @@ static void ecu_update(void)
     }
   }
 
-  if(gEcuParams.useEtc) {
+  if(use_etc) {
     ignition_advance = ignition_advance * pedal_ignition_control_value + idle_wish_ignition  * (1.0f - pedal_ignition_control_value);
   } else {
     ignition_advance = idle_wish_ignition * idle_ignition_time_by_tps_value + ignition_advance * (1.0f - idle_ignition_time_by_tps_value);
@@ -1743,7 +1744,7 @@ static void ecu_update(void)
   enrichment_load_value = 0;
   if(enrichment_load_type == 0) {
     if(use_tps_sensor) {
-      if(gEcuParams.useEtc) {
+      if(use_etc) {
         if(gParameters.EtcMotorActiveFlag && !gParameters.EtcMotorFullCloseFlag) {
           enrichment_load_value = throttle_target_pedal;
         }
@@ -1981,23 +1982,26 @@ static void ecu_update(void)
       if(halfturns_performed) {
         idle_advance_correction = math_pid_update(&gPidIdleIgnition, rpm, now);
       }
+
       if(use_idle_valve && use_map_sensor) {
         if(halfturns_performed) {
           idle_valve_pos_correction = math_pid_update(&gPidIdleValveAirFlow, mass_air_flow, now);
           idle_valve_pos_correction += math_pid_update(&gPidIdleValveRpm, rpm, now);
-          if (gEcuParams.useEtc && gStatus.Sensors.Struct.ThrottlePos == HAL_OK) {
-            throttle_target_idle_correction = math_pid_update(&gPidIdleThrottleAirFlow, mass_air_flow, now);
-            throttle_target_idle_correction += math_pid_update(&gPidIdleThrottleRpm, rpm, now);
-          } else {
-            throttle_target_idle_correction = 0;
-          }
         }
       } else {
         math_pid_reset(&gPidIdleValveAirFlow, now);
         math_pid_reset(&gPidIdleValveRpm, now);
+        idle_valve_pos_correction = 0;
+      }
+
+      if(use_etc && use_map_sensor && use_tps_sensor) {
+        if(halfturns_performed) {
+          throttle_target_idle_correction = math_pid_update(&gPidIdleThrottleAirFlow, mass_air_flow, now);
+          throttle_target_idle_correction += math_pid_update(&gPidIdleThrottleRpm, rpm, now);
+        }
+      } else {
         math_pid_reset(&gPidIdleThrottleAirFlow, now);
         math_pid_reset(&gPidIdleThrottleRpm, now);
-        idle_valve_pos_correction = 0;
         throttle_target_idle_correction = 0;
       }
     } else {
@@ -2700,7 +2704,7 @@ static void ecu_update(void)
   gParameters.CalculatedAirTemp = calculated_air_temp;
   gParameters.ManifoldAirPressure = pressure;
 
-  if(gEcuParams.useEtc) {
+  if(use_etc) {
     gParameters.WishThrottleTargetPosition = throttle_target;
   } else {
     gParameters.ThrottlePosition = throttle;
