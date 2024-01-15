@@ -2368,7 +2368,7 @@ static void ecu_update(void)
 
       if(calibration && corr_math_interpolate_2d_set_func) {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid &&
-            (idle_calibration || !idle_flag) && calibration_permitted_to_perform) {
+            (idle_calibration || !idle_corr_flag) && calibration_permitted_to_perform) {
           gEcuCorrections.long_term_correction = 0.0f;
           gEcuCorrections.idle_correction = 0.0f;
           short_term_correction = 0.0f;
