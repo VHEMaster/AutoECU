@@ -113,7 +113,7 @@ typedef struct {
             HAL_StatusTypeDef Tsps : 2;
             HAL_StatusTypeDef AirTemp : 2;
             HAL_StatusTypeDef EngineTemp : 2;
-            HAL_StatusTypeDef ThrottlePos : 2;
+            HAL_StatusTypeDef Tps : 2;
             HAL_StatusTypeDef ReferenceVoltage : 2;
             HAL_StatusTypeDef PowerVoltage : 2;
             HAL_StatusTypeDef Lambda : 2;
@@ -1147,11 +1147,11 @@ static void ecu_update(void)
     tps_status |= gStatus.Etc.Tps1;
     tps_status |= gStatus.Etc.Tps2;
     tps_status |= gStatus.Etc.TpsMismatch;
-    gStatus.Sensors.Struct.ThrottlePos = tps_status;
+    gStatus.Sensors.Struct.Tps = tps_status;
     throttle = gParameters.ThrottlePosition;
     pedal = gParameters.PedalPosition;
   } else {
-    gStatus.Sensors.Struct.ThrottlePos = sens_get_throttle_position(&throttle);
+    gStatus.Sensors.Struct.Tps = sens_get_throttle_position(&throttle);
   }
   gStatus.Sensors.Struct.Map = sens_get_map(&pressure);
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
@@ -1171,7 +1171,7 @@ static void ecu_update(void)
     use_map_sensor = 0;
   }
 
-  if(use_tps_sensor && gStatus.Sensors.Struct.ThrottlePos != HAL_OK) {
+  if(use_tps_sensor && gStatus.Sensors.Struct.Tps != HAL_OK) {
     use_tps_sensor = 0;
   }
 
@@ -4175,7 +4175,7 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckSensorTspsFailure, gStatus.Sensors.Struct.Tsps != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorAirTempFailure, gStatus.Sensors.Struct.AirTemp != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorEngineTempFailure, gStatus.Sensors.Struct.EngineTemp != HAL_OK);
-  CHECK_STATUS(iserror, CheckSensorTPSFailure, gStatus.Sensors.Struct.ThrottlePos != HAL_OK);
+  CHECK_STATUS(iserror, CheckSensorTPSFailure, gStatus.Sensors.Struct.Tps != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorRefVoltageFailure, gStatus.Sensors.Struct.ReferenceVoltage != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorPwrVoltageFailure, gStatus.Sensors.Struct.PowerVoltage != HAL_OK);
   CHECK_STATUS(iserror, CheckSensorLambdaFailure, gStatus.Sensors.Struct.Lambda != HAL_OK);
@@ -4321,7 +4321,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.not_used3 = 0;
   gDiagErrors.Bits.engine_temp_low = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
   gDiagErrors.Bits.lambda_low = gStatus.Sensors.Struct.Lambda != HAL_OK;
-  gDiagErrors.Bits.tps_low = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
+  gDiagErrors.Bits.tps_low = gStatus.Sensors.Struct.Tps != HAL_OK;
   gDiagErrors.Bits.maf_low = gStatus.Sensors.Struct.Map != HAL_OK;
   gDiagErrors.Bits.low_noise = (gStatus.Knock.GeneralStatus & KnockStatusLowNoise) > 0;
 
@@ -4330,7 +4330,7 @@ static void ecu_checkengine_loop(void)
   gDiagErrors.Bits.not_used5 = 0;
   gDiagErrors.Bits.engine_temp_high = gStatus.Sensors.Struct.EngineTemp != HAL_OK;
   gDiagErrors.Bits.lambda_high = gStatus.Sensors.Struct.Lambda != HAL_OK;
-  gDiagErrors.Bits.tps_high = gStatus.Sensors.Struct.ThrottlePos != HAL_OK;
+  gDiagErrors.Bits.tps_high = gStatus.Sensors.Struct.Tps != HAL_OK;
   gDiagErrors.Bits.maf_high = gStatus.Sensors.Struct.Map != HAL_OK;
   gDiagErrors.Bits.high_noise = (gStatus.Knock.GeneralStatus & KnockStatusDedonation) > 0;
 
