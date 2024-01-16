@@ -273,6 +273,17 @@ typedef volatile struct {
     uint8_t InjectionTriggered;
 } sIgnitionInjectionTest;
 
+typedef volatile struct {
+    float StartPosition;
+    uint32_t StartDelay;
+    float FinalPosition;
+    uint32_t MoveTime;
+    uint32_t FinalDelay;
+    float CurrentPosition;
+    uint32_t StartedTime;
+    uint8_t Stage;
+} sEtcTest;
+
 union {
     struct {
         uint8_t is_not_running : 1;
@@ -376,6 +387,7 @@ static sParameters gParameters = {0};
 static sParameters gSharedParameters = {0};
 static sForceParameters gForceParameters = {0};
 static sIgnitionInjectionTest gIITest = {0};
+static sEtcTest gEtcTest = {0};
 static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 static sProFIFO fifoAsyncInjection = {0};
 static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
@@ -2705,7 +2717,9 @@ static void ecu_update(void)
   gParameters.ManifoldAirPressure = pressure;
 
   if(use_etc) {
-    gParameters.WishThrottleTargetPosition = throttle_target;
+    if(gEtcTest.StartedTime == 0) {
+      gParameters.WishThrottleTargetPosition = throttle_target;
+    }
   } else {
     gParameters.ThrottlePosition = throttle;
   }
@@ -5417,6 +5431,51 @@ static void ecu_battery_charge_process(void)
   }
 }
 
+static void ecu_etc_test_process(void)
+{
+  uint32_t now = Delay_Tick;
+  uint32_t diff;
+  float throttle_position;
+
+  if(gEtcTest.StartedTime) {
+    if(!now)
+      now++;
+    diff = DelayDiff(now, gEtcTest.StartedTime);
+
+    if(gEtcTest.Stage == 0) {
+      if(diff < gEtcTest.StartDelay) {
+        gEtcTest.CurrentPosition = gEtcTest.StartPosition;
+        gParameters.WishThrottleTargetPosition = gEtcTest.CurrentPosition;
+      } else {
+        gEtcTest.Stage = 1;
+        gEtcTest.StartedTime = now;
+      }
+    } else if(gEtcTest.Stage == 1) {
+      throttle_position = (gEtcTest.FinalPosition - gEtcTest.StartPosition) * (diff / gEtcTest.MoveTime);
+      throttle_position += gEtcTest.StartPosition;
+      gEtcTest.CurrentPosition = CLAMP(throttle_position, 0.0f, 100.0f);
+      gParameters.WishThrottleTargetPosition = gEtcTest.CurrentPosition;
+
+      if(diff >= gEtcTest.MoveTime && ((gEtcTest.FinalPosition > gEtcTest.StartPosition && throttle_position >= gEtcTest.FinalPosition) ||
+          (gEtcTest.FinalPosition <= gEtcTest.StartPosition && throttle_position <= gEtcTest.FinalPosition))) {
+        gEtcTest.Stage = 2;
+        gEtcTest.StartedTime = now;
+      }
+    } else if(gEtcTest.Stage == 2) {
+      if(diff < gEtcTest.FinalDelay) {
+        gEtcTest.CurrentPosition = gEtcTest.FinalPosition;
+        gParameters.WishThrottleTargetPosition = gEtcTest.CurrentPosition;
+      } else {
+        gEtcTest.Stage = 0;
+        gEtcTest.StartedTime = 0;
+      }
+    } else {
+      gEtcTest.Stage = 0;
+      gEtcTest.StartedTime = 0;
+    }
+  }
+}
+
 static void ecu_csps_acceleration_callback(uint8_t cylinder, float acceleration)
 {
   if(gPhaseDetectActive && !gPhaseDetectCompleted) {
@@ -5450,6 +5509,9 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset(&gDiagWorkingMode, 0, sizeof(gDiagWorkingMode));
   memset(&gDiagErrors, 0, sizeof(gDiagErrors));
   memset(&gLocalParams, 0, sizeof(gLocalParams));
+
+  memset((void *)&gIITest, 0, sizeof(gIITest));
+  memset((void *)&gEtcTest, 0, sizeof(gEtcTest));
 
   gKalmanRpm = math_kalman_init(0.01f, 100.0f, 1.0f, 1.0f);
   math_kalman_set_state(&gKalmanRpm, 0.0f, 0.1f);
@@ -5536,6 +5598,8 @@ void ecu_irq_slow_loop(void)
   ecu_drag_process();
   ecu_specific_parameters_loop();
   ecu_can_slow_process();
+
+  ecu_etc_test_process();
 
 #ifndef SIMULATION
   ecu_ign_process();
@@ -6105,6 +6169,28 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
 
       PK_IgnitionInjectionTestResponse.ErrorCode = 0;
       PK_SendCommand(xChaSrc, &PK_IgnitionInjectionTestResponse, sizeof(PK_IgnitionInjectionTestResponse));
+      break;
+
+    case PK_EtcTestRequestID :
+      PK_Copy(&PK_EtcTestRequest, msgBuf);
+
+      gEtcTest.Stage = 0;
+      gEtcTest.StartedTime = 0;
+
+      gEtcTest.StartPosition = PK_EtcTestRequest.StartPosition;
+      gEtcTest.StartDelay = PK_EtcTestRequest.StartDelay * 1000;
+      gEtcTest.FinalPosition = PK_EtcTestRequest.FinalPosition;
+      gEtcTest.MoveTime = PK_EtcTestRequest.MoveTime * 1000;
+      gEtcTest.FinalDelay = PK_EtcTestRequest.FinalDelay * 1000;
+
+      if(gEtcTest.MoveTime > 0 && gEtcTest.StartDelay > 0) {
+        gEtcTest.StartedTime = Delay_Tick;
+        if(gEtcTest.StartedTime == 0)
+          gEtcTest.StartedTime++;
+      }
+
+      PK_EtcTestResponse.ErrorCode = 0;
+      PK_SendCommand(xChaSrc, &PK_EtcTestResponse, sizeof(PK_EtcTestResponse));
       break;
 
     default:
