@@ -4188,10 +4188,12 @@ static void ecu_checkengine_loop(void)
 
 #if defined(INJECTORS_ON_INJ_CH1_ONLY) && INJECTORS_ON_INJ_CH1_ONLY == 1
   if(gParameters.InjectorChannel == InjectorChannel1) {
+#endif
     CHECK_STATUS(iserror, CheckInjector4OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy4 == OutputDiagOpenCircuit);
     CHECK_STATUS(iserror, CheckInjector3OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy3 == OutputDiagOpenCircuit);
     CHECK_STATUS(iserror, CheckInjector2OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy2 == OutputDiagOpenCircuit);
     CHECK_STATUS(iserror, CheckInjector1OpenCircuit, gStatus.OutputDiagnostic.Injectors.Diagnostic.Data.InjCy1 == OutputDiagOpenCircuit);
+#if defined(INJECTORS_ON_INJ_CH1_ONLY) && INJECTORS_ON_INJ_CH1_ONLY == 1
   }
 #endif
 
