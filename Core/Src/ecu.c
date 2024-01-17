@@ -1756,13 +1756,7 @@ static void ecu_update(void)
   enrichment_load_value = 0;
   if(enrichment_load_type == 0) {
     if(use_tps_sensor) {
-      if(use_etc) {
-        if(gParameters.EtcMotorActiveFlag && !gParameters.EtcMotorFullCloseFlag) {
-          enrichment_load_value = throttle_target_pedal;
-        }
-      } else {
-        enrichment_load_value = throttle;
-      }
+      enrichment_load_value = throttle;
     }
   }
   else if(enrichment_load_type == 1) {
