@@ -2103,12 +2103,12 @@ static void ecu_update(void)
 
   if(!gIgnCanShutdown) {
 	  out_set_idle_valve(roundf(idle_wish_valve_pos));
-	  if (throttle_target <= 0.001f) {
+	  if (throttle_target <= 0.001f && gEtcTest.StartedTime == 0) {
       gParameters.EtcMotorFullCloseFlag = 1;
 	  } else {
       gParameters.EtcMotorFullCloseFlag = 0;
 	  }
-	  if(throttle_idle_time > 10.0f) {
+	  if(throttle_idle_time > 10.0f && gEtcTest.StartedTime == 0) {
 	    gParameters.EtcMotorActiveFlag = 0;
 	  } else {
       gParameters.EtcMotorActiveFlag = 1;
@@ -5451,7 +5451,7 @@ static void ecu_etc_test_process(void)
         gEtcTest.StartedTime = now;
       }
     } else if(gEtcTest.Stage == 1) {
-      throttle_position = (gEtcTest.FinalPosition - gEtcTest.StartPosition) * (diff / gEtcTest.MoveTime);
+      throttle_position = (gEtcTest.FinalPosition - gEtcTest.StartPosition) * ((float)diff / (float)gEtcTest.MoveTime);
       throttle_position += gEtcTest.StartPosition;
       gEtcTest.CurrentPosition = CLAMP(throttle_position, 0.0f, 100.0f);
       gParameters.WishThrottleTargetPosition = gEtcTest.CurrentPosition;
