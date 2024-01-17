@@ -1756,7 +1756,11 @@ static void ecu_update(void)
   enrichment_load_value = 0;
   if(enrichment_load_type == 0) {
     if(use_tps_sensor) {
-      enrichment_load_value = throttle;
+      if(use_etc) {
+        enrichment_load_value = gParameters.WishThrottleTargetPosition;
+      } else {
+        enrichment_load_value = throttle;
+      }
     }
   }
   else if(enrichment_load_type == 1) {
@@ -2715,6 +2719,7 @@ static void ecu_update(void)
       gParameters.WishThrottleTargetPosition = throttle_target;
     }
   } else {
+    gParameters.WishThrottleTargetPosition = throttle;
     gParameters.ThrottlePosition = throttle;
   }
   gParameters.ReferenceVoltage = reference_voltage;
