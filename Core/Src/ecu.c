@@ -846,7 +846,7 @@ static void ecu_update(void)
   float tsps_relative_position_table;
   float tsps_desync_thr_table;
 
-  float rpm;
+  float rpm, rps;
   float pressure;
   float fuel_ratio;
   float lambda_value;
@@ -1086,7 +1086,7 @@ static void ecu_update(void)
   static float knock_running_time = 0;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
-  HAL_StatusTypeDef tps_status = gStatus.Etc.Comm;
+  HAL_StatusTypeDef tps_status;
 
   float map_lpf;
 
@@ -1119,6 +1119,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
   rpm = math_kalman_correct(&gKalmanRpm, rpm);
+  rps = rpm * 0.01666667f;
   speed = speed_getspeed();
   knock_status = Knock_GetStatus();
 
@@ -1156,6 +1157,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.PowerVoltage = sens_get_power_voltage(&power_voltage);
   gStatus.Sensors.Struct.ReferenceVoltage = sens_get_reference_voltage(&reference_voltage);
   if(use_etc) {
+    tps_status = gStatus.Etc.Comm;
     tps_status |= gStatus.Etc.Tps1;
     tps_status |= gStatus.Etc.Tps2;
     tps_status |= gStatus.Etc.TpsMismatch;
@@ -1171,12 +1173,12 @@ static void ecu_update(void)
 #endif
 
   if(running) {
-    map_lpf = period_half * 0.000001f * 1.3f; // Let LPF filters it not really completly
+    map_lpf = rps * 2.0f * 0.001f;
+    map_lpf = CLAMP(map_lpf, 0.0f, 1.0f);
   } else {
     map_lpf = 1.0f;
   }
 
-  map_lpf = CLAMP(map_lpf, 0.0f, 1.0f);
   gStatus.Sensors.Struct.Map |= sens_set_map_lpf(map_lpf);
 
   if(use_map_sensor && gStatus.Sensors.Struct.Map != HAL_OK) {
