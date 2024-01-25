@@ -142,10 +142,12 @@ typedef struct {
         uint32_t DetonationCount;
         uint32_t DetonationCountCy[ECU_CYLINDERS_COUNT];
         float Voltages[ECU_CYLINDERS_COUNT];
+        float VoltagesCorrected[ECU_CYLINDERS_COUNT];
         float VoltagesLpf[ECU_CYLINDERS_COUNT];
         float Denoised[ECU_CYLINDERS_COUNT];
         float Detonates[ECU_CYLINDERS_COUNT];
         float Advances[ECU_CYLINDERS_COUNT];
+        float AdvancesFinal[ECU_CYLINDERS_COUNT];
         uint32_t LastTime[ECU_CYLINDERS_COUNT];
         uint32_t Period[ECU_CYLINDERS_COUNT];
         float Voltage;
@@ -2125,8 +2127,10 @@ static void ecu_update(void)
       knock_cy_level_multiplier_correction[i] = math_interpolate_1d(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i]);
       knock_cy_level_multiplier[i] *= knock_cy_level_multiplier_correction[i] + 1.0f;
       knock_cy_level_multiplier[i] = CLAMP(knock_cy_level_multiplier[i], 0.1f, 5.0f);
+
       if(gStatus.Knock.Updated[i]) {
-        gStatus.Knock.Denoised[i] = (gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i]) - knock_noise_level;
+        gStatus.Knock.VoltagesCorrected[i] = gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
+        gStatus.Knock.Denoised[i] = gStatus.Knock.VoltagesCorrected[i] - knock_noise_level;
         gStatus.Knock.Detonates[i] = (gStatus.Knock.Denoised[i] / knock_cy_level_multiplier[i]) - knock_threshold;
         if(gStatus.Knock.Denoised[i] < 0.0f)
           gStatus.Knock.Denoised[i] = 0.0f;
@@ -2259,8 +2263,8 @@ static void ecu_update(void)
             }
             knock_low_noise_lpf = gStatus.Knock.Period[i] * 0.000001f * 0.33f; // 3.0 seconds
             knock_low_noise_lpf = CLAMP(knock_low_noise_lpf, 0.0f, 0.2f);
-            if(gStatus.Knock.Voltages[i] < knock_noise_level * 0.5f) {
-              knock_low_noise_state[i] = knock_low_noise_state[i] * (1.0f - knock_low_noise_lpf) + 1.0f * knock_low_noise_lpf;
+            if(gStatus.Knock.VoltagesCorrected[i] < knock_noise_level * 0.5f) {
+              knock_low_noise_state[i] = knock_low_noise_state[i] * (1.0f - knock_low_noise_lpf) + knock_low_noise_lpf;
             } else {
               knock_low_noise_state[i] *= 1.0f - knock_low_noise_lpf;
             }
@@ -2284,6 +2288,8 @@ static void ecu_update(void)
       memset(gStatus.Knock.Detonates, 0, sizeof(gStatus.Knock.Detonates));
       memset(gStatus.Knock.Voltages, 0, sizeof(gStatus.Knock.Voltages));
       memset(gStatus.Knock.Updated, 0, sizeof(gStatus.Knock.Updated));
+      memset(gStatus.Knock.AdvancesFinal, 0, sizeof(gStatus.Knock.AdvancesFinal));
+      memset(gStatus.Knock.VoltagesCorrected, 0, sizeof(gStatus.Knock.VoltagesCorrected));
       memset(gStatus.Knock.UpdatedInternally, 0, sizeof(gStatus.Knock.UpdatedInternally));
       memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
 
@@ -2293,7 +2299,6 @@ static void ecu_update(void)
         knock_running_time = 0;
       }
     }
-
 
     gStatus.Knock.Advance = 0;
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
@@ -2490,7 +2495,7 @@ static void ecu_update(void)
               }
             }
           } else if(idle_flag) {
-            if(engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD) {
+            if(engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD && knock_running) {
               for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
                 if(gStatus.Knock.UpdatedAdaptation[i]) {
                   knock_lpf_calculation *= 0.3f; //3 sec
@@ -2515,8 +2520,12 @@ static void ecu_update(void)
             memset(gStatus.Knock.UpdatedAdaptation, 0, sizeof(gStatus.Knock.UpdatedAdaptation));
           }
         }
+        memset(gStatus.Knock.AdvancesFinal, 0, sizeof(gStatus.Knock.AdvancesFinal));
       } else {
         memset(gStatus.Knock.AdaptationDetonates, 0, sizeof(gStatus.Knock.AdaptationDetonates));
+        for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+          gStatus.Knock.AdvancesFinal[i] = gStatus.Knock.Advances[i] * table->knock_ign_corr_max * knock_zone;
+        }
       }
 
       if(!calibration || (!idle_calibration && idle_flag) || !calibrate_gbc) {
@@ -3426,6 +3435,7 @@ ITCM_FUNC void ecu_process(void)
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     cy_corr_ignition[i] = table->cy_corr_ignition[i];
     cy_corr_ignition[i] += gLocalParams.IgnitionCorrectionCy[i];
+    cy_corr_ignition[i] += gStatus.Knock.AdvancesFinal[i];
   }
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
