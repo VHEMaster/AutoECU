@@ -2498,18 +2498,21 @@ static void ecu_update(void)
             if(engine_temp >= KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD && knock_running) {
               for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
                 if(gStatus.Knock.UpdatedAdaptation[i]) {
-                  knock_lpf_calculation *= 0.3f; //3 sec
 
-                  knock_cy_level_diff = knock_noise_level;
-                  knock_cy_level_diff /= gStatus.Knock.Voltages[i] * knock_cy_level_multiplier[i];
-                  knock_cy_level_diff -= 1.0f;
+                  if(gStatus.Knock.VoltagesCorrected[i] > knock_noise_level * 0.2f) {
+                    knock_lpf_calculation *= 0.3f; //3 sec
 
-                  knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
-                  math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+                    knock_cy_level_diff = knock_noise_level;
+                    knock_cy_level_diff /= gStatus.Knock.VoltagesCorrected[i];
+                    knock_cy_level_diff -= 1.0f;
 
-                  calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
-                  calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
-                  math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
+                    knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
+                    math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+
+                    calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
+                    calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
+                    math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
+                  }
                   gStatus.Knock.UpdatedAdaptation[i] = 0;
                 }
               }
