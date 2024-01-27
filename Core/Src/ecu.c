@@ -1301,7 +1301,7 @@ static void ecu_update(void)
   }
 
   if(use_etc) {
-    throttle_idle_flag = pedal <= 0.05f;
+    throttle_idle_flag = pedal <= 0.2f;
   } else {
     throttle_idle_flag = throttle < 0.2f;
   }
