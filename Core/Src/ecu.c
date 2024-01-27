@@ -894,10 +894,12 @@ static void ecu_update(void)
   float cycle_air_flow_map;
   float cycle_air_flow_tps;
   float cycle_air_flow;
+  float cycle_air_flow_idle_diff;
   float filling_map_tps_diff;
   float air_temp_recalc_mult;
   float cycle_air_flow_injection;
   float cycle_air_flow_injection_startup;
+  float idle_wish_cycle_air_flow;
   float mass_air_flow;
   float injection_time;
 
@@ -989,7 +991,8 @@ static void ecu_update(void)
 
   float warmup_mixture;
   float warmup_mix_koff;
-  float warmup_mix_corr;
+  float warmup_idle_mix_corr;
+  float warmup_idle_mix_corr_final;
   float air_temp_mix_corr;
   float air_temp_ign_corr;
   float engine_temp_mix_corr;
@@ -1449,6 +1452,7 @@ static void ecu_update(void)
   engine_load = MAX(engine_load, 0);
 
   mass_air_flow = rpm * cycle_air_flow * 0.00012f;
+  idle_wish_cycle_air_flow = idle_wish_massair / 0.00012f / rpm;
 
   if(is_cold_start) {
     if(running) {
@@ -1621,7 +1625,7 @@ static void ecu_update(void)
     injection_phase = injection_phase_start;
   }
 
-  warmup_mix_corr = math_interpolate_1d(ipEngineTemp, table->warmup_mix_corrs);
+  warmup_idle_mix_corr = math_interpolate_1d(ipEngineTemp, table->warmup_mix_corrs);
   warmup_mix_koff = math_interpolate_1d(ipEngineTemp, table->warmup_mix_koffs);
   if(warmup_mix_koff > 0.003f) {
     warmup_mixture = math_interpolate_1d(ipEngineTemp, table->warmup_mixtures);
@@ -1732,8 +1736,16 @@ static void ecu_update(void)
     start_filling_mult = 0.0f;
   }
 
+  if(running) {
+    cycle_air_flow_idle_diff = idle_wish_cycle_air_flow / cycle_air_flow;
+    cycle_air_flow_idle_diff = CLAMP(cycle_air_flow_idle_diff, 0.0f, 1.0f);
+    warmup_idle_mix_corr_final = cycle_air_flow_idle_diff * warmup_idle_mix_corr;
+  } else {
+    warmup_idle_mix_corr_final = 0.0f;
+  }
+
   injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
-  injection_time *= warmup_mix_corr + 1.0f;
+  injection_time *= warmup_idle_mix_corr_final + 1.0f;
   injection_time *= start_filling_mult + 1.0f;
   injection_time *= air_temp_mix_corr + 1.0f;
   injection_time *= engine_temp_mix_corr + 1.0f;
