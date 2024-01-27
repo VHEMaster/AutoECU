@@ -365,6 +365,9 @@ struct {
 
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
+
+    float KnockDetectPhaseStart;
+    float KnockDetectPhaseEnd;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -421,9 +424,6 @@ static sMathPid gPidIdleThrottleAirFlow = {0};
 static sMathPid gPidIdleThrottleRpm = {0};
 static sMathPid gPidIdleIgnition = {0};
 static sMathPid gPidShortTermCorr = {0};
-
-static const float gKnockDetectStartAngle = -100;
-static const float gKnockDetectEndAngle = 70;
 
 volatile static uint8_t gEtcErrorReset = 0;
 volatile static uint32_t gEtcCommLast = 0;
@@ -1054,6 +1054,8 @@ static void ecu_update(void)
   float calculate_cycle_air_flow_max;
   float calculate_cycle_air_flow_temp;
   float abs_knock_ign_corr_max;
+  float knock_detect_phase_start;
+  float knock_detect_phase_end;
 
   float learn_cycles_to_delay;
   float learn_cycles_delay_mult;
@@ -1491,6 +1493,8 @@ static void ecu_update(void)
   idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
   knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
   knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
+  knock_detect_phase_start = math_interpolate_1d(ipRpm, table->knock_detect_phase_start);
+  knock_detect_phase_end = math_interpolate_1d(ipRpm, table->knock_detect_phase_end);
 
   idle_wish_rpm += idle_rpm_shift;
 
@@ -2264,7 +2268,7 @@ static void ecu_update(void)
             gStatus.Knock.DetonationCountCy[i]++;
             gStatus.Knock.CylinderStatus[i] |= KnockStatusDedonation;
             gStatus.Knock.DetonationLastCy[i] = hal_now;
-            if(gStatus.Knock.Detonates[i] > 1.0f) {
+            if(gStatus.Knock.Detonates[i] > 0.7f) {
               gStatus.Knock.CylinderStatus[i] |= KnockStatusStrongDedonation;
               gStatus.Knock.StrongDetonationLastCy[i] = hal_now;
             }
@@ -2789,6 +2793,9 @@ static void ecu_update(void)
   gParameters.InjectionPulse = injection_time;
   if(enrichment_post_injection_enabled && enrichment_triggered_once)
     gLocalParams.EnrichmentTriggered = 1;
+
+  gLocalParams.KnockDetectPhaseStart = knock_detect_phase_start;
+  gLocalParams.KnockDetectPhaseEnd = knock_detect_phase_end;
 
   gParameters.InjectionDutyCycle = injection_dutycycle;
   gParameters.InjectionEnrichment = enrichment_result;
@@ -3689,7 +3696,7 @@ ITCM_FUNC void ecu_process(void)
         //Knock part
         if(running) {
           if(knock_busy && knock_process[knock_cylinder]) {
-            if(angle_knock[knock_cylinder] < gKnockDetectStartAngle || angle_knock[knock_cylinder] >= gKnockDetectEndAngle) {
+            if(angle_knock[knock_cylinder] < gLocalParams.KnockDetectPhaseStart || angle_knock[knock_cylinder] >= gLocalParams.KnockDetectPhaseEnd) {
               Knock_SetState(KnockStateHold);
               knock_process[knock_cylinder] = 0;
               knock_busy = 0;
@@ -3697,7 +3704,7 @@ ITCM_FUNC void ecu_process(void)
           }
           if(!knock_busy) {
             for(int i = 0; i < cy_count_knock; i++) {
-              if(angle_knock[i] >= gKnockDetectStartAngle && angle_knock[i] < gKnockDetectEndAngle) {
+              if(angle_knock[i] >= gLocalParams.KnockDetectPhaseStart && angle_knock[i] < gLocalParams.KnockDetectPhaseEnd) {
                 if(knock_cylinder >= 0) {
                   knock = adc_get_voltage(AdcChKnock);
                   if(cy_count_knock == ECU_CYLINDERS_COUNT) {

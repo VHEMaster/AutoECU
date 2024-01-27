@@ -376,6 +376,16 @@ static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
 };
 
+static const float default_knock_detect_phase_start[TABLE_ROTATES_MAX] = {
+    -50, -50, -50, -50, -50, -50, -50, -50,
+    -50, -50, -50, -50, -50, -50, -50, -50
+};
+
+static const float default_knock_detect_phase_end[TABLE_ROTATES_MAX] = {
+    10, 10, 10, 10, 10, 10, 11, 12,
+    13, 14, 16, 18, 20, 20, 20, 20,
+};
+
 static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
     41, 41, 41, 41, 41, 41, 41, 41,
     41, 41, 41, 41, 41, 41, 41, 41,
@@ -843,6 +853,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_gain, default_knock_gain, sizeof(default_knock_gain));
   memcpy(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(default_knock_filter_frequency));
   memcpy(table->knock_cy_level_multiplier, default_knock_cy_level_multiplier, sizeof(default_knock_cy_level_multiplier));
+  memcpy(table->knock_detect_phase_start, default_knock_detect_phase_start, sizeof(default_knock_detect_phase_start));
+  memcpy(table->knock_detect_phase_end, default_knock_detect_phase_end, sizeof(default_knock_detect_phase_end));
 
   memcpy(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(default_tsps_relative_pos));
   memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
