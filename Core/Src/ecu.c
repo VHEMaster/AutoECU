@@ -434,6 +434,7 @@ static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
 static sMathKalmanCtx gKalmanRpm = {0};
+static sMathKalmanCtx gKalmanIdleCycleAirFlow = {0};
 
 static enum {
   PhaseDetectDisabled = 0,
@@ -894,6 +895,7 @@ static void ecu_update(void)
   float cycle_air_flow_map;
   float cycle_air_flow_tps;
   float cycle_air_flow;
+  float cycle_air_flow_kalman;
   float cycle_air_flow_idle_diff;
   float filling_map_tps_diff;
   float air_temp_recalc_mult;
@@ -1040,6 +1042,7 @@ static void ecu_update(void)
   float async_flow_per_cycle;
   float start_async_time;
   float idle_wish_to_rpm_relation;
+  float idle_wish_to_rpm_relation_1;
   float idle_ignition_time_by_tps;
   float idle_ignition_time_by_tps_lpf;
   float idle_econ_delay;
@@ -1126,6 +1129,7 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
   rpm = math_kalman_correct(&gKalmanRpm, rpm);
+
   rps = rpm * 0.01666667f;
   speed = speed_getspeed();
   knock_status = Knock_GetStatus();
@@ -1442,20 +1446,6 @@ static void ecu_update(void)
     filling_nmap_tps_koff = 0.5f;
   }
 
-  cycle_air_flow = cycle_air_flow_map * (1.0f - filling_nmap_tps_koff) + cycle_air_flow_tps * filling_nmap_tps_koff;
-
-  filling = cycle_air_flow / calculate_cycle_air_flow_max;
-  learn_cycles_to_delay = 1.0f / filling;
-  learn_cycles_to_delay *= learn_cycles_delay_mult;
-  learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
-  learn_cycles_to_delay = CLAMP(learn_cycles_to_delay, 0.0f, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
-
-  engine_load = filling * 100.0f;
-  engine_load = MAX(engine_load, 0);
-
-  mass_air_flow = rpm * cycle_air_flow * 0.00012f;
-  idle_wish_cycle_air_flow = idle_wish_massair / 0.00012f / rpm;
-
   if(is_cold_start) {
     if(running) {
       is_cold_start = 0;
@@ -1473,17 +1463,10 @@ static void ecu_update(void)
   enrichment_temp_mult = math_interpolate_1d(ipEngineTemp, table->enrichment_temp_mult);
   enrichment_injection_phase = math_interpolate_1d(ipRpm, table->enrichment_injection_phase);
 
-  ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
-
   start_ignition_advance = math_interpolate_1d(ipEngineTemp, table->start_ignition);
-  ignition_advance = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
   idle_ignition_time_by_tps = math_interpolate_1d(ipThrottle, table->idle_ignition_time_by_tps);
   idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
   start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
-
-  ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
-  air_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
-  engine_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
 
   idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
   idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
@@ -1502,6 +1485,13 @@ static void ecu_update(void)
     idle_wish_rpm = gForceParameters.WishIdleRPM;
 
   idle_wish_to_rpm_relation = rpm / idle_wish_rpm;
+
+  if(idle_wish_to_rpm_relation > 1.0f) {
+    idle_wish_to_rpm_relation_1 = 1.0f / idle_wish_to_rpm_relation;
+  } else {
+    idle_wish_to_rpm_relation_1 = idle_wish_to_rpm_relation;
+  }
+  idle_wish_to_rpm_relation_1 = powf(idle_wish_to_rpm_relation_1, 3.0f);
 
   idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
   idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
@@ -1530,11 +1520,41 @@ static void ecu_update(void)
     idle_econ_time += diff_sec;
   else idle_econ_time = 0;
 
-  ignition_corr_final = ignition_correction;
-
   idle_rpm_flag_koff = diff_sec * 4.0f; // 0.25 sec
   idle_rpm_flag_koff = CLAMP(idle_rpm_flag_koff, 0.000001f, 0.90f);
   idle_rpm_flag_value = idle_rpm_flag * idle_rpm_flag_koff + idle_rpm_flag_value * (1.0f - idle_rpm_flag_koff);
+
+  cycle_air_flow = cycle_air_flow_map * (1.0f - filling_nmap_tps_koff) + cycle_air_flow_tps * filling_nmap_tps_koff;
+
+  cycle_air_flow_kalman = math_kalman_correct(&gKalmanIdleCycleAirFlow, cycle_air_flow);
+
+  if(idle_flag && idle_corr_flag) {
+    cycle_air_flow = cycle_air_flow_kalman * idle_wish_to_rpm_relation_1 + cycle_air_flow * 1.0f - (idle_wish_to_rpm_relation_1);
+  } else {
+    math_kalman_set_state(&gKalmanIdleCycleAirFlow, cycle_air_flow, 0.1f);
+  }
+
+  filling = cycle_air_flow / calculate_cycle_air_flow_max;
+  learn_cycles_to_delay = 1.0f / filling;
+  learn_cycles_to_delay *= learn_cycles_delay_mult;
+  learn_cycles_to_delay *= ECU_CYLINDERS_COUNT;
+  learn_cycles_to_delay = CLAMP(learn_cycles_to_delay, 0.0f, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
+
+  engine_load = filling * 100.0f;
+  engine_load = MAX(engine_load, 0);
+
+  mass_air_flow = rpm * cycle_air_flow * 0.00012f;
+  idle_wish_cycle_air_flow = idle_wish_massair / 0.00012f / rpm;
+
+  ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
+
+  ignition_advance = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
+  ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
+  air_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
+  engine_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
+
+  ignition_corr_final = ignition_correction;
+
 
   if(idle_ignition_time_by_tps < diff_sec) {
     idle_ignition_time_by_tps_lpf = 1.0f;
@@ -5547,7 +5567,10 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset((void *)&gEtcTest, 0, sizeof(gEtcTest));
 
   gKalmanRpm = math_kalman_init(0.01f, 100.0f, 1.0f, 1.0f);
+  gKalmanIdleCycleAirFlow = math_kalman_init(0.005f, 100.0f, 1.0f, 1.0f);
+
   math_kalman_set_state(&gKalmanRpm, 0.0f, 0.1f);
+  math_kalman_set_state(&gKalmanIdleCycleAirFlow, 0.0f, 0.1f);
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   memset(gLearnParamsBuffer, 0, sizeof(gLearnParamsBuffer));
