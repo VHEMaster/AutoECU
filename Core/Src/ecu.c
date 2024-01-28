@@ -1083,7 +1083,9 @@ static void ecu_update(void)
   static uint8_t was_idle = 0;
   uint8_t idle_flag;
   uint8_t throttle_idle_flag;
+  uint8_t throttle_large_idle_flag;
   uint8_t idle_corr_flag;
+  uint8_t idle_pid_flag;
   uint8_t o2_valid = 0;
   uint8_t lambda_force = gEcuParams.isLambdaForceEnabled;
   uint8_t phased_mode = gEcuParams.phasedMode;
@@ -1307,8 +1309,10 @@ static void ecu_update(void)
 
   if(use_etc) {
     throttle_idle_flag = pedal <= 0.2f;
+    throttle_large_idle_flag = pedal <= 5.0f;
   } else {
     throttle_idle_flag = throttle < 0.2f;
+    throttle_large_idle_flag = throttle <= 1.0f;
   }
 
   if(rotates && running) {
@@ -1524,7 +1528,8 @@ static void ecu_update(void)
     }
   }
 
-  idle_corr_flag = idle_flag && idle_rpm_flag;
+  idle_corr_flag = throttle_large_idle_flag && running && idle_rpm_flag;
+  idle_pid_flag  = idle_flag && idle_rpm_flag;
   econ_flag = idle_flag && !idle_rpm_flag;
   if(econ_flag)
     idle_econ_time += diff_sec;
@@ -2050,9 +2055,9 @@ static void ecu_update(void)
 
   idle_wish_valve_pos = idle_table_valve_pos;
 
-  ecu_pid_update(idle_corr_flag, running, idle_wish_to_rpm_relation, now);
+  ecu_pid_update(idle_pid_flag, running, idle_wish_to_rpm_relation, now);
 
-  if(idle_corr_flag) {
+  if(idle_pid_flag) {
     idle_wish_valve_pos += idle_valve_pos_correction;
     throttle_target += throttle_target_adaptation;
     throttle_target += throttle_target_idle_correction;
