@@ -386,6 +386,11 @@ static const float default_knock_detect_phase_end[TABLE_ROTATES_MAX] = {
     13, 14, 16, 18, 20, 20, 20, 20,
 };
 
+static const float default_knock_integrator_time[TABLE_ROTATES_MAX] = {
+    22, 22, 22, 22, 22, 22, 22, 22,
+    22, 22, 22, 22, 22, 22, 22, 22,
+};
+
 static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
     41, 41, 41, 41, 41, 41, 41, 41,
     41, 41, 41, 41, 41, 41, 41, 41,
@@ -855,6 +860,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->knock_cy_level_multiplier, default_knock_cy_level_multiplier, sizeof(default_knock_cy_level_multiplier));
   memcpy(table->knock_detect_phase_start, default_knock_detect_phase_start, sizeof(default_knock_detect_phase_start));
   memcpy(table->knock_detect_phase_end, default_knock_detect_phase_end, sizeof(default_knock_detect_phase_end));
+  memcpy(table->knock_integrator_time, default_knock_integrator_time, sizeof(default_knock_integrator_time));
 
   memcpy(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(default_tsps_relative_pos));
   memcpy(table->tsps_desync_thr, default_tsps_desync_thr, sizeof(default_tsps_desync_thr));
@@ -920,7 +926,6 @@ void config_default_params(sEcuParams *table)
   table->useShortTermCorr = 0;
   table->useLongTermCorr = 0;
 
-  table->knockIntegratorTime = 22;
   table->learn_cycles_delay_mult = 2.0f;
   table->air_temp_corr_koff_min = 0.25f;
   table->air_temp_corr_koff_max = 0.9f;
