@@ -199,6 +199,17 @@ static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_
     { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, },
 };
 
+static const float default_enrichment_tps_selection[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+    { 0.00f, 0.40f, 0.60f, 0.85f, 0.97f, 1.00f, 1.00f, 1.00f, },
+    { 0.00f, 0.36f, 0.54f, 0.74f, 0.90f, 0.98f, 0.99f, 1.00f, },
+    { 0.00f, 0.28f, 0.48f, 0.62f, 0.77f, 0.89f, 0.98f, 1.00f, },
+    { 0.00f, 0.25f, 0.40f, 0.51f, 0.65f, 0.83f, 0.96f, 1.00f, },
+    { 0.00f, 0.20f, 0.33f, 0.42f, 0.55f, 0.79f, 0.89f, 1.00f, },
+    { 0.00f, 0.15f, 0.26f, 0.36f, 0.45f, 0.69f, 0.76f, 0.80f, },
+    { 0.00f, 0.10f, 0.21f, 0.29f, 0.38f, 0.54f, 0.62f, 0.65f, },
+    { 0.00f, 0.05f, 0.14f, 0.20f, 0.26f, 0.34f, 0.40f, 0.50f, },
+};
+
 static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
     0.30f, 0.30f, 0.30f, 0.32f, 0.35f, 0.39f, 0.43f, 0.48f,
     0.51f, 0.53f, 0.55f, 0.58f, 0.65f, 0.76f, 0.80f, 0.80f,
@@ -757,6 +768,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_ign_corr, default_enrichment_ign_corr, sizeof(default_enrichment_ign_corr));
   memcpy(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(default_enrichment_temp_mult));
   memcpy(table->enrichment_injection_phase, default_enrichment_injection_phase, sizeof(default_enrichment_injection_phase));
+  memcpy(table->enrichment_tps_selection, default_enrichment_tps_selection, sizeof(default_enrichment_tps_selection));
 
   table->fillings_count = ITEMSOF(default_fillings);
   memcpy(table->fillings, default_fillings, sizeof(default_fillings));

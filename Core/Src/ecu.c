@@ -950,6 +950,7 @@ static void ecu_update(void)
   static float enrichment_amount_sync = 0;
   static float enrichment_amount_async = 0;
   float enrichment_async_time;
+  static float enrichment_tps_selection = 0;
 
   int32_t enrichment_load_type;
   float enrichment_load_dead_band;
@@ -1453,6 +1454,7 @@ static void ecu_update(void)
   }
 
   cycle_air_flow = cycle_air_flow_map * (1.0f - filling_nmap_tps_koff) + cycle_air_flow_tps * filling_nmap_tps_koff;
+  cycle_air_flow = cycle_air_flow * (1.0f - enrichment_tps_selection) + cycle_air_flow_tps * enrichment_tps_selection;
 
   filling = cycle_air_flow / calculate_cycle_air_flow_max;
   learn_cycles_to_delay = 1.0f / filling;
@@ -1759,13 +1761,6 @@ static void ecu_update(void)
     warmup_idle_mix_corr_final = 0.0f;
   }
 
-  injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
-  injection_time *= warmup_idle_mix_corr_final + 1.0f;
-  injection_time *= start_filling_mult + 1.0f;
-  injection_time *= air_temp_mix_corr + 1.0f;
-  injection_time *= engine_temp_mix_corr + 1.0f;
-  injection_time *= cold_start_idle_mult + 1.0f;
-
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
   enrichment_accel_dead_band = table->enrichment_accel_dead_band;
@@ -1891,7 +1886,12 @@ static void ecu_update(void)
     ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
 
     enrichment_rate = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
+    enrichment_tps_selection = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_tps_selection);
     enrichment_rate *= enrichment_temp_mult + 1.0f;
+
+    if(!running) {
+      enrichment_tps_selection = 0.0f;
+    }
 
     enrichment_ign_corr = math_interpolate_2d_limit(ipEnrLoadStart, ipRpm, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_ign_corr);
 
@@ -1915,6 +1915,13 @@ static void ecu_update(void)
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
+
+  injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
+  injection_time *= warmup_idle_mix_corr_final + 1.0f;
+  injection_time *= start_filling_mult + 1.0f;
+  injection_time *= air_temp_mix_corr + 1.0f;
+  injection_time *= engine_temp_mix_corr + 1.0f;
+  injection_time *= cold_start_idle_mult + 1.0f;
 
   if(running && enrichment_async_enabled) {
     enrichment_async_period = period_half / enrichment_async_pulses_divider;
@@ -1942,6 +1949,8 @@ static void ecu_update(void)
     enrichment_async_last = now;
   }
 
+  injection_time *= enrichment_amount_sync + 1.0f;
+
   if(enrichment_phase_state > 0.001f && enrichment_injection_phase > injection_phase) {
     injection_phase = injection_phase * (1.0f - enrichment_phase_state) + enrichment_injection_phase * enrichment_phase_state;
   }
@@ -1952,16 +1961,17 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
 
-  injection_time *= enrichment_amount_sync + 1.0f;
-
-  if(!running)
+  if(!running) {
     injection_time *= injection_start_mult;
+  }
 
-  if(idle_flag)
-    injection_time *= gEcuCorrections.idle_correction + 1.0f;
-  else
-    injection_time *= gEcuCorrections.long_term_correction + 1.0f;
-  injection_time *= short_term_correction + 1.0f;
+  if(running) {
+    if(idle_flag)
+      injection_time *= gEcuCorrections.idle_correction + 1.0f;
+    else
+      injection_time *= gEcuCorrections.long_term_correction + 1.0f;
+    injection_time *= short_term_correction + 1.0f;
+  }
 
   min_injection_time = gLocalParams.PhasedInjection ? 400 : 800;
   if(injection_time < min_injection_time) {
