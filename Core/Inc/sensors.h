@@ -32,6 +32,7 @@ HAL_StatusTypeDef sens_get_throttle_position(float *output);
 HAL_StatusTypeDef sens_get_power_voltage(float *output);
 HAL_StatusTypeDef sens_get_reference_voltage(float *output);
 sO2Status sens_get_o2_status(void);
+HAL_StatusTypeDef sens_set_o2_lpf(float lpf);
 HAL_StatusTypeDef sens_get_o2_labmda(const sO2Status *p_status, float *output, uint8_t *valid);
 HAL_StatusTypeDef sens_get_o2_temperature(const sO2Status *p_status, float *output);
 HAL_StatusTypeDef sens_get_o2_diagnostic(const sO2Status *p_status, sO2Diagnostic *output);

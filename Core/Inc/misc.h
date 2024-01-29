@@ -46,6 +46,7 @@ typedef struct {
     float TemperatureVoltage;
     float Lambda;
     float Temperature;
+    float LambdaAdcLpf;
     volatile uint8_t Valid;
     eO2AmplificationFactor AmplificationFactor;
     uint8_t PumpReferenceCurrent;
@@ -89,6 +90,7 @@ HAL_StatusTypeDef Misc_O2_Init(uint32_t pwm_period, volatile uint32_t *pwm_duty)
 HAL_StatusTypeDef Mics_Knock_Init(void);
 HAL_StatusTypeDef Misc_Outs_GetDiagnostic(eMiscDiagChannels channel, uint8_t *byte);
 sO2Status Misc_O2_GetStatus(void);
+HAL_StatusTypeDef Misc_O2_SetLpf(float lpf);
 
 uint8_t Misc_GetIdleValvePosition(void);
 uint8_t Misc_IsIdleValveMoving(void);

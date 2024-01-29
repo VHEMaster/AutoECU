@@ -1098,7 +1098,8 @@ static void ecu_update(void)
   sO2Status o2_data = sens_get_o2_status();
   HAL_StatusTypeDef tps_status;
 
-  float map_lpf;
+  float sens_lpf_slow;
+  float sens_lpf_fast;
 
   if(!now)
     now++;
@@ -1183,13 +1184,16 @@ static void ecu_update(void)
 #endif
 
   if(running) {
-    map_lpf = rps * 2.0f * 0.001f;
-    map_lpf = CLAMP(map_lpf, 0.0f, 1.0f);
+    sens_lpf_slow = rps * 2.0f * 0.001f;
+    sens_lpf_fast = sens_lpf_slow * 2.0f;
+    sens_lpf_slow = CLAMP(sens_lpf_slow, 0.0f, 1.0f);
+    sens_lpf_fast = CLAMP(sens_lpf_fast, 0.0f, 1.0f);
   } else {
-    map_lpf = 1.0f;
+    sens_lpf_slow = 1.0f;
+    sens_lpf_fast = 1.0f;
   }
 
-  gStatus.Sensors.Struct.Map |= sens_set_map_lpf(map_lpf);
+  gStatus.Sensors.Struct.Map |= sens_set_map_lpf(sens_lpf_slow);
 
   if(use_map_sensor && gStatus.Sensors.Struct.Map != HAL_OK) {
     use_map_sensor = 0;
@@ -1251,6 +1255,7 @@ static void ecu_update(void)
   lambda_heatervoltage = 0;
   if(gEcuParams.useLambdaSensor) {
     gStatus.Sensors.Struct.Lambda = sens_get_o2_labmda(&o2_data, &lambda_value, &o2_valid);
+    gStatus.Sensors.Struct.Lambda |= sens_set_o2_lpf(sens_lpf_fast);
     if(gStatus.Sensors.Struct.Lambda == HAL_OK) {
       sens_get_o2_temperature(&o2_data, &lambda_temperature);
     }

@@ -156,6 +156,13 @@ INLINE sO2Status sens_get_o2_status(void)
   return o2status;
 }
 
+INLINE HAL_StatusTypeDef sens_set_o2_lpf(float lpf)
+{
+  HAL_StatusTypeDef o2status = Misc_O2_SetLpf(lpf);
+
+  return o2status;
+}
+
 INLINE HAL_StatusTypeDef sens_get_o2_labmda(const sO2Status *p_status, float *output, uint8_t *valid)
 {
   HAL_StatusTypeDef status = HAL_OK;

@@ -440,11 +440,13 @@ static void O2_CriticalLoop(void)
   float heatup_lpf_koff;
   uint32_t now = Delay_Tick;
   uint32_t diff = DelayDiff(now, last_process);
+
   O2Status.Lambda = O2_GetLambda(lambdavoltage, offsetvoltage);
   O2Status.Temperature = O2_GetTemperature(temperaturevoltage);
   O2Status.TemperatureVoltage = temperaturevoltage;
 
   if(O2Status.Available && O2Status.Working && O2Status.Valid) {
+    adc_set_lpf(AdcChO2UA, O2Status.LambdaAdcLpf);
     heatup_max_voltage = O2_MAX_VOLTAGE;
     if(diff >= 5000) {
       last_process = now;
@@ -452,6 +454,7 @@ static void O2_CriticalLoop(void)
       O2_SetHeaterVoltage(o2heater);
     }
   } else {
+    adc_set_lpf(AdcChO2UA, 1.0f);
     heatup_max_voltage = O2_HEATUP_MAX_VOLTAGE;
     last_process = now;
   }
@@ -759,6 +762,13 @@ static int8_t O2_Loop(void)
 sO2Status Misc_O2_GetStatus(void)
 {
   return O2Status;
+}
+
+HAL_StatusTypeDef Misc_O2_SetLpf(float lpf)
+{
+  O2Status.LambdaAdcLpf = CLAMP(lpf, 0.0f, 1.0f);
+
+  return HAL_OK;
 }
 
 static int8_t Outs_Loop(void)
