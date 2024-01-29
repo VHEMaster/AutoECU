@@ -806,6 +806,9 @@ static void ecu_update(void)
   float adapt_diff = DelayDiff(now, adaptation_last);
   float diff = DelayDiff(now, updated_last);
   float diff_sec = diff * 0.000001f;
+  static uint32_t enrichment_time_last = 0;
+  float enrichment_time_diff_sec;
+
   sMathInterpolateInput ipRpm;
   sMathInterpolateInput ipIdleRpm;
   sMathInterpolateInput ipPressure;
@@ -1829,6 +1832,7 @@ static void ecu_update(void)
       enrichment_load_derivative_final = enrichment_load_derivative;
       enrichment_load_value_start_accept = enrichment_load_value_start;
       enrichment_time_pass = 0;
+      enrichment_time_last = now;
       enrichment_triggered = 1;
       enrichment_ignition_state = 1;
       enrichment_phase_state = 1;
@@ -1836,11 +1840,15 @@ static void ecu_update(void)
       enrichment_triggered_once = 1;
       enrichment_async_last = now;
     } else if(enrichment_triggered) {
-      enrichment_time_pass += diff_sec;
-      enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
-      if(enrichment_load_derivative_final <= 0) {
-        enrichment_load_derivative_final = 0;
-        enrichment_triggered = 0;
+      enrichment_time_diff_sec = DelayDiff(now, enrichment_time_last) * 0.000001f;
+      if(halfturns_performed) {
+        enrichment_time_pass += enrichment_time_diff_sec;
+        enrichment_time_last = now;
+        enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
+        if(enrichment_load_derivative_final <= 0) {
+          enrichment_load_derivative_final = 0;
+          enrichment_triggered = 0;
+        }
       }
     }
 
