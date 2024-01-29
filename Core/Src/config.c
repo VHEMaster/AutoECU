@@ -210,6 +210,11 @@ static const float default_enrichment_tps_selection[TABLE_ENRICHMENT_PERCENTS_MA
     { 0.00f, 0.05f, 0.14f, 0.20f, 0.26f, 0.34f, 0.40f, 0.50f, },
 };
 
+static const float default_enrichment_accel_dead_band[TABLE_ROTATES_MAX] = {
+    100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000,
+    100000, 100000, 100000, 100000, 100000, 100000, 100000, 100000,
+};
+
 static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
     0.30f, 0.30f, 0.30f, 0.32f, 0.35f, 0.39f, 0.43f, 0.48f,
     0.51f, 0.53f, 0.55f, 0.58f, 0.65f, 0.76f, 0.80f, 0.80f,
@@ -714,7 +719,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   table->enrichment_load_type = 0;
   table->enrichment_load_dead_band = 500.0f;
-  table->enrichment_accel_dead_band = 100000.0f;
   table->enrichment_detect_duration = 100.0f;
   table->enrichment_ign_corr_decay_time = 200.0f;
   table->enrichment_injection_phase_decay_time = 200.0f;
@@ -763,6 +767,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_rate_load_derivative, default_enrichment_rate_load_derivative, sizeof(default_enrichment_rate_load_derivative));
 
   memcpy(table->enrichment_rate, default_enrichment_rate, sizeof(default_enrichment_rate));
+  memcpy(table->enrichment_accel_dead_band, default_enrichment_accel_dead_band, sizeof(default_enrichment_accel_dead_band));
   memcpy(table->enrichment_sync_amount, default_enrichment_sync_amount, sizeof(default_enrichment_sync_amount));
   memcpy(table->enrichment_async_amount, default_enrichment_async_amount, sizeof(default_enrichment_async_amount));
   memcpy(table->enrichment_ign_corr, default_enrichment_ign_corr, sizeof(default_enrichment_ign_corr));

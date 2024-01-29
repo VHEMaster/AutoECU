@@ -1763,7 +1763,7 @@ static void ecu_update(void)
 
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
-  enrichment_accel_dead_band = table->enrichment_accel_dead_band;
+  enrichment_accel_dead_band = math_interpolate_1d(ipRpm, table->enrichment_accel_dead_band);
   enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f;
   enrichment_detect_duration = table->enrichment_detect_duration;
   enrichment_injection_phase_decay_time = table->enrichment_injection_phase_decay_time * 1000.0f;
