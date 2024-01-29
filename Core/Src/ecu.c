@@ -873,6 +873,7 @@ static void ecu_update(void)
 
   float fuel_ratio_diff;
   float wish_fuel_ratio;
+  float wish_fuel_ratio_learn;
   float filling_select_koff_tps;
   float map_tps_relation;
   float filling;
@@ -2371,7 +2372,8 @@ static void ecu_update(void)
     gStatus.Knock.GeneralStatus &= ~KnockStatusContinuousDedonation;
   }
 
-  fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
+  wish_fuel_ratio_learn = wish_fuel_ratio;
+  fuel_ratio_diff = fuel_ratio / wish_fuel_ratio_learn;
   filling_map_tps_diff = filling_map / filling_tps;
   abs_knock_ign_corr_max = fabsf(table->knock_ign_corr_max);
   calibrate_gbc = engine_temp >= GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD || lambda_force;
@@ -2390,8 +2392,8 @@ static void ecu_update(void)
     ipLearmParamsIndex.indexes[0] = CLAMP(ipLearmParamsIndex.indexes[0], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
     ipLearmParamsIndex.indexes[1] = CLAMP(ipLearmParamsIndex.indexes[1], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
 
-    wish_fuel_ratio = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->WishFuelRatio, sizeof(sLearnParameters));
-    fuel_ratio_diff = fuel_ratio / wish_fuel_ratio;
+    wish_fuel_ratio_learn = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->WishFuelRatio, sizeof(sLearnParameters));
+    fuel_ratio_diff = fuel_ratio / wish_fuel_ratio_learn;
 
 #else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
   if(halfturns_performed) {
