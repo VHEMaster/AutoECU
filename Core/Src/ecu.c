@@ -993,6 +993,8 @@ static void ecu_update(void)
   static uint32_t idle_accelerate_post_cycles = 0;
   static uint32_t last_temp_fill_correction = 0;
   static uint32_t last_temp_knock_correction = 0;
+  static uint32_t enrichment_halfturns = 0;
+  uint8_t enrichment_process_trigger = 0;
 
   float warmup_mixture;
   float warmup_mix_koff;
@@ -1832,6 +1834,7 @@ static void ecu_update(void)
       enrichment_load_derivative_final = enrichment_load_derivative;
       enrichment_load_value_start_accept = enrichment_load_value_start;
       enrichment_time_pass = 0;
+      enrichment_halfturns = 0;
       enrichment_time_last = now;
       enrichment_triggered = 1;
       enrichment_ignition_state = 1;
@@ -1840,14 +1843,23 @@ static void ecu_update(void)
       enrichment_triggered_once = 1;
       enrichment_async_last = now;
     } else if(enrichment_triggered) {
-      enrichment_time_diff_sec = DelayDiff(now, enrichment_time_last) * 0.000001f;
-      if(halfturns_performed) {
+      for(int ht = 0; enrichment_halfturns < UINT_MAX && ht < halfturns_performed; ht++) {
+        enrichment_halfturns++;
+      }
+      while (enrichment_halfturns >= ECU_CYLINDERS_COUNT) {
+        enrichment_halfturns -= ECU_CYLINDERS_COUNT;
+        enrichment_process_trigger = 1;
+      }
+
+      if(enrichment_process_trigger || !running) {
+        enrichment_time_diff_sec = DelayDiff(now, enrichment_time_last) * 0.000001f;
         enrichment_time_pass += enrichment_time_diff_sec;
         enrichment_time_last = now;
         enrichment_load_derivative_final = enrichment_load_derivative_accept - enrichment_accel_dead_band * enrichment_time_pass;
         if(enrichment_load_derivative_final <= 0) {
           enrichment_load_derivative_final = 0;
           enrichment_triggered = 0;
+          enrichment_halfturns = 0;
         }
       }
     }
@@ -1913,6 +1925,7 @@ static void ecu_update(void)
       enrichment_amount_async *= enrichment_rate;
     }
   } else {
+    enleanment_load_derivative_final = 0;
     enrichment_amount_sync = 0;
     enrichment_load_values_counter = 0;
     enrichment_phase_state = 0;
@@ -1920,6 +1933,7 @@ static void ecu_update(void)
     enrichment_ign_corr = 0;
     enrichment_triggered_async = 0;
     enrichment_async_last = now;
+    enleanment_triggered = 0;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
