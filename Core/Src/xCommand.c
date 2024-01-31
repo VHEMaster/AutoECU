@@ -86,6 +86,7 @@ typedef struct
     uint16_t packetId;
     uint32_t RxPointer;
     uint8_t ErrorFlag;
+    uint32_t pad[6];
 }sGetterHandle ALIGNED(32);
 
 extern UART_HandleTypeDef huart5;

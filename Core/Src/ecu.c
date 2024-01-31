@@ -6398,7 +6398,7 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
       }
     } else if(message->id == 0x103) { //Table memory request
       if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-        if(message->data.dwords[0] < sizeof(gEcuTable) / sizeof(uint32_t)) {
+        if(message->data.dwords[0] < (sizeof(gEcuTable) / (sizeof(uint32_t)))) {
           transmit.id = message->id + 0x100;
           transmit.rtr = CAN_RTR_DATA;
           transmit.length = 8;
@@ -6408,7 +6408,7 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
       }
     } else if(message->id == 0x104) { //Config memory request
       if(message->rtr == CAN_RTR_DATA && message->length == 4) {
-        if(message->data.dwords[0] < sizeof(gEcuParams) / sizeof(uint32_t)) {
+        if(message->data.dwords[0] < sizeof(gEcuParams) / (sizeof(uint32_t))) {
           transmit.id = message->id + 0x100;
           transmit.rtr = CAN_RTR_DATA;
           transmit.length = 8;
