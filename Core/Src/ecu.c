@@ -2477,8 +2477,7 @@ static void ecu_update(void)
 
           if((use_map_sensor || use_tps_sensor) && !econ_flag && calibrate_gbc) {
 
-            filling_map_corrected = fuel_ratio_diff;
-
+            filling_map_corrected = fuel_ratio_diff * (1.0f - filling_nmap_tps_koff) + filling_map_tps_diff * filling_nmap_tps_koff;
             filling_gbc_tps_corrected = fuel_ratio_diff * filling_nmap_tps_koff + filling_map_tps_diff * (1.0f - filling_nmap_tps_koff);
 
             if(idle_corr_flag) {
