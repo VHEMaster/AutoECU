@@ -433,7 +433,6 @@ static sDrag Drag = {0};
 static sMem Mem = {0};
 static sCutoff Cutoff = {0};
 static sShift Shift = {0};
-static sMathKalmanCtx gKalmanRpm = {0};
 
 static enum {
   PhaseDetectDisabled = 0,
@@ -770,6 +769,7 @@ static void ecu_update_shared_parameters(void)
 
 #ifdef SIMULATION
 float gDebugMap = 50000;
+float gDebugMapFiltered = 103000;
 float gDebugAirTemp = 30.0f;
 float gDebugEngineTemp = 90.0f;
 float gDebugThrottle = 0;
@@ -1106,7 +1106,6 @@ static void ecu_update(void)
 
   float sens_lpf_slow;
   float sens_lpf_fast;
-
   if(!now)
     now++;
 
@@ -1135,7 +1134,6 @@ static void ecu_update(void)
 
   gStatus.Sensors.Struct.Csps = csps_iserror() == 0 ? HAL_OK : HAL_ERROR;
   rpm = csps_getrpm(csps);
-  rpm = math_kalman_correct(&gKalmanRpm, rpm);
   rps = rpm * 0.01666667f;
   speed = speed_getspeed();
   knock_status = Knock_GetStatus();
@@ -1163,8 +1161,19 @@ static void ecu_update(void)
     prev_halfturns++;
   }
 
+  if(running) {
+    sens_lpf_slow = rps * 2.0f * 0.001f;
+    sens_lpf_fast = sens_lpf_slow * 2.0f;
+    sens_lpf_slow = CLAMP(sens_lpf_slow, 0.0f, 1.0f);
+    sens_lpf_fast = CLAMP(sens_lpf_fast, 0.0f, 1.0f);
+  } else {
+    sens_lpf_slow = 1.0f;
+    sens_lpf_fast = 1.0f;
+  }
+
 #ifdef SIMULATION
-  pressure = gDebugMap;
+  gDebugMapFiltered = gDebugMap * sens_lpf_slow + gDebugMapFiltered * (1.0f - sens_lpf_slow);
+  pressure = gDebugMapFiltered;
   air_temp = gDebugAirTemp;
   engine_temp = gDebugEngineTemp;
   throttle = gDebugThrottle;
@@ -1188,16 +1197,6 @@ static void ecu_update(void)
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
-
-  if(running) {
-    sens_lpf_slow = rps * 2.0f * 0.001f;
-    sens_lpf_fast = sens_lpf_slow * 2.0f;
-    sens_lpf_slow = CLAMP(sens_lpf_slow, 0.0f, 1.0f);
-    sens_lpf_fast = CLAMP(sens_lpf_fast, 0.0f, 1.0f);
-  } else {
-    sens_lpf_slow = 1.0f;
-    sens_lpf_fast = 1.0f;
-  }
 
   gStatus.Sensors.Struct.Map |= sens_set_map_lpf(sens_lpf_slow);
 
@@ -5591,9 +5590,6 @@ void ecu_init(RTC_HandleTypeDef *_hrtc)
   memset((void *)&gIITest, 0, sizeof(gIITest));
   memset((void *)&gEtcTest, 0, sizeof(gEtcTest));
 
-  gKalmanRpm = math_kalman_init(0.01f, 100.0f, 1.0f, 1.0f);
-  math_kalman_set_state(&gKalmanRpm, 0.0f, 0.1f);
-
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   memset(gLearnParamsBuffer, 0, sizeof(gLearnParamsBuffer));
   for(int i = 0; i < LEARN_ACCEPT_CYCLES_BUFFER_SIZE; i++) {
@@ -5622,29 +5618,6 @@ void ecu_irq_fast_loop(void)
 
   ecu_process();
   ecu_phase_detect_process();
-
-#ifdef DEBUG
-  float pressure;
-  float throttle;
-  sens_get_throttle_position(&throttle);
-  sens_get_map(&pressure);
-  if(pressure > 80000)
-    HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_SET);
-  else if(pressure < 60000)
-    HAL_GPIO_WritePin(MCU_RSVD_2_GPIO_Port, MCU_RSVD_2_Pin, GPIO_PIN_RESET);
-
-  if(throttle > 80) {
-    HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_SET);
-#ifdef SIMULATION
-    gDebugMap = 103000;
-#endif
-  } else if(throttle < 50) {
-    HAL_GPIO_WritePin(MCU_RSVD_3_GPIO_Port, MCU_RSVD_3_Pin, GPIO_PIN_RESET);
-#ifdef SIMULATION
-    gDebugMap = 50000;
-#endif
-  }
-#endif
 }
 
 void ecu_irq_mid_loop(void)
