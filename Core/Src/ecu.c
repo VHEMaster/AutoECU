@@ -368,6 +368,20 @@ struct {
 
     float KnockDetectPhaseStart;
     float KnockDetectPhaseEnd;
+
+    float CycleFuelFlow;
+    float CycleAirFlow;
+    float FuelFlowPerUs;
+    float InjectorLag;
+    float DynamicFilmCorrection;
+
+    float FuelFilmTemp[ECU_CYLINDERS_COUNT];
+    float FuelFilmNew[ECU_CYLINDERS_COUNT];
+    float FuelFilmOld[ECU_CYLINDERS_COUNT];
+
+    float FinalInjectionPulse;
+    float FinalInjectionDutyCycle;
+    float FinalInjectionPhaseDuration;
 }gLocalParams;
 
 static GPIO_TypeDef * const gIgnPorts[ECU_CYLINDERS_COUNT] = { IGN_1_GPIO_Port, IGN_2_GPIO_Port, IGN_3_GPIO_Port, IGN_4_GPIO_Port };
@@ -867,7 +881,6 @@ static void ecu_update(void)
   float speed;
   float idle_valve_position;
   float idle_valve_econ_position;
-  float uspa;
   float period;
   float period_half;
   float cold_start_idle_mult;
@@ -905,10 +918,7 @@ static void ecu_update(void)
   float cycle_air_flow_injection_startup;
   float idle_wish_cycle_air_flow;
   float mass_air_flow;
-  float injection_time;
 
-  float min_injection_time;
-  float injection_phase_duration;
   float injection_start_mult;
   float knock_threshold;
   float air_density;
@@ -927,7 +937,6 @@ static void ecu_update(void)
   float injection_correction_cy[ECU_CYLINDERS_COUNT];
 
   float min, max;
-  static uint8_t ventilation_flag = 0;
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
@@ -941,6 +950,11 @@ static void ecu_update(void)
   float injection_phase_table;
   float injection_phase_lpf;
   float fuel_amount_per_cycle;
+  float warmup_fuel_correction;
+  float additional_fuel_correction;
+  float dynamic_film_correction;
+  float dynamic_fuel_corr_gbc;
+  float dynamic_fuel_corr_temp;
 
   static float enrichment_phase_state = 0;
   static float enrichment_ignition_state = 0;
@@ -1022,7 +1036,6 @@ static void ecu_update(void)
   float idle_rpm_shift;
   float idle_table_valve_pos;
   float idle_wish_valve_pos;
-  float injection_dutycycle;
 
   float calib_cur_progress;
   float percentage;
@@ -1102,7 +1115,7 @@ static void ecu_update(void)
   static float knock_running_time = 0;
   sCspsData csps = csps_data();
   sO2Status o2_data = sens_get_o2_status();
-  HAL_StatusTypeDef tps_status;
+  HAL_StatusTypeDef tps_status = HAL_OK;
 
   float sens_lpf_slow;
   float sens_lpf_fast;
@@ -1128,7 +1141,6 @@ static void ecu_update(void)
   running = csps_isrunning();
   rotates = csps_isrotates();
   phased = csps_isphased(csps);
-  uspa = csps_getuspa(csps);
   period = csps_getperiod(csps);
   period_half = period * 0.5f;
 
@@ -1172,6 +1184,7 @@ static void ecu_update(void)
   }
 
 #ifdef SIMULATION
+  gStatus.Sensors.Struct.Tps = tps_status;
   gDebugMapFiltered = gDebugMap * sens_lpf_slow + gDebugMapFiltered * (1.0f - sens_lpf_slow);
   pressure = gDebugMapFiltered;
   air_temp = gDebugAirTemp;
@@ -1402,7 +1415,7 @@ static void ecu_update(void)
   filling_select_koff_tps = math_interpolate_1d(ipRpm, table->filling_select_koff_tps);
   filling_select_koff_tps = CLAMP(filling_select_koff_tps, 0.0f, 1.0f);
 
-  fuel_flow_per_us = table->injector_performance * 1.66666667e-8f * table->fuel_mass_per_cc; // perf / 60.000.000
+  fuel_flow_per_us = table->injector_performance * 1.66666667e-5f * table->fuel_mass_per_cc; // mg/ms
 
   air_density = ecu_recalculate_air_density(air_temp);
   calculate_cycle_air_flow_max = gEcuParams.engineVolume * normal_density * 0.25f;
@@ -1732,8 +1745,13 @@ static void ecu_update(void)
     cycle_air_flow_injection = cycle_air_flow_injection_startup;
   }
 
-  fuel_amount_per_cycle = cycle_air_flow_injection * 0.001f / wish_fuel_ratio;
-  async_flow_per_cycle = start_async_filling * 0.001f / wish_fuel_ratio;
+
+  fuel_amount_per_cycle = cycle_air_flow_injection / wish_fuel_ratio;
+  async_flow_per_cycle = start_async_filling / wish_fuel_ratio;
+
+  if(!running) {
+    fuel_amount_per_cycle *= injection_start_mult;
+  }
 
   start_async_time = async_flow_per_cycle / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
@@ -1764,6 +1782,22 @@ static void ecu_update(void)
   } else {
     warmup_idle_mix_corr_final = 0.0f;
   }
+
+  dynamic_fuel_corr_gbc = math_interpolate_1d(ipFilling, table->dynamic_fuel_corr_gbc);
+  dynamic_fuel_corr_temp = math_interpolate_1d(ipEngineTemp, table->dynamic_fuel_corr_temp);
+  dynamic_film_correction = dynamic_fuel_corr_gbc * dynamic_fuel_corr_temp;
+
+  additional_fuel_correction = 1.0f;
+  additional_fuel_correction *= start_filling_mult + 1.0f;
+  additional_fuel_correction *= air_temp_mix_corr + 1.0f;
+  additional_fuel_correction *= engine_temp_mix_corr + 1.0f;
+
+  warmup_fuel_correction = 1.0f;
+  warmup_fuel_correction *= cold_start_idle_mult + 1.0f;
+  warmup_fuel_correction *= warmup_idle_mix_corr_final + 1.0f;
+
+  fuel_amount_per_cycle *= additional_fuel_correction;
+  fuel_amount_per_cycle *= warmup_fuel_correction;
 
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
@@ -1937,28 +1971,17 @@ static void ecu_update(void)
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
 
-  injection_time = fuel_amount_per_cycle / fuel_flow_per_us;
-  injection_time *= warmup_idle_mix_corr_final + 1.0f;
-  injection_time *= start_filling_mult + 1.0f;
-  injection_time *= air_temp_mix_corr + 1.0f;
-  injection_time *= engine_temp_mix_corr + 1.0f;
-  injection_time *= cold_start_idle_mult + 1.0f;
-
   if(running && enrichment_async_enabled) {
     enrichment_async_period = period_half / enrichment_async_pulses_divider;
     if(enrichment_amount_async >= 0.001f) {
       enrichment_async_time = 0;
       if(DelayDiff(now, enrichment_async_last) >= enrichment_async_period || enrichment_triggered_async) {
-        enrichment_async_time = injection_time;
-        if(!enrichment_triggered_async) {
-          enrichment_async_time *= ((float)DelayDiff(now, enrichment_async_last) / (float)enrichment_async_period);
-        }
+        enrichment_async_time = gLocalParams.FinalInjectionPulse - injector_lag_mult;
         enrichment_triggered_async = 0;
         enrichment_async_last = now;
       }
       if(enrichment_async_time > 0) {
         enrichment_async_time *= enrichment_amount_async;
-        enrichment_async_time /= ECU_CYLINDERS_COUNT;
         enrichment_async_time /= enrichment_async_pulses_divider;
         enrichment_async_time += injector_lag_mult;
         ecu_async_injection_push(enrichment_async_time);
@@ -1970,8 +1993,6 @@ static void ecu_update(void)
     enrichment_async_last = now;
   }
 
-  injection_time *= enrichment_amount_sync + 1.0f;
-
   if(enrichment_phase_state > 0.001f && enrichment_injection_phase > injection_phase) {
     injection_phase = injection_phase * (1.0f - enrichment_phase_state) + enrichment_injection_phase * enrichment_phase_state;
   }
@@ -1982,46 +2003,45 @@ static void ecu_update(void)
   if(gForceParameters.Enable.InjectionPhase)
     injection_phase = gForceParameters.InjectionPhase;
 
-  if(!running) {
-    injection_time *= injection_start_mult;
-  }
-
   if(running) {
     if(idle_flag)
-      injection_time *= gEcuCorrections.idle_correction + 1.0f;
+      fuel_amount_per_cycle *= gEcuCorrections.idle_correction + 1.0f;
     else
-      injection_time *= gEcuCorrections.long_term_correction + 1.0f;
-    injection_time *= short_term_correction + 1.0f;
+      fuel_amount_per_cycle *= gEcuCorrections.long_term_correction + 1.0f;
+    fuel_amount_per_cycle *= short_term_correction + 1.0f;
   }
 
-  min_injection_time = gLocalParams.PhasedInjection ? 400 : 800;
-  if(injection_time < min_injection_time) {
-    injection_time = min_injection_time;
-  }
+  fuel_amount_per_cycle *= enrichment_amount_sync + 1.0f;
 
-  if(injection_time > 100.0f)
-    injection_time += injector_lag_mult;
-  else injection_time = 0;
 
+  /*
   if(gForceParameters.Enable.InjectionPulse) {
     injection_time = gForceParameters.InjectionPulse;
     if(injection_time > injector_lag_mult) {
       fuel_amount_per_cycle = (injection_time - injector_lag_mult) * fuel_flow_per_us;
-      wish_fuel_ratio = cycle_air_flow * 0.001f / fuel_amount_per_cycle;
+      wish_fuel_ratio = cycle_air_flow / fuel_amount_per_cycle;
     } else {
       fuel_amount_per_cycle = 0;
       wish_fuel_ratio = 200.0f;
     }
   }
+  */
 
-  if(Cutoff.FuelCutoff)
-    injection_time = 0;
-
-  if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 500 && rpm >= gEcuParams.oilPressureCutoffRPM) {
-    injection_time = 0;
+  if(Cutoff.FuelCutoff) {
+    fuel_amount_per_cycle = 0;
+  } else if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 500 && rpm >= gEcuParams.oilPressureCutoffRPM) {
+    fuel_amount_per_cycle = 0;
   } else if(gStatus.OilPressure.is_error && gStatus.OilPressure.error_time > 10000) {
-    injection_time = 0;
+    fuel_amount_per_cycle = 0;
   }
+
+  gLocalParams.InjectorLag = injector_lag_mult;
+  gLocalParams.FuelFlowPerUs = fuel_flow_per_us;
+  gLocalParams.CycleAirFlow = cycle_air_flow_injection;
+  gLocalParams.CycleFuelFlow = fuel_amount_per_cycle;
+  gLocalParams.DynamicFilmCorrection = dynamic_film_correction;
+  if(enrichment_post_injection_enabled && enrichment_triggered_once)
+    gLocalParams.EnrichmentTriggered = 1;
 
   math_pid_set_target(&gPidIdleValveAirFlow, idle_wish_massair);
   math_pid_set_target(&gPidIdleValveRpm, idle_wish_rpm);
@@ -2151,13 +2171,7 @@ static void ecu_update(void)
 
   throttle_target = CLAMP(throttle_target, 0.0f, 100.0f);
 
-  injection_dutycycle = injection_time / (period * 2.0f);
-
-  if(injection_dutycycle > 1.0f) {
-    injection_time = period * 2.0f;
-  }
-
-  fuel_amount_per_cycle = injection_time * fuel_flow_per_us;
+  fuel_amount_per_cycle = gLocalParams.FinalInjectionPulse * fuel_flow_per_us;
 
   idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
 
@@ -2237,10 +2251,8 @@ static void ecu_update(void)
 
   if(!rotates) {
     running = 0;
-    injection_time = 0;
     cycle_air_flow = 0;
     mass_air_flow = 0;
-    injection_dutycycle = 0;
     effective_volume = 0;
     fuel_consumption_per_distance = 0;
     fuel_consumption_hourly = 0;
@@ -2259,23 +2271,9 @@ static void ecu_update(void)
 
   if(!running) {
     ignition_advance = start_ignition_advance;
-    if(use_tps_sensor) {
-    	if(!rotates && throttle >= 95.0f)
-    		ventilation_flag = 1;
-    	else if(throttle < 90.0f)
-    		ventilation_flag = 0;
-    }
-    if(ventilation_flag)
-      injection_time = 0;
   }
 
-  if(uspa > 0.0f && injection_time > 0.0f) {
-    injection_phase_duration = injection_time / uspa;
-  } else {
-    injection_phase_duration = 0;
-  }
-
-  if(injection_dutycycle > 0.90f) {
+  if(gLocalParams.FinalInjectionDutyCycle > 0.90f) {
     if(!gStatus.InjectionUnderflow.is_error) {
       gStatus.InjectionUnderflow.error_time = 0;
     } else {
@@ -2825,21 +2823,19 @@ static void ecu_update(void)
   gParameters.WishIdleIgnitionAdvance = idle_wish_ignition;
   gParameters.IgnitionAdvance = ignition_advance;
   gParameters.InjectionPhase = injection_phase;
-  gParameters.InjectionPhaseDuration = injection_phase_duration;
+  gParameters.InjectionPhaseDuration = gLocalParams.FinalInjectionPhaseDuration;
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     gLocalParams.IgnitionCorrectionCy[i] = ignition_advance_cy[i];
     gLocalParams.InjectionCorrectionCy[i] = injection_correction_cy[i];
   }
 
-  gParameters.InjectionPulse = injection_time;
-  if(enrichment_post_injection_enabled && enrichment_triggered_once)
-    gLocalParams.EnrichmentTriggered = 1;
+  gParameters.InjectionPulse = gLocalParams.FinalInjectionPulse;
+  gParameters.InjectionDutyCycle = gLocalParams.FinalInjectionDutyCycle;
 
   gLocalParams.KnockDetectPhaseStart = knock_detect_phase_start;
   gLocalParams.KnockDetectPhaseEnd = knock_detect_phase_end;
 
-  gParameters.InjectionDutyCycle = injection_dutycycle;
   gParameters.InjectionEnrichment = enrichment_result;
   gParameters.InjectionLag = injector_lag;
   gParameters.IgnitionPulse = ignition_time;
@@ -2879,7 +2875,7 @@ static void ecu_update(void)
 
   strcpy(gParameters.CurrentTableName, table->name);
 
-  gDiagWorkingMode.Bits.is_enrichment = enrichment_triggered;
+  //gDiagWorkingMode.Bits.is_enrichment = enrichment_triggered;
   gDiagWorkingMode.Bits.is_idle = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_last = idle_flag && running;
   gDiagWorkingMode.Bits.is_idle_lock_last = 0;
@@ -3368,6 +3364,7 @@ ITCM_FUNC void ecu_process(void)
   float angles_injection_per_turn;
   float angles_ignition_per_turn;
   float inj_pulse;
+  float inj_pulse_final;
   float inj_angle;
   float cur_cy_ignition;
   static float cy_ignition[ECU_CYLINDERS_COUNT] = {10,10,10,10};
@@ -3402,7 +3399,10 @@ ITCM_FUNC void ecu_process(void)
 
   static uint32_t async_inject_time = 0;
   static uint32_t async_inject_last = 0;
-  float inj_lag = gParameters.InjectionLag * 1000.0f;
+  float inj_lag, injection_dutycycle;
+  float cycle_fuel_flow;
+  float dynamic_film_correction;
+  float inj_phase_duration;
 
   float phased_angles[ECU_CYLINDERS_COUNT];
   float non_phased_angles[ECU_CYLINDERS_COUNT_HALF];
@@ -3444,9 +3444,10 @@ ITCM_FUNC void ecu_process(void)
   angle_ignite_param = gParameters.IgnitionAdvance;
   injection_phase_by_end = table->is_fuel_phase_by_end;
   inj_phase_param = gParameters.InjectionPhase;
-  inj_pulse = gParameters.InjectionPulse;
 
-  gLocalParams.PhasedInjection = phased_injection;
+  inj_lag = gLocalParams.InjectorLag;
+  cycle_fuel_flow = gLocalParams.CycleFuelFlow;
+  dynamic_film_correction = gLocalParams.DynamicFilmCorrection;
 
   if(found != was_found) {
     was_found = found;
@@ -3544,32 +3545,54 @@ ITCM_FUNC void ecu_process(void)
     angles_injection_per_turn = 360.0f;
   }
 
-  if(inj_pulse > inj_lag) {
-    if(phased_injection) {
-      angles_injection_per_turn = 720.0f;
+  inj_pulse = 0.0f;
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    gLocalParams.FuelFilmTemp[i] = cycle_fuel_flow * dynamic_film_correction;
+    cy_injection[i] = cycle_fuel_flow;
+    cy_injection[i] += gLocalParams.FuelFilmNew[i] - gLocalParams.FuelFilmOld[i];
 
-      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-        cy_injection[i] = inj_pulse - inj_lag;
-        cy_injection[i] *= cy_corr_injection[i] + 1.0f;
+    cy_injection[i] = MAX(cy_injection[i], 0.0f);
+    cy_injection[i] /= gLocalParams.FuelFlowPerUs;
+    cy_injection[i] *= cy_corr_injection[i] + 1.0f;
+    inj_pulse += cy_injection[i];
+  }
+  inj_pulse /= ECU_CYLINDERS_COUNT;
+  inj_pulse_final = inj_pulse;
+
+  if(!phased_injection) {
+    inj_pulse *= 0.5f;
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
+      injection[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+      injected[ECU_CYLINDERS_COUNT - 1 - i] = 1;
+
+      cy_injection[i] *= 0.5f;
+    }
+  }
+
+  if(inj_pulse > 0.0f && inj_pulse_final > 0.0f) {
+    inj_pulse_final += inj_lag;
+    inj_pulse += inj_lag;
+
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      if(cy_injection[i] > 0.0f) {
         cy_injection[i] += inj_lag;
-      }
-    } else {
-      inj_pulse = (inj_pulse - inj_lag) * 0.5f;
-
-      for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
-        injection[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-        injected[ECU_CYLINDERS_COUNT - 1 - i] = 1;
-      }
-
-      for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-        cy_injection[i] = inj_pulse;
-        cy_injection[i] *= cy_corr_injection[i] + 1.0f;
-        cy_injection[i] += inj_lag;
+      } else {
+        cy_injection[i] = 0.0f;
       }
     }
-  } else {
-    memset(cy_injection, 0, sizeof(cy_injection));
   }
+
+  injection_dutycycle = inj_pulse_final / (period * 2.0f);
+
+  if(injection_dutycycle > 1.0f) {
+    inj_pulse_final = period * 2.0f;
+  }
+
+  inj_phase_duration = inj_pulse_final / uspa;
+  gLocalParams.FinalInjectionPulse = inj_pulse_final;
+  gLocalParams.FinalInjectionDutyCycle = injection_dutycycle;
+  gLocalParams.FinalInjectionPhaseDuration = inj_phase_duration;
 
   if(inj_was_phased != phased_injection) {
     inj_was_phased = phased_injection;
@@ -3887,54 +3910,72 @@ ITCM_FUNC void ecu_process(void)
               injection[i] = 1;
               shift_inj_act = !shiftEnabled || ecu_shift_inj_act(cy_count_ignition, i, clutch, rpm, throttle);
               cutoff_inj_act = ecu_cutoff_inj_act(cy_count_ignition, i, rpm);
-              if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > 0.0f && !econ_flag) {
-                if(cy_injection[i] > inj_lag * 1.1f) {
-                  if(phased_injection) {
-                    ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
-                  } else {
-                    i_inv = ECU_CYLINDERS_COUNT - i - 1;
+              if(/*ignition_ready[i] && */cutoff_inj_act && shift_inj_act && cy_injection[i] > inj_lag * 1.1f && !econ_flag) {
+                if(phased_injection) {
+                  ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
+                } else {
+                  i_inv = ECU_CYLINDERS_COUNT - i - 1;
 
-                    if(phased_mode == PhasedModeWithoutSensor) {
-                      if(phase_detect_enabled != PhaseDetectDisabled && gParameters.IdleFlag && running) {
-                        if(phase_detect_running_cycles < phjase_detect_cycles_wait) {
-                          phase_detect_running_cycles++;
-                        } else {
-                          if(phase_detect_cycles < phjase_detect_cycles_threshold) {
+                  //Camshaft position detection
+                  if(phased_mode == PhasedModeWithoutSensor) {
+                    if(phase_detect_enabled != PhaseDetectDisabled && gParameters.IdleFlag && running) {
+                      if(phase_detect_running_cycles < phjase_detect_cycles_wait) {
+                        phase_detect_running_cycles++;
+                      } else {
+                        if(phase_detect_cycles < phjase_detect_cycles_threshold) {
 
-                            if(phase_detect_enabled && (gPhaseDetectActive || i != 0)) {
-                              gPhaseDetectActive = 1;
-                              if(phase_detect_enabled == PhaseDetectByDisabling) {
-                                cy_injection[3 - 1] = 0;
-                                cy_injection[4 - 1] = 0;
+                          if(phase_detect_enabled && (gPhaseDetectActive || i != 0)) {
+                            gPhaseDetectActive = 1;
+                            if(phase_detect_enabled == PhaseDetectByDisabling) {
+                              cy_injection[3 - 1] = 0;
+                              cy_injection[4 - 1] = 0;
+                            }
+                            else if(phase_detect_enabled == PhaseDetectByFueling) {
+                              if((phase_detect_fueling & (1 << i))) {
+                                cy_injection[i] *= phjase_detect_fueling_multiplier;
+                                cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
                               }
-                              else if(phase_detect_enabled == PhaseDetectByFueling) {
-                                if((phase_detect_fueling & (1 << i))) {
-                                  cy_injection[i] *= phjase_detect_fueling_multiplier;
-                                  cy_injection[i_inv] /= phjase_detect_fueling_multiplier;
-                                }
-                                else {
-                                  cy_injection[i] /= phjase_detect_fueling_multiplier;
-                                  cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
-                                }
-                                phase_detect_fueling ^= (1 << i);
+                              else {
+                                cy_injection[i] /= phjase_detect_fueling_multiplier;
+                                cy_injection[i_inv] *= phjase_detect_fueling_multiplier;
                               }
-
+                              phase_detect_fueling ^= (1 << i);
+                            }
+                            if(cy_injection[i] > inj_lag * 1.1f) {
                               phase_detect_cycles++;
                             }
-                          } else if(phase_detect_cycles == phjase_detect_cycles_threshold) {
-                            gPhaseDetectCompleted = 1;
-                            phase_detect_cycles++;
                           }
+                        } else if(phase_detect_cycles == phjase_detect_cycles_threshold) {
+                          gPhaseDetectCompleted = 1;
+                          phase_detect_cycles++;
                         }
                       }
                     }
-
-                    ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
-                    ecu_inject(ECU_CYLINDERS_COUNT, i_inv, cy_injection[i_inv]);
                   }
+
+                  ecu_inject(ECU_CYLINDERS_COUNT, i, cy_injection[i]);
+                  ecu_inject(ECU_CYLINDERS_COUNT, i_inv, cy_injection[i_inv]);
                 }
                 injection_time_prev[i] = cy_injection[i] - inj_lag;
+              } else {
+                if(phased_injection) {
+                  gLocalParams.FuelFilmTemp[i] = gLocalParams.FuelFilmOld[i] / (1.0f + dynamic_film_correction);
+                } else {
+                  gLocalParams.FuelFilmTemp[i] = gLocalParams.FuelFilmOld[i] / (1.0f + dynamic_film_correction);
+                  gLocalParams.FuelFilmTemp[i_inv] = gLocalParams.FuelFilmOld[i_inv] / (1.0f + dynamic_film_correction);
+                }
               }
+
+              if(phased_injection) {
+                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+                gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+              } else {
+                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+                gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+                gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv];
+                gLocalParams.FuelFilmNew[i_inv] = gLocalParams.FuelFilmTemp[i_inv];
+              }
+
               gLocalParams.ParametersAcceptLast = 0;
               gParameters.CylinderInjectionBitmask ^= 1 << i;
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
@@ -3960,6 +4001,7 @@ ITCM_FUNC void ecu_process(void)
           }
           else injected[i] = 0;
 
+          //Post Injection
           if((angle_injection[i] >= 0 && angle_injection[i] >= inj_phase && angle_injection[i] < enrichment_end_injection_final_phase) ||
               (angle_injection[i] < 0 && angle_injection[i] >= inj_phase - 720.0f && angle_injection[i] < enrichment_end_injection_final_phase - 720.0f)) {
             if(enrichment_triggered[i]) {
@@ -3974,6 +4016,17 @@ ITCM_FUNC void ecu_process(void)
               ecu_inject(cy_count_injection, i, enrichment_time_saturation[i]);
               enrichment_time_saturation[i] = 0;
               gLocalParams.ParametersAcceptLast = 0;
+
+              // TODO: Probably, no need to accept the fuel film here
+              //if(phased_injection) {
+              //  gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+              //  gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+              //} else {
+              //  gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+              //  gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+              //  gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv];
+              //  gLocalParams.FuelFilmNew[i_inv] = gLocalParams.FuelFilmTemp[i_inv];
+              //}
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
               ignition_accepted_angle[i] = cy_ignition[i];
@@ -4001,6 +4054,10 @@ ITCM_FUNC void ecu_process(void)
       injected[i] = 0;
       //ignition_ready[i] = 0;
     }
+
+    memset(gLocalParams.FuelFilmNew, 0, sizeof(gLocalParams.FuelFilmNew));
+    memset(gLocalParams.FuelFilmOld, 0, sizeof(gLocalParams.FuelFilmOld));
+    memset(gLocalParams.FuelFilmTemp, 0, sizeof(gLocalParams.FuelFilmTemp));
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
     for(int i = 0; i < ECU_CYLINDERS_COUNT_HALF; i++) {
@@ -4031,6 +4088,9 @@ ITCM_FUNC void ecu_process(void)
   if(phase_need_clean) {
     memset(gPhaseDetectAccelerations, 0, sizeof(gPhaseDetectAccelerations));
     memset(gPhaseDetectAccelerationsCount, 0, sizeof(gPhaseDetectAccelerationsCount));
+    memset(gLocalParams.FuelFilmNew, 0, sizeof(gLocalParams.FuelFilmNew));
+    memset(gLocalParams.FuelFilmOld, 0, sizeof(gLocalParams.FuelFilmOld));
+    memset(gLocalParams.FuelFilmTemp, 0, sizeof(gLocalParams.FuelFilmTemp));
     gPhaseDetectActive = 0;
     gPhaseDetectCompleted = 0;
     phase_detect_cycles = 0;
@@ -4045,6 +4105,10 @@ ITCM_FUNC void ecu_process(void)
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       knock_process[i] = 0;
     }
+
+    memset(gLocalParams.FuelFilmNew, 0, sizeof(gLocalParams.FuelFilmNew));
+    memset(gLocalParams.FuelFilmOld, 0, sizeof(gLocalParams.FuelFilmOld));
+    memset(gLocalParams.FuelFilmTemp, 0, sizeof(gLocalParams.FuelFilmTemp));
   }
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0

@@ -691,6 +691,17 @@ static const float default_start_throttle_position[TABLE_TEMPERATURES_MAX] = {
     5.5f, 5.2f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f,
 };
 
+static const float default_dynamic_fuel_corr_gbc[TABLE_FILLING_MAX] = {
+    0.02f, 0.02f, 0.02f, 0.03f, 0.08f, 0.15f, 0.22f, 0.31f,
+    0.39f, 0.46f, 0.55f, 0.67f, 0.79f, 0.83f, 0.95f, 1.10f,
+};
+
+static const float default_dynamic_fuel_corr_temp[TABLE_TEMPERATURES_MAX] = {
+    1.00f, 0.92f, 0.78f, 0.68f, 0.55f, 0.43f, 0.35f, 0.30f,
+    0.24f, 0.19f, 0.13f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f,
+};
+
+
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
@@ -882,6 +893,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->idle_ignition_time_by_tps, default_idle_ignition_time_by_tps, sizeof(default_idle_ignition_time_by_tps));
   memcpy(table->idle_econ_delay, default_idle_econ_delay, sizeof(default_idle_econ_delay));
   memcpy(table->start_econ_delay, default_start_econ_delay, sizeof(default_start_econ_delay));
+
+  memcpy(table->dynamic_fuel_corr_gbc, default_dynamic_fuel_corr_gbc, sizeof(default_dynamic_fuel_corr_gbc));
+  memcpy(table->dynamic_fuel_corr_temp, default_dynamic_fuel_corr_temp, sizeof(default_dynamic_fuel_corr_temp));
 
   table->fan_advance_control_low  = -0.20f;
   table->fan_advance_control_mid  =  0.00f;
