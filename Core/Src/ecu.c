@@ -374,6 +374,7 @@ struct {
     float FuelFlowPerUs;
     float InjectorLag;
     float DynamicFilmCorrection;
+    float DynamicFilmCorrLpf;
 
     float FuelFilmTemp[ECU_CYLINDERS_COUNT];
     float FuelFilmNew[ECU_CYLINDERS_COUNT];
@@ -955,6 +956,7 @@ static void ecu_update(void)
   float dynamic_film_correction;
   float dynamic_fuel_corr_gbc;
   float dynamic_fuel_corr_temp;
+  float dynamic_fuel_corr_lpf;
 
   static float enrichment_phase_state = 0;
   static float enrichment_ignition_state = 0;
@@ -1785,7 +1787,12 @@ static void ecu_update(void)
 
   dynamic_fuel_corr_gbc = math_interpolate_1d(ipFilling, table->dynamic_fuel_corr_gbc);
   dynamic_fuel_corr_temp = math_interpolate_1d(ipEngineTemp, table->dynamic_fuel_corr_temp);
+  dynamic_fuel_corr_lpf = math_interpolate_1d(ipRpm, table->dynamic_fuel_corr_lpf);
   dynamic_film_correction = dynamic_fuel_corr_gbc * dynamic_fuel_corr_temp;
+
+  dynamic_fuel_corr_lpf = CLAMP(dynamic_fuel_corr_lpf, 0.0f, 0.99f);
+  if(dynamic_film_correction < 0.0f)
+    dynamic_film_correction = 0;
 
   additional_fuel_correction = 1.0f;
   additional_fuel_correction *= start_filling_mult + 1.0f;
@@ -2037,6 +2044,7 @@ static void ecu_update(void)
   gLocalParams.CycleAirFlow = cycle_air_flow_injection;
   gLocalParams.CycleFuelFlow = fuel_amount_per_cycle;
   gLocalParams.DynamicFilmCorrection = dynamic_film_correction;
+  gLocalParams.DynamicFilmCorrLpf = dynamic_fuel_corr_lpf;
   if(enrichment_post_injection_enabled && enrichment_triggered_once)
     gLocalParams.EnrichmentTriggered = 1;
 
@@ -3399,6 +3407,7 @@ ITCM_FUNC void ecu_process(void)
   float inj_lag, injection_dutycycle;
   float cycle_fuel_flow;
   float dynamic_film_correction;
+  float dynamic_fuel_corr_lpf;
   float inj_phase_duration;
 
   float phased_angles[ECU_CYLINDERS_COUNT];
@@ -3445,6 +3454,7 @@ ITCM_FUNC void ecu_process(void)
   inj_lag = gLocalParams.InjectorLag;
   cycle_fuel_flow = gLocalParams.CycleFuelFlow;
   dynamic_film_correction = gLocalParams.DynamicFilmCorrection;
+  dynamic_fuel_corr_lpf = gLocalParams.DynamicFilmCorrLpf;
 
   if(found != was_found) {
     was_found = found;
@@ -3972,12 +3982,12 @@ ITCM_FUNC void ecu_process(void)
               }
 
               if(phased_injection) {
-                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i] * dynamic_fuel_corr_lpf;
                 gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
               } else {
-                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
+                gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i] * dynamic_fuel_corr_lpf;
                 gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
-                gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv];
+                gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i_inv] * dynamic_fuel_corr_lpf;
                 gLocalParams.FuelFilmNew[i_inv] = gLocalParams.FuelFilmTemp[i_inv];
               }
 
@@ -4024,13 +4034,13 @@ ITCM_FUNC void ecu_process(void)
 
               // TODO: Probably, no need to accept the fuel film here
               //if(phased_injection) {
-              //  gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
-              //  gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+              //gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i] * dynamic_fuel_corr_lpf;
+              //gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
               //} else {
-              //  gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i];
-              //  gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
-              //  gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv];
-              //  gLocalParams.FuelFilmNew[i_inv] = gLocalParams.FuelFilmTemp[i_inv];
+              //gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmNew[i] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i] * dynamic_fuel_corr_lpf;
+              //gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+              //gLocalParams.FuelFilmOld[i_inv] = gLocalParams.FuelFilmNew[i_inv] * (1.0f - dynamic_fuel_corr_lpf) + gLocalParams.FuelFilmOld[i_inv] * dynamic_fuel_corr_lpf;
+              //gLocalParams.FuelFilmNew[i_inv] = gLocalParams.FuelFilmTemp[i_inv];
               //}
 
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0

@@ -701,6 +701,11 @@ static const float default_dynamic_fuel_corr_temp[TABLE_TEMPERATURES_MAX] = {
     0.24f, 0.19f, 0.13f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f,
 };
 
+static const float default_dynamic_fuel_corr_lpf[TABLE_ROTATES_MAX] = {
+    0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f,
+    0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f,
+};
+
 
 void config_default_table(sEcuTable *table, uint8_t number)
 {
@@ -896,6 +901,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
 
   memcpy(table->dynamic_fuel_corr_gbc, default_dynamic_fuel_corr_gbc, sizeof(default_dynamic_fuel_corr_gbc));
   memcpy(table->dynamic_fuel_corr_temp, default_dynamic_fuel_corr_temp, sizeof(default_dynamic_fuel_corr_temp));
+  memcpy(table->dynamic_fuel_corr_lpf, default_dynamic_fuel_corr_lpf, sizeof(default_dynamic_fuel_corr_lpf));
 
   table->fan_advance_control_low  = -0.20f;
   table->fan_advance_control_mid  =  0.00f;
