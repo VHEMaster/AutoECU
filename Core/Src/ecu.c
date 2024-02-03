@@ -2013,19 +2013,16 @@ static void ecu_update(void)
 
   fuel_amount_per_cycle *= enrichment_amount_sync + 1.0f;
 
-
-  /*
   if(gForceParameters.Enable.InjectionPulse) {
-    injection_time = gForceParameters.InjectionPulse;
-    if(injection_time > injector_lag_mult) {
-      fuel_amount_per_cycle = (injection_time - injector_lag_mult) * fuel_flow_per_us;
+    gLocalParams.FinalInjectionPulse = gForceParameters.InjectionPulse;
+    if(gLocalParams.FinalInjectionPulse > injector_lag_mult) {
+      fuel_amount_per_cycle = (gLocalParams.FinalInjectionPulse - injector_lag_mult) * fuel_flow_per_us;
       wish_fuel_ratio = cycle_air_flow / fuel_amount_per_cycle;
     } else {
       fuel_amount_per_cycle = 0;
       wish_fuel_ratio = 200.0f;
     }
   }
-  */
 
   if(Cutoff.FuelCutoff) {
     fuel_amount_per_cycle = 0;
@@ -3583,6 +3580,13 @@ ITCM_FUNC void ecu_process(void)
     }
   }
 
+  if(gForceParameters.Enable.InjectionPulse) {
+    inj_pulse_final = gForceParameters.InjectionPulse;
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      cy_injection[i] = inj_pulse_final;
+    }
+  }
+
   injection_dutycycle = inj_pulse_final / (period * 2.0f);
 
   if(injection_dutycycle > 1.0f) {
@@ -3961,6 +3965,7 @@ ITCM_FUNC void ecu_process(void)
                 if(phased_injection) {
                   gLocalParams.FuelFilmTemp[i] = gLocalParams.FuelFilmOld[i] / (1.0f + dynamic_film_correction);
                 } else {
+                  i_inv = ECU_CYLINDERS_COUNT - i - 1;
                   gLocalParams.FuelFilmTemp[i] = gLocalParams.FuelFilmOld[i] / (1.0f + dynamic_film_correction);
                   gLocalParams.FuelFilmTemp[i_inv] = gLocalParams.FuelFilmOld[i_inv] / (1.0f + dynamic_film_correction);
                 }
