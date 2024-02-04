@@ -73,6 +73,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define FAN_TIMEOUT                 (3 * 1000 * 1000)
 #define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
 #define PID_MINIMUM_RUNTIME         (3 * 1000 * 1000)
+#define FUEL_FILM_MINIMUM_RUNTIME   (1 * 1000 * 1000)
 
 typedef enum {
   KnockStatusOk = 0,
@@ -365,6 +366,7 @@ struct {
 
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
+    uint8_t FuelFilmAllowed;
 
     float KnockDetectPhaseStart;
     float KnockDetectPhaseEnd;
@@ -2039,6 +2041,12 @@ static void ecu_update(void)
     fuel_amount_per_cycle = 0;
   }
 
+  if(running && running_time_latest >= FUEL_FILM_MINIMUM_RUNTIME) {
+    gLocalParams.FuelFilmAllowed = 1;
+  } else {
+    gLocalParams.FuelFilmAllowed = 0;
+  }
+
   gLocalParams.InjectorLag = injector_lag_mult;
   gLocalParams.FuelFlowPerUs = fuel_flow_per_us;
   gLocalParams.CycleAirFlow = cycle_air_flow_injection;
@@ -3409,6 +3417,7 @@ ITCM_FUNC void ecu_process(void)
   float dynamic_film_correction;
   float dynamic_fuel_corr_lpf;
   float inj_phase_duration;
+  uint8_t fuel_film_allowed;
 
   float phased_angles[ECU_CYLINDERS_COUNT];
   float non_phased_angles[ECU_CYLINDERS_COUNT_HALF];
@@ -3455,6 +3464,7 @@ ITCM_FUNC void ecu_process(void)
   cycle_fuel_flow = gLocalParams.CycleFuelFlow;
   dynamic_film_correction = gLocalParams.DynamicFilmCorrection;
   dynamic_fuel_corr_lpf = gLocalParams.DynamicFilmCorrLpf;
+  fuel_film_allowed = gLocalParams.FuelFilmAllowed;
 
   if(found != was_found) {
     was_found = found;
@@ -3552,12 +3562,23 @@ ITCM_FUNC void ecu_process(void)
     angles_injection_per_turn = 360.0f;
   }
 
-  inj_pulse = 0.0f;
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     gLocalParams.FuelFilmTemp[i] = cycle_fuel_flow * dynamic_film_correction;
-    cy_injection[i] = cycle_fuel_flow;
-    cy_injection[i] += gLocalParams.FuelFilmNew[i] - gLocalParams.FuelFilmOld[i];
+  }
 
+  if(!fuel_film_allowed) {
+    for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+      gLocalParams.FuelFilmOld[i] = gLocalParams.FuelFilmTemp[i];
+      gLocalParams.FuelFilmNew[i] = gLocalParams.FuelFilmTemp[i];
+    }
+  }
+
+  inj_pulse = 0.0f;
+  for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
+    cy_injection[i] = cycle_fuel_flow;
+    if(fuel_film_allowed) {
+      cy_injection[i] += gLocalParams.FuelFilmNew[i] - gLocalParams.FuelFilmOld[i];
+    }
     cy_injection[i] = MAX(cy_injection[i], 0.0f);
     cy_injection[i] /= gLocalParams.FuelFlowPerUs;
     cy_injection[i] *= cy_corr_injection[i] + 1.0f;
