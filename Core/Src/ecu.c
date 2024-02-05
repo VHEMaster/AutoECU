@@ -1111,7 +1111,7 @@ static void ecu_update(void)
   uint8_t idle_corr_flag;
   uint8_t idle_pid_flag;
   uint8_t o2_valid = 0;
-  uint8_t lambda_force = gEcuParams.isLambdaForceEnabled;
+  uint8_t lambda_force = gForceParameters.LambdaForceEnabled;
   uint8_t phased_mode = gEcuParams.phasedMode;
   uint8_t shift_processing = Shift.Shifting;
   uint8_t cutoff_processing = Cutoff.Processing;
@@ -4497,15 +4497,13 @@ static void ecu_checkengine_loop(void)
   CHECK_STATUS(iserror, CheckNoBatteryCharge, gStatus.BatteryCharge.is_error);
 
   gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
-
-  gDiagErrors.Bits.csps_error = gStatus.Sensors.Struct.Csps != HAL_OK;
   gDiagErrors.Bits.not_used1 = 0;
-  gDiagErrors.Bits.eeprom_error = gStatus.Flash.Byte > 0;
+  gDiagErrors.Bits.eeprom_error = gStatus.Flash.Byte != HAL_OK;
   gDiagErrors.Bits.lambda_heater = gStatus.O2Diagnostic.DIAHGD > 0;
   gDiagErrors.Bits.tsps_error = gStatus.Sensors.Struct.Tsps != HAL_OK;
   gDiagErrors.Bits.reset_error = 0;
-  gDiagErrors.Bits.ram_error = 0;
-  gDiagErrors.Bits.flash_error = 0;
+  gDiagErrors.Bits.ram_error = gStatus.Bkpsram.Byte != HAL_OK;
+  gDiagErrors.Bits.flash_error = gStatus.Flash.Byte != HAL_OK;
 
   gDiagErrors.Bits.low_voltage = gSharedParameters.PowerVoltage < 7.0f;
   gDiagErrors.Bits.not_used2 = 0;
@@ -5088,7 +5086,7 @@ static void ecu_config_process(void)
   float rpm = csps_getrpm(data);
   sMathInterpolateInput ipRpm;
 
-  O2_SetLambdaForceEnabled(gEcuParams.isLambdaForceEnabled);
+  O2_SetLambdaForceEnabled(gForceParameters.LambdaForceEnabled);
 
   if(gEcuParams.useKnockSensor) {
     ipRpm =  math_interpolate_input(rpm, table->rotates, table->rotates_count);
