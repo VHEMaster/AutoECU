@@ -311,13 +311,13 @@ static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
 };
 
 static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
-    2000, 1900, 1800, 1600, 1300, 1000, 800, 650,
-    550, 500, 450, 430, 430, 430, 430, 430,
+    147.1f, 139.7f, 132.4f, 117.6f, 95.6f, 73.5f, 58.8f, 47.8f,
+    40.4f, 36.8f, 33.1f, 31.6f, 31.6f, 31.6f, 31.6f, 31.6f
 };
 
 static const float default_start_small_filling[TABLE_TEMPERATURES_MAX] = {
-    850, 830, 730, 630, 500, 420, 370, 340,
-    320, 310, 310, 310, 310, 310, 310, 310,
+    62.5f, 61.0f, 53.7f, 46.3f, 36.8f, 30.9f, 27.2f, 25.0f,
+    23.5f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f
 };
 
 static const float default_start_filling_time[TABLE_TEMPERATURES_MAX] = {

@@ -923,7 +923,7 @@ static void ecu_update(void)
   float filling_map_tps_diff;
   float air_temp_recalc_mult;
   float cycle_air_flow_injection;
-  float cycle_air_flow_injection_startup;
+  float cycle_fuel_flow_startup;
   float idle_wish_cycle_air_flow;
   float mass_air_flow;
 
@@ -1751,15 +1751,10 @@ static void ecu_update(void)
     start_halfturns = 0;
 
   if(start_halfturns < start_large_count)
-    cycle_air_flow_injection_startup = start_large_filling;
-  else cycle_air_flow_injection_startup = start_small_filling;
+    cycle_fuel_flow_startup = start_large_filling;
+  else cycle_fuel_flow_startup = start_small_filling;
 
-  if(running) {
-      cycle_air_flow_injection = cycle_air_flow;
-  } else {
-    cycle_air_flow_injection = cycle_air_flow_injection_startup;
-  }
-
+  cycle_air_flow_injection = cycle_air_flow;
 
   fuel_amount_per_cycle = cycle_air_flow_injection / wish_fuel_ratio;
   async_flow_per_cycle = start_async_filling / wish_fuel_ratio;
@@ -1784,12 +1779,6 @@ static void ecu_update(void)
     cold_start_idle_mult = 0.0f;
   }
 
-  if(running_time < start_filling_time && cycle_air_flow_injection_startup > cycle_air_flow_injection) {
-    start_filling_mult = ((cycle_air_flow_injection_startup / cycle_air_flow_injection) - 1.0f) * (1.0f - (running_time / start_filling_time));
-  } else {
-    start_filling_mult = 0.0f;
-  }
-
   if(running) {
     cycle_air_flow_idle_diff = idle_wish_cycle_air_flow / cycle_air_flow;
     cycle_air_flow_idle_diff = CLAMP(cycle_air_flow_idle_diff, 0.0f, 1.0f);
@@ -1808,7 +1797,6 @@ static void ecu_update(void)
     dynamic_film_correction = 0;
 
   additional_fuel_correction = 1.0f;
-  additional_fuel_correction *= start_filling_mult + 1.0f;
   additional_fuel_correction *= air_temp_mix_corr + 1.0f;
   additional_fuel_correction *= engine_temp_mix_corr + 1.0f;
 
@@ -1818,6 +1806,17 @@ static void ecu_update(void)
 
   fuel_amount_per_cycle *= additional_fuel_correction;
   fuel_amount_per_cycle *= warmup_fuel_correction;
+
+  if(!running) {
+    fuel_amount_per_cycle = cycle_fuel_flow_startup;
+  } else {
+    if(running_time < start_filling_time && cycle_fuel_flow_startup > fuel_amount_per_cycle) {
+      start_filling_mult = ((cycle_fuel_flow_startup / fuel_amount_per_cycle) - 1.0f) * (1.0f - (running_time / start_filling_time));
+    } else {
+      start_filling_mult = 0.0f;
+    }
+    fuel_amount_per_cycle *= start_filling_mult;
+  }
 
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
