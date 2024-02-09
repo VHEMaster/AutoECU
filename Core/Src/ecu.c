@@ -368,6 +368,11 @@ struct {
     uint8_t EnrichmentTriggered;
     uint8_t FuelFilmAllowed;
 
+    float EtcThrottlePosition;
+    float EtcPedalPosition;
+    float EtcThrottleTargetPosition;
+    float EtcThrottleDefaultPosition;
+
     float KnockDetectPhaseStart;
     float KnockDetectPhaseEnd;
 
@@ -1205,8 +1210,14 @@ static void ecu_update(void)
     tps_status |= gStatus.Etc.Tps2;
     tps_status |= gStatus.Etc.TpsMismatch;
     gStatus.Sensors.Struct.Tps = tps_status;
-    throttle = gParameters.ThrottlePosition;
-    pedal = gParameters.PedalPosition;
+    throttle = gLocalParams.EtcThrottlePosition;
+    pedal = gLocalParams.EtcPedalPosition;
+    if(pedal <= gEcuParams.etcPedalDeadZone) {
+      pedal = 0;
+    } else {
+      pedal = (pedal - gEcuParams.etcPedalDeadZone) * 0.01f * (100.0f + gEcuParams.etcPedalDeadZone);
+    }
+    pedal = CLAMP(pedal, 0.0f, 100.0f);
   } else {
     gStatus.Sensors.Struct.Tps = sens_get_throttle_position(&throttle);
   }
@@ -2797,13 +2808,20 @@ static void ecu_update(void)
   gParameters.CalculatedAirTemp = calculated_air_temp;
   gParameters.ManifoldAirPressure = pressure;
 
+  gParameters.ThrottlePosition = throttle;
   if(use_etc) {
+    gParameters.PedalPosition = pedal;
+    gParameters.ThrottleTargetPosition = gLocalParams.EtcThrottleTargetPosition;
+    gParameters.ThrottleDefaultPosition = gLocalParams.EtcThrottleDefaultPosition;
+
     if(gEtcTest.StartedTime == 0) {
       gParameters.WishThrottleTargetPosition = throttle_target;
     }
   } else {
     gParameters.WishThrottleTargetPosition = throttle;
-    gParameters.ThrottlePosition = throttle;
+    gParameters.PedalPosition = 0;
+    gParameters.ThrottleTargetPosition = 0;
+    gParameters.ThrottleDefaultPosition = 0;
   }
   gParameters.ReferenceVoltage = reference_voltage;
   gParameters.PowerVoltage = power_voltage;
@@ -6390,10 +6408,10 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           can_signal_get_float(&g_can_message_id011_ETC, &g_can_signal_id011_ETC_PowerVoltage, &gParameters.AdcEtcPowerVoltage);
           break;
         case 0x012:
-          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_ThrottlePosition, &gParameters.ThrottlePosition);
-          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TargetPosition, &gParameters.ThrottleTargetPosition);
-          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_DefaultPosition, &gParameters.ThrottleDefaultPosition);
-          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gParameters.PedalPosition);
+          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_ThrottlePosition, &gLocalParams.EtcThrottlePosition);
+          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TargetPosition, &gLocalParams.EtcThrottleTargetPosition);
+          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_DefaultPosition, &gLocalParams.EtcThrottleDefaultPosition);
+          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gLocalParams.EtcThrottlePosition);
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps1ErrorFlag, &value); gStatus.Etc.Tps1 = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps2ErrorFlag, &value); gStatus.Etc.Tps2 = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal1ErrorFlag, &value); gStatus.Etc.Pedal1 = value ? HAL_ERROR : HAL_OK;

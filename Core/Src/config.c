@@ -958,6 +958,7 @@ void config_default_params(sEcuParams *table)
 
   table->useIdleValve = 0;
   table->useEtc = 1;
+  table->etcPedalDeadZone = 0.0f;
   table->useShortTermCorr = 0;
   table->useLongTermCorr = 0;
 
