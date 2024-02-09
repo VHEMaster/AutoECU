@@ -74,6 +74,7 @@ typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMath
 #define CALIBRATION_MIN_RUNTIME     (3 * 1000 * 1000)
 #define PID_MINIMUM_RUNTIME         (3 * 1000 * 1000)
 #define FUEL_FILM_MINIMUM_RUNTIME   (1 * 1000 * 1000)
+#define INJ_PHASE_CHANGE_PER_CYCLE  (6.0f)
 
 typedef enum {
   KnockStatusOk = 0,
@@ -372,6 +373,8 @@ struct {
     float EtcPedalPosition;
     float EtcThrottleTargetPosition;
     float EtcThrottleDefaultPosition;
+    float RequestedInjectionPhase;
+    float AcceptedInjectionPhase;
 
     float KnockDetectPhaseStart;
     float KnockDetectPhaseEnd;
@@ -2852,8 +2855,9 @@ static void ecu_update(void)
   gParameters.WishIdleValvePosition = idle_wish_valve_pos;
   gParameters.WishIdleIgnitionAdvance = idle_wish_ignition;
   gParameters.IgnitionAdvance = ignition_advance;
-  gParameters.InjectionPhase = injection_phase;
+  gParameters.InjectionPhase = gLocalParams.AcceptedInjectionPhase;
   gParameters.InjectionPhaseDuration = gLocalParams.FinalInjectionPhaseDuration;
+  gLocalParams.RequestedInjectionPhase = injection_phase;
 
   for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
     gLocalParams.IgnitionCorrectionCy[i] = ignition_advance_cy[i];
@@ -3384,12 +3388,12 @@ ITCM_FUNC void ecu_process(void)
   float time_sat;
   float time_pulse;
   float angle_ignite_koff = 0.1f;
-  float inj_phase_koff = 0.0f;
   float angle_ignite_param;
-  float inj_phase_param;
   float inj_phase_temp;
   static float angle_ignite = 10.0f;
   static float inj_phase = 200.0f;
+  float inj_phase_req;
+  float inj_phase_adder;
   float saturate;
   float angles_injection_per_turn;
   float angles_ignition_per_turn;
@@ -3475,7 +3479,6 @@ ITCM_FUNC void ecu_process(void)
   cy_count_knock = phased_knock ? ECU_CYLINDERS_COUNT : ECU_CYLINDERS_COUNT_HALF;
   angle_ignite_param = gParameters.IgnitionAdvance;
   injection_phase_by_end = table->is_fuel_phase_by_end;
-  inj_phase_param = gParameters.InjectionPhase;
 
   inj_lag = gLocalParams.InjectorLag;
   cycle_fuel_flow = gLocalParams.CycleFuelFlow;
@@ -3488,6 +3491,10 @@ ITCM_FUNC void ecu_process(void)
     last_start_triggered = 1;
     last_start = now;
     turns_count_last = turns_count;
+  }
+
+  if(!running) {
+    gLocalParams.AcceptedInjectionPhase = gLocalParams.RequestedInjectionPhase;
   }
 
   if(last_start_triggered) {
@@ -3508,19 +3515,13 @@ ITCM_FUNC void ecu_process(void)
     angle_ignite_koff = 0.01f;
   }
 
-  //TODO: remove this filter when fixed the bug of incorrect injection pulses
-  inj_phase_koff = diff * 0.005f;
-  if(inj_phase_koff > 0.8f)
-    inj_phase_koff = 0.8f;
-  if(inj_phase_koff < 0.0001f)
-    inj_phase_koff = 0.0001f;
-
   uspa_koff = diff * 0.002f;
 
   uspa = uspa_raw * uspa_koff + uspa * (1.0f - uspa_koff);
   r_uspa = 1.0f / uspa;
   angle_ignite = angle_ignite_param * angle_ignite_koff + angle_ignite * (1.0f - angle_ignite_koff);
-  inj_phase = inj_phase_param * inj_phase_koff + inj_phase * (1.0f - inj_phase_koff);
+  inj_phase_req = gLocalParams.RequestedInjectionPhase;
+  inj_phase = gLocalParams.AcceptedInjectionPhase;
   inj_phase_temp = inj_phase;
 
   if(single_coil) {
@@ -4039,6 +4040,15 @@ ITCM_FUNC void ecu_process(void)
 #if defined(IGNITION_ACCEPTION_FEATURE) && IGNITION_ACCEPTION_FEATURE > 0
               ignition_accepted_angle[i] = cy_ignition[i];
 #endif
+              inj_phase_adder = fabsf(inj_phase_req - inj_phase);
+              if(inj_phase_adder > INJ_PHASE_CHANGE_PER_CYCLE) {
+                inj_phase_adder = INJ_PHASE_CHANGE_PER_CYCLE;
+              }
+
+              if(inj_phase_req < inj_phase) {
+                inj_phase_adder = -inj_phase_adder;
+              }
+              gLocalParams.AcceptedInjectionPhase += inj_phase_adder;
             }
           }
 
