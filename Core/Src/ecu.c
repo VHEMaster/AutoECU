@@ -1959,7 +1959,7 @@ static void ecu_update(void)
 
     enrichment_rate = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
     enrichment_tps_selection = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_tps_selection);
-    enrichment_rate *= enrichment_temp_mult + 1.0f;
+    enrichment_rate *= enrichment_temp_mult;
 
     if(!running) {
       enrichment_tps_selection = 0.0f;

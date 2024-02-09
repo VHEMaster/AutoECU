@@ -244,8 +244,8 @@ static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHME
 
 
 static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
-    2.80f, 2.60f, 2.40f, 2.10f, 1.70f, 1.30f, 0.90f, 0.60f,
-    0.33f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
+    2.00f, 1.93f, 1.79f, 1.68f, 1.55f, 1.44f, 1.36f, 1.30f,
+    1.24f, 1.19f, 1.14f, 1.12f, 1.10f, 1.10f, 1.10f, 1.10f,
 };
 
 static const float default_enrichment_injection_phase[TABLE_ROTATES_MAX] = {
