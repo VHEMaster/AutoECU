@@ -368,6 +368,7 @@ struct {
     uint8_t PhasedInjection;
     uint8_t EnrichmentTriggered;
     uint8_t FuelFilmAllowed;
+    uint8_t StartupInjectionStarted;
 
     float EtcThrottlePosition;
     float EtcPedalPosition;
@@ -1069,7 +1070,6 @@ static void ecu_update(void)
   float start_small_filling;
   float start_filling_time;
   float start_filling_mult;
-  float async_flow_per_cycle;
   float start_async_time;
   float idle_wish_to_rpm_relation;
   float idle_ignition_time_by_tps;
@@ -1739,7 +1739,11 @@ static void ecu_update(void)
   }
 
   start_large_count = table->start_large_count;
-  injection_start_mult = math_interpolate_1d(ipThrottle, table->start_tps_corrs);
+  if(use_etc) {
+    injection_start_mult = math_interpolate_1d(ipThrottle, table->start_tps_corrs);
+  } else {
+    injection_start_mult = math_interpolate_1d(ipPedal, table->start_tps_corrs);
+  }
   etc_econ_flag = econ_flag;
   econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
 
@@ -1750,7 +1754,7 @@ static void ecu_update(void)
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
   }
-  if(!rotates)
+  if(!rotates || gLocalParams.StartupInjectionStarted)
     start_halfturns = 0;
 
   if(start_halfturns < start_large_count)
@@ -1760,13 +1764,8 @@ static void ecu_update(void)
   cycle_air_flow_injection = cycle_air_flow;
 
   fuel_amount_per_cycle = cycle_air_flow_injection / wish_fuel_ratio;
-  async_flow_per_cycle = start_async_filling / wish_fuel_ratio;
 
-  if(!running) {
-    fuel_amount_per_cycle *= injection_start_mult;
-  }
-
-  start_async_time = async_flow_per_cycle / fuel_flow_per_us;
+  start_async_time = start_async_filling / fuel_flow_per_us;
   start_async_time *= injection_start_mult;
   if(found && !was_start_async) {
     if(start_async_time > 0) {
@@ -1812,13 +1811,14 @@ static void ecu_update(void)
 
   if(!running) {
     fuel_amount_per_cycle = cycle_fuel_flow_startup;
+    fuel_amount_per_cycle *= injection_start_mult;
   } else {
     if(running_time < start_filling_time && cycle_fuel_flow_startup > fuel_amount_per_cycle) {
       start_filling_mult = ((cycle_fuel_flow_startup / fuel_amount_per_cycle) - 1.0f) * (1.0f - (running_time / start_filling_time));
     } else {
       start_filling_mult = 0.0f;
     }
-    fuel_amount_per_cycle *= start_filling_mult;
+    fuel_amount_per_cycle *= 1.0f + start_filling_mult;
   }
 
   enrichment_load_type = table->enrichment_load_type;
@@ -3322,6 +3322,7 @@ ITCM_FUNC void ecu_process(void)
   sEcuTable *table = &gEcuTable[ecu_get_table()];
   uint8_t found = csps_isfound();
   uint8_t running = csps_isrunning();
+  uint8_t rotates = csps_isrotates();
   sCspsData csps = csps_data();
   uint32_t now = Delay_Tick;
   static uint32_t last = 0;
@@ -3495,6 +3496,10 @@ ITCM_FUNC void ecu_process(void)
 
   if(!running) {
     gLocalParams.AcceptedInjectionPhase = gLocalParams.RequestedInjectionPhase;
+  }
+
+  if(!rotates) {
+    gLocalParams.StartupInjectionStarted = 0;
   }
 
   if(last_start_triggered) {
@@ -4049,6 +4054,7 @@ ITCM_FUNC void ecu_process(void)
                 inj_phase_adder = -inj_phase_adder;
               }
               gLocalParams.AcceptedInjectionPhase += inj_phase_adder;
+              gLocalParams.StartupInjectionStarted = 1;
             }
           }
 
@@ -6420,7 +6426,7 @@ static int8_t ecu_can_process_message(const sCanRawMessage *message)
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_ThrottlePosition, &gLocalParams.EtcThrottlePosition);
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_TargetPosition, &gLocalParams.EtcThrottleTargetPosition);
           can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_DefaultPosition, &gLocalParams.EtcThrottleDefaultPosition);
-          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gLocalParams.EtcThrottlePosition);
+          can_signal_get_float(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_PedalPosition, &gLocalParams.EtcPedalPosition);
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps1ErrorFlag, &value); gStatus.Etc.Tps1 = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Tps2ErrorFlag, &value); gStatus.Etc.Tps2 = value ? HAL_ERROR : HAL_OK;
           can_signal_get_uint(&g_can_message_id012_ETC, &g_can_signal_id012_ETC_Pedal1ErrorFlag, &value); gStatus.Etc.Pedal1 = value ? HAL_ERROR : HAL_OK;
