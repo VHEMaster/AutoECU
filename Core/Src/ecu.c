@@ -28,7 +28,6 @@
 #include "outputs.h"
 #include "injector.h"
 #include "sst25vf032b.h"
-#include "interpolation.h"
 #include "math_misc.h"
 #include "config.h"
 #include "pid.h"
@@ -42,11 +41,14 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <float.h>
+#include "interpolation.h"
+#include "interpolation_extended.h"
 #include "arm_math.h"
 #include "math_fast.h"
 #include "kalman.h"
 #include "can_signals.h"
 #include "can_signals_db.h"
+#include "ecu_interpolation.h"
 
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define IGNITION_ACCEPTION_FEATURE  1
@@ -65,6 +67,32 @@ typedef float (*math_interpolate_2d_set_func_t)(sMathInterpolateInput input_x, s
     uint32_t y_size, float (*table)[], float new_value, float limit_l, float limit_h);
 typedef float (*math_interpolate_2d_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t y_size, const float (*table)[]);
+
+typedef float (*ecu_interpolate_2d_set_u8_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, uint8_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_set_u16_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, uint16_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_set_u32_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, uint32_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_set_s8_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, int8_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_set_s16_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, int16_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_set_s32_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, int32_t (*table)[], const sEcuParamTransform *transform, float new_value, float limit_l, float limit_h);
+typedef float (*ecu_interpolate_2d_u8_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const uint8_t (*table)[], const sEcuParamTransform *transform);
+typedef float (*ecu_interpolate_2d_u16_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const uint16_t (*table)[], const sEcuParamTransform *transform);
+typedef float (*ecu_interpolate_2d_u32_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const uint32_t (*table)[], const sEcuParamTransform *transform);
+typedef float (*ecu_interpolate_2d_s8_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const int8_t (*table)[], const sEcuParamTransform *transform);
+typedef float (*ecu_interpolate_2d_s16_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const int16_t (*table)[], const sEcuParamTransform *transform);
+typedef float (*ecu_interpolate_2d_s32_func_t)(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t y_size, const int32_t (*table)[], const sEcuParamTransform *transform);
+
 
 #define ENRICHMENT_LOAD_STATES_COUNT     (64)
 #define ASYNC_INJECTION_FIFO_SIZE   (32)
@@ -85,8 +113,8 @@ typedef enum {
 }eKnockStatus;
 
 typedef struct {
-    float filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX];
-    float filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX];
+    float filling_gbc_map[TABLE_PRESSURES_32][TABLE_ROTATES_32];
+    float filling_gbc_tps[TABLE_THROTTLES_32][TABLE_ROTATES_32];
 }sEcuCorrectionsTemp;
 
 typedef struct {
@@ -406,11 +434,10 @@ static GPIO_TypeDef * const gInjChPorts[2] = { INJ_CH1_GPIO_Port, INJ_CH2_GPIO_P
 static const uint16_t gInjChPins[2] = { INJ_CH1_Pin, INJ_CH2_Pin};
 
 static RTC_HandleTypeDef *hrtc = NULL;
-static sEcuTable gEcuTable[TABLE_SETUPS_MAX];
+static sEcuTable gEcuTable[TABLE_SETUPS];
 static sEcuParams gEcuParams;
 static sEcuCorrections gEcuCorrections;
 static sEcuCorrectionsTemp gEcuTempCorrections;
-static sEcuCorrectionsProgress gEcuCorrectionsProgress;
 static sEcuCriticalBackup gEcuCriticalBackup;
 static uint8_t volatile gStatusReset = 0;
 static sStatus gStatus = {{{0}}};
@@ -475,6 +502,9 @@ static volatile uint8_t gIgnCanShutdown = 0;
 #ifndef SIMULATION
 static volatile HAL_StatusTypeDef gIgnState = GPIO_PIN_SET;
 static volatile uint8_t gIgnShutdownReady = 0;
+
+static const sEcuParamTransform gEcuParamTransformProgress = { .gain = 0.0039216f, .offset = 0.0f };
+static const sEcuParamTransform gEcuParamTransformOne = { .gain = 1.0f, .offset = 0.0f };
 
 static int8_t ecu_shutdown_process(void);
 #endif
@@ -635,7 +665,7 @@ static void ecu_config_init(void)
       }
     }
 
-    for(int i = 0; i < TABLE_SETUPS_MAX; i++) {
+    for(int i = 0; i < TABLE_SETUPS; i++) {
       while(!(status = config_load_table(&gEcuTable[i], i))) {}
       if(status < 0) {
         gStatus.Flash.Struct.Load = HAL_ERROR;
@@ -650,7 +680,7 @@ static void ecu_config_init(void)
     config_default_params(&gEcuParams);
     gStatus.Flash.Struct.Load = HAL_ERROR;
     gStatus.Flash.Struct.Save = HAL_ERROR;
-    for(int i = 0; i < TABLE_SETUPS_MAX; i++)
+    for(int i = 0; i < TABLE_SETUPS; i++)
       config_default_table(&gEcuTable[i], i);
   }
 
@@ -663,8 +693,6 @@ static void ecu_config_init(void)
       gStatus.Bkpsram.Struct.CorrsSave = HAL_ERROR;
     }
   }
-
-  config_transform_corrections_to_progress(&gEcuCorrectionsProgress, &gEcuCorrections);
 
   while(!(status = config_load_critical_backup(&gEcuCriticalBackup))) {}
   if(status < 0) {
@@ -709,7 +737,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
-  sMathInterpolateInput ipIdleWishToRpmRelation = math_interpolate_input(idle_wish_to_rpm_relation, table->idle_pids_rpm_koffs, table->idle_pids_rpm_koffs_count);
+  sMathInterpolateInput ipIdleWishToRpmRelation = ecu_interpolate_input_u8(idle_wish_to_rpm_relation, table->idle_pids_rpm_koffs, TABLE_ROTATES_16, &table->transform.idle_pids_rpm_koffs);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
@@ -723,20 +751,20 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
 
   if(isidle) {
     if(gEcuParams.useEtc) {
-      math_pid_set_koffs(&gPidIdleThrottleAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_p),
-          math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_d));
-      math_pid_set_koffs(&gPidIdleThrottleRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_p),
-          math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_d));
+      math_pid_set_koffs(&gPidIdleThrottleAirFlow, ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_p, &table->transform.idle_throttle_to_massair_pid_p),
+          ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_i, &table->transform.idle_throttle_to_massair_pid_i), ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_massair_pid_d, &table->transform.idle_throttle_to_massair_pid_d));
+      math_pid_set_koffs(&gPidIdleThrottleRpm, ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_p, &table->transform.idle_throttle_to_rpm_pid_p),
+          ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_i, &table->transform.idle_throttle_to_rpm_pid_i), ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_throttle_to_rpm_pid_d, &table->transform.idle_throttle_to_rpm_pid_d));
     } else {
       math_pid_set_koffs(&gPidIdleThrottleAirFlow, 0, 0, 0);
       math_pid_set_koffs(&gPidIdleThrottleRpm, 0, 0, 0);
     }
-    math_pid_set_koffs(&gPidIdleValveAirFlow, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d));
-    math_pid_set_koffs(&gPidIdleValveRpm, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_d));
-    math_pid_set_koffs(&gPidIdleIgnition, math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_p),
-        math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_i), math_interpolate_1d(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_d));
+    math_pid_set_koffs(&gPidIdleValveAirFlow, ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_p, &table->transform.idle_valve_to_massair_pid_p),
+        ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_i, &table->transform.idle_valve_to_massair_pid_i), ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_massair_pid_d, &table->transform.idle_valve_to_massair_pid_d));
+    math_pid_set_koffs(&gPidIdleValveRpm, ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_p, &table->transform.idle_valve_to_rpm_pid_p),
+        ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_i, &table->transform.idle_valve_to_rpm_pid_i), ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_valve_to_rpm_pid_d, &table->transform.idle_valve_to_rpm_pid_d));
+    math_pid_set_koffs(&gPidIdleIgnition, ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_p, &table->transform.idle_ign_to_rpm_pid_p),
+        ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_i, &table->transform.idle_ign_to_rpm_pid_i), ecu_interpolate_1d_u16(ipIdleWishToRpmRelation, table->idle_ign_to_rpm_pid_d, &table->transform.idle_ign_to_rpm_pid_d));
   } else {
     math_pid_set_koffs(&gPidIdleThrottleAirFlow, 0, 0, 0);
     math_pid_set_koffs(&gPidIdleThrottleRpm, 0, 0, 0);
@@ -835,22 +863,26 @@ static void ecu_update(void)
   static uint32_t enrichment_time_last = 0;
   float enrichment_time_diff_sec;
 
-  sMathInterpolateInput ipRpm;
+  sMathInterpolateInput ipRpm16;
+  sMathInterpolateInput ipRpm32;
   sMathInterpolateInput ipIdleRpm;
-  sMathInterpolateInput ipPressure;
+  //sMathInterpolateInput ipPressure16;
+  sMathInterpolateInput ipPressure32;
   sMathInterpolateInput ipEngineTemp;
   sMathInterpolateInput ipColdStartTemp;
   sMathInterpolateInput ipCalcAirTemp;
   sMathInterpolateInput ipSpeed;
-  sMathInterpolateInput ipThrottle;
+  sMathInterpolateInput ipThrottle16;
+  sMathInterpolateInput ipThrottle32;
   sMathInterpolateInput ipVoltages;
   sMathInterpolateInput ipEnrLoadStart;
   sMathInterpolateInput ipEnrLoadDeriv;
 
-  sMathInterpolateInput ipFilling;
-  sMathInterpolateInput ipLearnRpm;
-  sMathInterpolateInput ipLearnThrottle;
-  sMathInterpolateInput ipLearnPressure;
+  sMathInterpolateInput ipFilling16;
+  sMathInterpolateInput ipFilling32;
+  sMathInterpolateInput ipLearnRpm32;
+  sMathInterpolateInput ipLearnThrottle32;
+  sMathInterpolateInput ipLearnPressure32;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
   sMathInterpolateInput ipLearmParamsIndex = {0};
@@ -960,7 +992,6 @@ static void ecu_update(void)
   float short_term_correction_pid = 0.0f;
   float injection_phase_start;
   float injection_phase_table;
-  float injection_phase_lpf;
   float fuel_amount_per_cycle;
   float warmup_fuel_correction;
   float additional_fuel_correction;
@@ -1141,9 +1172,49 @@ static void ecu_update(void)
   math_interpolate_2d_set_func_t corr_math_interpolate_2d_set_func = math_interpolate_2d_set;
   math_interpolate_2d_func_t corr_math_interpolate_2d_func = math_interpolate_2d;
 
+  ecu_interpolate_2d_set_u8_func_t corr_ecu_interpolate_2d_set_func_u8 = ecu_interpolate_2d_set_u8;
+  ecu_interpolate_2d_set_u16_func_t corr_ecu_interpolate_2d_set_func_u16 = ecu_interpolate_2d_set_u16;
+  ecu_interpolate_2d_set_u32_func_t corr_ecu_interpolate_2d_set_func_u32 = ecu_interpolate_2d_set_u32;
+  ecu_interpolate_2d_set_s8_func_t corr_ecu_interpolate_2d_set_func_s8 = ecu_interpolate_2d_set_s8;
+  ecu_interpolate_2d_set_s16_func_t corr_ecu_interpolate_2d_set_func_s16 = ecu_interpolate_2d_set_s16;
+  ecu_interpolate_2d_set_s32_func_t corr_ecu_interpolate_2d_set_func_s32 = ecu_interpolate_2d_set_s32;
+  ecu_interpolate_2d_u8_func_t corr_ecu_interpolate_2d_func_u8 = ecu_interpolate_2d_u8;
+  ecu_interpolate_2d_u16_func_t corr_ecu_interpolate_2d_func_u16 = ecu_interpolate_2d_u16;
+  ecu_interpolate_2d_u32_func_t corr_ecu_interpolate_2d_func_u32 = ecu_interpolate_2d_u32;
+  ecu_interpolate_2d_s8_func_t corr_ecu_interpolate_2d_func_s8 = ecu_interpolate_2d_s8;
+  ecu_interpolate_2d_s16_func_t corr_ecu_interpolate_2d_func_s16 = ecu_interpolate_2d_s16;
+  ecu_interpolate_2d_s32_func_t corr_ecu_interpolate_2d_func_s32 = ecu_interpolate_2d_s32;
+
+  (void)corr_ecu_interpolate_2d_set_func_u8;
+  (void)corr_ecu_interpolate_2d_set_func_u16;
+  (void)corr_ecu_interpolate_2d_set_func_u32;
+  (void)corr_ecu_interpolate_2d_set_func_s8;
+  (void)corr_ecu_interpolate_2d_set_func_s16;
+  (void)corr_ecu_interpolate_2d_set_func_s32;
+  (void)corr_ecu_interpolate_2d_func_u8;
+  (void)corr_ecu_interpolate_2d_func_u16;
+  (void)corr_ecu_interpolate_2d_func_u32;
+  (void)corr_ecu_interpolate_2d_func_s8;
+  (void)corr_ecu_interpolate_2d_func_s16;
+  (void)corr_ecu_interpolate_2d_func_s32;
+
   if(calibration == 2) {
     corr_math_interpolate_2d_func = math_interpolate_2d_point;
     corr_math_interpolate_2d_set_func = math_interpolate_2d_set_point;
+
+    corr_ecu_interpolate_2d_func_u8 = ecu_interpolate_2d_point_u8;
+    corr_ecu_interpolate_2d_func_u16 = ecu_interpolate_2d_point_u16;
+    corr_ecu_interpolate_2d_func_u32 = ecu_interpolate_2d_point_u32;
+    corr_ecu_interpolate_2d_func_s8 = ecu_interpolate_2d_point_s8;
+    corr_ecu_interpolate_2d_func_s16 = ecu_interpolate_2d_point_s16;
+    corr_ecu_interpolate_2d_func_s32 = ecu_interpolate_2d_point_s32;
+
+    corr_ecu_interpolate_2d_set_func_u8 = ecu_interpolate_2d_set_point_u8;
+    corr_ecu_interpolate_2d_set_func_u16 = ecu_interpolate_2d_set_point_u16;
+    corr_ecu_interpolate_2d_set_func_u32 = ecu_interpolate_2d_set_point_u32;
+    corr_ecu_interpolate_2d_set_func_s8 = ecu_interpolate_2d_set_point_s8;
+    corr_ecu_interpolate_2d_set_func_s16 = ecu_interpolate_2d_set_point_s16;
+    corr_ecu_interpolate_2d_set_func_s32 = ecu_interpolate_2d_set_point_s32;
   }
 
   gStatus.AdcStatus = sens_get_adc_status();
@@ -1266,10 +1337,11 @@ static void ecu_update(void)
     }
   }
 
-  ipRpm = math_interpolate_input(rpm, table->rotates, table->rotates_count);
+  ipRpm16 = ecu_interpolate_input_u16(rpm, table->rotates_16, TABLE_ROTATES_16, &table->transform.rotates_16);
+  ipRpm32 = ecu_interpolate_input_u16(rpm, table->rotates_32, TABLE_ROTATES_32, &table->transform.rotates_32);
 
-  tsps_relative_position_table = math_interpolate_1d(ipRpm, table->tsps_relative_pos);
-  tsps_desync_thr_table = math_interpolate_1d(ipRpm, table->tsps_desync_thr);
+  tsps_relative_position_table = ecu_interpolate_1d_s8(ipRpm32, table->tsps_relative_pos, &table->transform.tsps_relative_pos);
+  tsps_desync_thr_table = ecu_interpolate_1d_u8(ipRpm16, table->tsps_desync_thr, &table->transform.tsps_desync_thr);
 
   if(csps_phased_valid()) {
     tsps_rel_pos = csps_gettspsrelpos() - tsps_relative_position_table;
@@ -1378,34 +1450,33 @@ static void ecu_update(void)
     }
   }
 
-  ipIdleRpm = math_interpolate_input(rpm, table->idle_rotates, table->idle_rotates_count);
-  ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
-  ipEngineTemp = math_interpolate_input(engine_temp, table->engine_temps, table->engine_temp_count);
-  ipSpeed = math_interpolate_input(speed, table->speeds, table->speeds_count);
-  ipVoltages = math_interpolate_input(power_voltage, table->voltages, table->voltages_count);
+  ipIdleRpm = ecu_interpolate_input_u16(rpm, table->idle_rotates, TABLE_ROTATES_16, &table->transform.idle_rotates);
+  ipThrottle16 = ecu_interpolate_input_u16(throttle, table->throttles_16, TABLE_THROTTLES_16, &table->transform.throttles_16);
+  ipThrottle32 = ecu_interpolate_input_u16(throttle, table->throttles_32, TABLE_THROTTLES_32, &table->transform.throttles_32);
+  ipEngineTemp = ecu_interpolate_input_s8(engine_temp, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
+  ipSpeed = ecu_interpolate_input_u8(speed, table->speeds, TABLE_SPEEDS, &table->transform.speeds);
+  ipVoltages = ecu_interpolate_input_u8(power_voltage, table->voltages, TABLE_VOLTAGES, &table->transform.voltages);
 
-  idle_wish_massair = math_interpolate_1d(ipEngineTemp, table->idle_wish_massair);
+  idle_wish_massair = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_wish_massair, &table->transform.idle_wish_massair);
 
-  ipPedal = math_interpolate_input(pedal, table->pedals, table->pedals_count);
+  ipPedal = ecu_interpolate_input_u16(pedal, table->pedals, TABLE_PEDALS, &table->transform.pedals);
   if(throttle_position_use_1d) {
-    throttle_target_pedal = math_interpolate_1d(ipPedal, table->throttle_position_1d);
+    throttle_target_pedal = ecu_interpolate_1d_u16(ipPedal, table->throttle_position_1d, &table->transform.throttle_position_1d);
   } else {
-    throttle_target_pedal = math_interpolate_2d_limit(ipPedal, ipRpm, TABLE_PEDALS_MAX, table->throttle_position);
+    throttle_target_pedal = ecu_interpolate_2d_limit_u16(ipPedal, ipRpm16, TABLE_PEDALS, table->throttle_position, &table->transform.throttle_position);
   }
-  throttle_target_start = math_interpolate_1d(ipEngineTemp, table->start_throttle_position);
-  throttle_target_stop = math_interpolate_1d(ipPedal, table->stop_throttle_position);
-  throttle_target_idle = math_interpolate_1d(ipEngineTemp, table->idle_throttle_position);
+  throttle_target_start = ecu_interpolate_1d_u8(ipEngineTemp, table->start_throttle_position, &table->transform.start_throttle_position);
+  throttle_target_stop = ecu_interpolate_1d_u16(ipPedal, table->stop_throttle_position, &table->transform.stop_throttle_position);
+  throttle_target_idle = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_throttle_position, &table->transform.idle_throttle_position);
   throttle_target_adaptation = 0;
-  pedal_ignition_control = math_interpolate_1d(ipRpm, table->pedal_ignition_control);
-  throttle_startup_move_time = math_interpolate_1d(ipEngineTemp, table->throttle_startup_move_time);
+  pedal_ignition_control = ecu_interpolate_1d_u8(ipRpm16, table->pedal_ignition_control, &table->transform.pedal_ignition_control);
+  throttle_startup_move_time = ecu_interpolate_1d_u8(ipEngineTemp, table->throttle_startup_move_time, &table->transform.throttle_startup_move_time);
   throttle_startup_move_time *= 1000000.0f;
 
   if(use_tps_sensor) {
-    ipThrottle = math_interpolate_input(throttle, table->throttles, table->throttles_count);
-
-    filling_tps = math_interpolate_2d_limit(ipRpm, ipThrottle, TABLE_ROTATES_MAX, table->filling_gbc_tps);
-    filling_tps_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_tps);
-    filling_tps_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps);
+    filling_tps = ecu_interpolate_2d_limit_u16(ipRpm32, ipThrottle32, TABLE_ROTATES_32, table->filling_gbc_tps, &table->transform.filling_gbc_tps);
+    filling_tps_correction = corr_ecu_interpolate_2d_func_s8(ipRpm32, ipThrottle32, TABLE_ROTATES_32, gEcuCorrections.filling_gbc_tps, &table->transform.filling_gbc_tps);
+    filling_tps_temp_correction = corr_math_interpolate_2d_func(ipRpm32, ipThrottle32, TABLE_ROTATES_32, gEcuTempCorrections.filling_gbc_tps);
     filling_tps_correction += filling_tps_temp_correction;
     filling_tps *= filling_tps_correction + 1.0f;
     filling_tps = MAX(filling_tps, 0.0f);
@@ -1416,11 +1487,12 @@ static void ecu_update(void)
   }
 
   if(use_map_sensor) {
-    ipPressure = math_interpolate_input(pressure, table->pressures, table->pressures_count);
+    //ipPressure16 = ecu_interpolate_input_u16(pressure, table->pressures_16, TABLE_PRESSURES_16, &table->transform.pressures_16);
+    ipPressure32 = ecu_interpolate_input_u16(pressure, table->pressures_32, TABLE_PRESSURES_32, &table->transform.pressures_32);
 
-    filling_map = math_interpolate_2d_limit(ipRpm, ipPressure, TABLE_ROTATES_MAX, table->filling_gbc_map);
-    filling_map_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuCorrections.filling_gbc_map);
-    filling_map_temp_correction = corr_math_interpolate_2d_func(ipRpm, ipPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map);
+    filling_map = ecu_interpolate_2d_limit_u16(ipRpm32, ipPressure32, TABLE_ROTATES_32, table->filling_gbc_map, &table->transform.filling_gbc_map);
+    filling_map_correction = corr_ecu_interpolate_2d_func_s8(ipRpm32, ipPressure32, TABLE_ROTATES_32, gEcuCorrections.filling_gbc_map, &table->transform.filling_gbc_map);
+    filling_map_temp_correction = corr_math_interpolate_2d_func(ipRpm32, ipPressure32, TABLE_ROTATES_32, gEcuTempCorrections.filling_gbc_map);
     filling_map_correction += filling_map_temp_correction;
     filling_map *= filling_map_correction + 1.0f;
     filling_map = MAX(filling_map, 0.0f);
@@ -1430,7 +1502,7 @@ static void ecu_update(void)
     filling_map_temp_correction = 0;
   }
 
-  filling_select_koff_tps = math_interpolate_1d(ipRpm, table->filling_select_koff_tps);
+  filling_select_koff_tps = ecu_interpolate_1d_u8(ipRpm16, table->filling_select_koff_tps, &table->transform.filling_select_koff_tps);
   filling_select_koff_tps = CLAMP(filling_select_koff_tps, 0.0f, 1.0f);
 
   fuel_flow_per_us = table->injector_performance * 1.66666667e-5f * table->fuel_mass_per_cc; // mg/ms
@@ -1451,7 +1523,7 @@ static void ecu_update(void)
   calculate_air_temp_kmin = gEcuParams.air_temp_corr_koff_min;
   calculate_air_temp_kmax = gEcuParams.air_temp_corr_koff_max;
   calculate_air_flow_min = idle_wish_massair;
-  calculate_air_flow_max = calculate_cycle_air_flow_max * 0.00012f * table->rotates[table->rotates_count - 1];
+  calculate_air_flow_max = calculate_cycle_air_flow_max * 0.00012f * table->rotates_32[TABLE_ROTATES_32 - 1];
   calculate_air_flow_temp = calculate_cycle_air_flow_temp * 0.00012f * rpm;
 
   calculate_air_flow_temp = CLAMP(calculate_air_flow_temp, calculate_air_flow_min, calculate_air_flow_max);
@@ -1462,7 +1534,7 @@ static void ecu_update(void)
   engine_to_air_temp_koff = CLAMP(engine_to_air_temp_koff, calculate_air_temp_kmin, calculate_air_temp_kmax);
 
   calculated_air_temp = air_temp * engine_to_air_temp_koff + engine_temp * (1.0f - engine_to_air_temp_koff);
-  ipCalcAirTemp = math_interpolate_input(calculated_air_temp, table->air_temps, table->air_temp_count);
+  ipCalcAirTemp = ecu_interpolate_input_s8(calculated_air_temp, table->air_temps, TABLE_TEMPERATURES, &table->transform.air_temps);
 
   air_density = ecu_recalculate_air_density(calculated_air_temp);
 
@@ -1510,38 +1582,39 @@ static void ecu_update(void)
     cold_start_idle_temperature = engine_temp;
   }
 
-  ipColdStartTemp = math_interpolate_input(cold_start_idle_temperature, table->engine_temps, table->engine_temp_count);
-  cold_start_idle_corr = math_interpolate_1d(ipColdStartTemp, table->cold_start_idle_corrs);
-  cold_start_idle_time = math_interpolate_1d(ipColdStartTemp, table->cold_start_idle_times);
-  start_async_filling = math_interpolate_1d(ipColdStartTemp, table->start_async_filling);
-  start_large_filling = math_interpolate_1d(ipColdStartTemp, table->start_large_filling);
-  start_small_filling = math_interpolate_1d(ipColdStartTemp, table->start_small_filling);
-  start_filling_time = math_interpolate_1d(ipColdStartTemp, table->start_filling_time);
-  enrichment_temp_mult = math_interpolate_1d(ipEngineTemp, table->enrichment_temp_mult);
-  enrichment_injection_phase = math_interpolate_1d(ipRpm, table->enrichment_injection_phase);
+  ipColdStartTemp = ecu_interpolate_input_s8(cold_start_idle_temperature, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
+  cold_start_idle_corr = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_corrs, &table->transform.cold_start_idle_corrs);
+  cold_start_idle_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_times, &table->transform.cold_start_idle_times);
+  start_async_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_async_filling, &table->transform.start_async_filling);
+  start_large_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_large_filling, &table->transform.start_large_filling);
+  start_small_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_small_filling, &table->transform.start_small_filling);
+  start_filling_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_filling_time, &table->transform.start_filling_time);
+  enrichment_temp_mult = ecu_interpolate_1d_u8(ipEngineTemp, table->enrichment_temp_mult, &table->transform.enrichment_temp_mult);
+  enrichment_injection_phase = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_injection_phase, &table->transform.enrichment_injection_phase);
 
-  ipFilling = math_interpolate_input(cycle_air_flow, table->fillings, table->fillings_count);
+  ipFilling16 = ecu_interpolate_input_u8(cycle_air_flow, table->fillings_16, TABLE_FILLING_16, &table->transform.fillings_16);
+  ipFilling32 = ecu_interpolate_input_u8(cycle_air_flow, table->fillings_32, TABLE_FILLING_32, &table->transform.fillings_32);
 
-  start_ignition_advance = math_interpolate_1d(ipEngineTemp, table->start_ignition);
-  ignition_advance = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignitions);
-  idle_ignition_time_by_tps = math_interpolate_1d(ipThrottle, table->idle_ignition_time_by_tps);
-  idle_econ_delay = math_interpolate_1d(ipEngineTemp, table->idle_econ_delay);
-  start_econ_delay = math_interpolate_1d(ipEngineTemp, table->start_econ_delay);
+  start_ignition_advance = ecu_interpolate_1d_u8(ipEngineTemp, table->start_ignition, &table->transform.start_ignition);
+  ignition_advance = ecu_interpolate_2d_limit_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, table->ignitions, &table->transform.ignitions);
+  idle_ignition_time_by_tps = ecu_interpolate_1d_u8(ipThrottle32, table->idle_ignition_time_by_tps, &table->transform.idle_ignition_time_by_tps);
+  idle_econ_delay = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_econ_delay, &table->transform.idle_econ_delay);
+  start_econ_delay = ecu_interpolate_1d_u8(ipEngineTemp, table->start_econ_delay, &table->transform.start_econ_delay);
 
-  ignition_correction = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignitions);
-  air_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_ign_corr);
-  engine_temp_ign_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_ign_corr);
+  ignition_correction = corr_ecu_interpolate_2d_func_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignitions, &table->transform.ignitions);
+  air_temp_ign_corr = ecu_interpolate_2d_limit_s8(ipFilling16, ipCalcAirTemp, TABLE_FILLING_16, table->air_temp_ign_corr, &table->transform.air_temp_ign_corr);
+  engine_temp_ign_corr = ecu_interpolate_2d_limit_s8(ipFilling16, ipEngineTemp, TABLE_FILLING_16, table->engine_temp_ign_corr, &table->transform.engine_temp_ign_corr);
 
-  idle_wish_rpm = math_interpolate_1d(ipEngineTemp, table->idle_wish_rotates);
-  idle_wish_ignition_static = math_interpolate_1d(ipIdleRpm, table->idle_wish_ignition_static);
-  idle_wish_ignition_table = math_interpolate_1d(ipEngineTemp, table->idle_wish_ignition);
-  idle_valve_pos_adaptation = math_interpolate_1d(ipEngineTemp, gEcuCorrections.idle_valve_position);
+  idle_wish_rpm = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_wish_rotates, &table->transform.idle_wish_rotates);
+  idle_wish_ignition_static = ecu_interpolate_1d_u8(ipIdleRpm, table->idle_wish_ignition_static, &table->transform.idle_wish_ignition_static);
+  idle_wish_ignition_table = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_wish_ignition, &table->transform.idle_wish_ignition);
+  idle_valve_pos_adaptation = ecu_interpolate_1d_s8(ipEngineTemp, gEcuCorrections.idle_valve_position, &table->transform.idle_valve_position);
 
-  idle_rpm_shift = math_interpolate_1d(ipSpeed, table->idle_rpm_shift);
-  knock_noise_level = math_interpolate_1d(ipRpm, table->knock_noise_level);
-  knock_threshold = math_interpolate_1d(ipRpm, table->knock_threshold);
-  knock_detect_phase_start = math_interpolate_1d(ipRpm, table->knock_detect_phase_start);
-  knock_detect_phase_end = math_interpolate_1d(ipRpm, table->knock_detect_phase_end);
+  idle_rpm_shift = ecu_interpolate_1d_u8(ipSpeed, table->idle_rpm_shift, &table->transform.idle_rpm_shift);
+  knock_noise_level = ecu_interpolate_1d_u8(ipRpm32, table->knock_noise_level, &table->transform.knock_noise_level);
+  knock_threshold = ecu_interpolate_1d_u8(ipRpm32, table->knock_threshold, &table->transform.knock_threshold);
+  knock_detect_phase_start = ecu_interpolate_1d_u8(ipRpm32, table->knock_detect_phase_start, &table->transform.knock_detect_phase_start);
+  knock_detect_phase_end = ecu_interpolate_1d_u8(ipRpm32, table->knock_detect_phase_end, &table->transform.knock_detect_phase_end);
 
   idle_wish_rpm += idle_rpm_shift;
 
@@ -1550,8 +1623,8 @@ static void ecu_update(void)
 
   idle_wish_to_rpm_relation = rpm / idle_wish_rpm;
 
-  idle_rpm_pid_act_1 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_1);
-  idle_rpm_pid_act_2 = math_interpolate_1d(ipEngineTemp, table->idle_rpm_pid_act_2);
+  idle_rpm_pid_act_1 = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_rpm_pid_act_1, &table->transform.idle_rpm_pid_act_1);
+  idle_rpm_pid_act_2 = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_rpm_pid_act_2, &table->transform.idle_rpm_pid_act_2);
   idle_reg_rpm_1 = idle_wish_rpm * (idle_rpm_pid_act_1 + 1.0f);
   idle_reg_rpm_2 = idle_wish_rpm * (idle_rpm_pid_act_2 + 1.0f);
 
@@ -1637,11 +1710,11 @@ static void ecu_update(void)
   ignition_advance += engine_temp_ign_corr;
   ignition_advance += ignition_corr_final;
 
-  detonation_count_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter);
+  detonation_count_table = ecu_interpolate_2d_limit_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuParamTransformOne);
   if(!gForceParameters.Enable.IgnitionAdvance) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      ignition_advance_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->ignition_corr_cy[i]);
-      ignition_advance_cy[i] += math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i]);
+      ignition_advance_cy[i] = ecu_interpolate_2d_limit_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, table->ignition_corr_cy[i], &table->transform.ignition_corr_cy);
+      ignition_advance_cy[i] += ecu_interpolate_2d_limit_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignition_corr_cy[i], &table->transform.ignition_corr_cy);
     }
   } else {
     memset(ignition_advance_cy, 0, sizeof(ignition_advance_cy));
@@ -1649,48 +1722,40 @@ static void ecu_update(void)
 
   if(!gForceParameters.Enable.InjectionPulse) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      injection_correction_cy[i] = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_corr_cy[i]);
-      injection_correction_cy[i] += math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.injection_corr_cy[i]);
+      injection_correction_cy[i] = ecu_interpolate_2d_limit_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, table->injection_corr_cy[i], &table->transform.injection_corr_cy);
+      injection_correction_cy[i] += ecu_interpolate_2d_limit_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.injection_corr_cy[i], &table->transform.injection_corr_cy);
     }
   } else {
     memset(injection_correction_cy, 0, sizeof(injection_correction_cy));
   }
 
-  wish_fuel_ratio = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->fuel_mixtures);
-  injection_phase_table = math_interpolate_2d_limit(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->injection_phase);
+  wish_fuel_ratio = ecu_interpolate_2d_limit_u8(ipRpm16, ipFilling16, TABLE_ROTATES_16, table->fuel_mixtures, &table->transform.fuel_mixtures);
+  injection_phase_table = ecu_interpolate_2d_limit_u8(ipRpm16, ipFilling16, TABLE_ROTATES_16, table->injection_phase, &table->transform.injection_phase);
 
-  injection_phase_start = math_interpolate_1d(ipEngineTemp, table->start_injection_phase);
-  air_temp_mix_corr = math_interpolate_2d_limit(ipFilling, ipCalcAirTemp, TABLE_FILLING_MAX, table->air_temp_mix_corr);
-  engine_temp_mix_corr = math_interpolate_2d_limit(ipFilling, ipEngineTemp, TABLE_FILLING_MAX, table->engine_temp_mix_corr);
-  injection_phase_lpf = math_interpolate_1d(ipRpm, table->injection_phase_lpf);
-  injection_phase_lpf = CLAMP(injection_phase_lpf, 0.01f, 1.00f);
+  injection_phase_start = ecu_interpolate_1d_u8(ipEngineTemp, table->start_injection_phase, &table->transform.start_injection_phase);
+  air_temp_mix_corr = ecu_interpolate_2d_limit_s8(ipFilling32, ipCalcAirTemp, TABLE_FILLING_16, table->air_temp_mix_corr, &table->transform.air_temp_mix_corr);
+  engine_temp_mix_corr = ecu_interpolate_2d_limit_s8(ipFilling32, ipEngineTemp, TABLE_FILLING_16, table->engine_temp_mix_corr, &table->transform.engine_temp_mix_corr);
 
   if(running) {
-    if(injection_phase_lpf >= 0.99f) {
-      injection_phase = injection_phase_table;
-    } else {
-      for(int ht = 0; ht < halfturns_performed; ht++) {
-        injection_phase = injection_phase * (1.0f - injection_phase_lpf) + injection_phase_table * injection_phase_lpf;
-      }
-    }
+    injection_phase = injection_phase_table;
   } else {
     injection_phase = injection_phase_start;
   }
 
-  warmup_idle_mix_corr = math_interpolate_1d(ipEngineTemp, table->warmup_mix_corrs);
-  warmup_mix_koff = math_interpolate_1d(ipEngineTemp, table->warmup_mix_koffs);
+  warmup_idle_mix_corr = ecu_interpolate_1d_u8(ipEngineTemp, table->warmup_mix_corrs, &table->transform.warmup_mix_corrs);
+  warmup_mix_koff = ecu_interpolate_1d_u8(ipEngineTemp, table->warmup_mix_koffs, &table->transform.warmup_mix_koffs);
   if(warmup_mix_koff > 0.003f) {
-    warmup_mixture = math_interpolate_1d(ipEngineTemp, table->warmup_mixtures);
+    warmup_mixture = ecu_interpolate_1d_u8(ipEngineTemp, table->warmup_mixtures, &table->transform.warmup_mixtures);
     if(warmup_mixture < wish_fuel_ratio) {
       wish_fuel_ratio = warmup_mixture * warmup_mix_koff + wish_fuel_ratio * (1.0f - warmup_mix_koff);
     }
   }
 
-  injector_lag = math_interpolate_1d(ipVoltages, table->injector_lag);
+  injector_lag = ecu_interpolate_1d_u8(ipVoltages, table->injector_lag, &table->transform.injector_lag);
   injector_lag_mult = injector_lag * 1000.0f;
 
-  ignition_time = math_interpolate_1d(ipVoltages, table->ignition_time);
-  ignition_time *= math_interpolate_1d(ipRpm, table->ignition_time_rpm_mult);
+  ignition_time = ecu_interpolate_1d_u8(ipVoltages, table->ignition_time, &table->transform.ignition_time);
+  ignition_time *= ecu_interpolate_1d_u8(ipRpm16, table->ignition_time_rpm_mult, &table->transform.ignition_time_rpm_mult);
 
   if(gForceParameters.Enable.IgnitionPulse)
     ignition_time = gForceParameters.IgnitionPulse;
@@ -1740,9 +1805,9 @@ static void ecu_update(void)
 
   start_large_count = table->start_large_count;
   if(use_etc) {
-    injection_start_mult = math_interpolate_1d(ipThrottle, table->start_tps_corrs);
+    injection_start_mult = ecu_interpolate_1d_u8(ipThrottle16, table->start_tps_corrs, &table->transform.start_tps_corrs);
   } else {
-    injection_start_mult = math_interpolate_1d(ipPedal, table->start_tps_corrs);
+    injection_start_mult = ecu_interpolate_1d_u8(ipPedal, table->start_tps_corrs, &table->transform.start_tps_corrs);
   }
   etc_econ_flag = econ_flag;
   econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
@@ -1789,9 +1854,9 @@ static void ecu_update(void)
     warmup_idle_mix_corr_final = 0.0f;
   }
 
-  dynamic_fuel_corr_gbc = math_interpolate_1d(ipFilling, table->dynamic_fuel_corr_gbc);
-  dynamic_fuel_corr_temp = math_interpolate_1d(ipEngineTemp, table->dynamic_fuel_corr_temp);
-  dynamic_fuel_corr_lpf = math_interpolate_1d(ipRpm, table->dynamic_fuel_corr_lpf);
+  dynamic_fuel_corr_gbc = ecu_interpolate_1d_u8(ipFilling16, table->dynamic_fuel_corr_gbc, &table->transform.dynamic_fuel_corr_gbc);
+  dynamic_fuel_corr_temp = ecu_interpolate_1d_u8(ipEngineTemp, table->dynamic_fuel_corr_temp, &table->transform.dynamic_fuel_corr_temp);
+  dynamic_fuel_corr_lpf = ecu_interpolate_1d_u8(ipRpm16, table->dynamic_fuel_corr_lpf, &table->transform.dynamic_fuel_corr_lpf);
   dynamic_film_correction = dynamic_fuel_corr_gbc * dynamic_fuel_corr_temp;
 
   dynamic_fuel_corr_lpf = CLAMP(dynamic_fuel_corr_lpf, 0.0f, 0.99f);
@@ -1823,7 +1888,7 @@ static void ecu_update(void)
 
   enrichment_load_type = table->enrichment_load_type;
   enrichment_load_dead_band = table->enrichment_load_dead_band;
-  enrichment_accel_dead_band = math_interpolate_1d(ipRpm, table->enrichment_accel_dead_band);
+  enrichment_accel_dead_band = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_accel_dead_band, &table->transform.enrichment_accel_dead_band);
   enrichment_ign_corr_decay_time = table->enrichment_ign_corr_decay_time * 1000.0f;
   enrichment_detect_duration = table->enrichment_detect_duration;
   enrichment_injection_phase_decay_time = table->enrichment_injection_phase_decay_time * 1000.0f;
@@ -1957,26 +2022,29 @@ static void ecu_update(void)
       }
     }
 
-    ipEnrLoadStart = math_interpolate_input_limit(enrichment_load_value_start_accept, table->enrichment_rate_start_load, table->enrichment_rate_start_load_count);
-    ipEnrLoadDeriv = math_interpolate_input_limit(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, table->enrichment_rate_load_derivative_count);
+    ipEnrLoadStart = ecu_interpolate_input_u8(enrichment_load_value_start_accept, table->enrichment_rate_start_load, TABLE_ENRICHMENT_PERCENTS, &table->transform.enrichment_rate_start_load);
+    ipEnrLoadDeriv = ecu_interpolate_input_u8(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, TABLE_ENRICHMENT_PERCENTS, &table->transform.enrichment_rate_load_derivative);
 
-    enrichment_rate = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_rate);
-    enrichment_tps_selection = math_interpolate_2d_limit(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_tps_selection);
+    ipEnrLoadStart.mult = CLAMP(ipEnrLoadStart.mult, 0.0f, 1.0f);
+    ipEnrLoadDeriv.mult = CLAMP(ipEnrLoadDeriv.mult, 0.0f, 1.0f);
+
+    enrichment_rate = ecu_interpolate_2d_limit_u8(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS, table->enrichment_rate, &table->transform.enrichment_rate);
+    enrichment_tps_selection = ecu_interpolate_2d_limit_u8(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS, table->enrichment_tps_selection, &table->transform.enrichment_tps_selection);
     enrichment_rate *= enrichment_temp_mult;
 
     if(!running) {
       enrichment_tps_selection = 0.0f;
     }
 
-    enrichment_ign_corr = math_interpolate_2d_limit(ipEnrLoadStart, ipRpm, TABLE_ENRICHMENT_PERCENTS_MAX, table->enrichment_ign_corr);
+    enrichment_ign_corr = ecu_interpolate_2d_limit_u8(ipEnrLoadStart, ipRpm16, TABLE_ENRICHMENT_PERCENTS, table->enrichment_ign_corr, &table->transform.enrichment_ign_corr);
 
     if(enrichment_sync_enabled) {
-      enrichment_amount_sync = math_interpolate_1d(ipRpm, table->enrichment_sync_amount);
+      enrichment_amount_sync = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_sync_amount, &table->transform.enrichment_sync_amount);
       enrichment_amount_sync *= enrichment_rate;
     }
 
     if(enrichment_async_enabled) {
-      enrichment_amount_async = math_interpolate_1d(ipRpm, table->enrichment_async_amount);
+      enrichment_amount_async = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_async_amount, &table->transform.enrichment_async_amount);
       enrichment_amount_async *= enrichment_rate;
     }
   } else {
@@ -2075,8 +2143,8 @@ static void ecu_update(void)
   math_pid_set_target(&gPidIdleThrottleRpm, idle_wish_rpm);
   math_pid_set_target(&gPidIdleIgnition, idle_wish_rpm);
 
-  idle_valve_econ_position = math_interpolate_1d(ipRpm, table->idle_valve_econ_position);
-  throttle_target_econ = math_interpolate_1d(ipRpm, table->idle_throttle_econ_position);
+  idle_valve_econ_position = ecu_interpolate_1d_u8(ipRpm32, table->idle_valve_econ_position, &table->transform.idle_valve_econ_position);
+  throttle_target_econ = ecu_interpolate_1d_u8(ipRpm32, table->idle_throttle_econ_position, &table->transform.idle_throttle_econ_position);
 
   if (running_time_latest >= throttle_startup_move_time || throttle_startup_move_time <= 0.0f) {
     throttle_startup_move_koff = 1.0f;
@@ -2089,7 +2157,7 @@ static void ecu_update(void)
     throttle_target = throttle_target_idle * throttle_startup_move_koff + throttle_target_start * (1.0f - throttle_startup_move_koff);
     throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
 
-    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->idle_valve_position);
+    idle_table_valve_pos = ecu_interpolate_1d_u8(ipEngineTemp, table->idle_valve_position, &table->transform.idle_valve_position);
     idle_table_valve_pos *= idle_valve_pos_adaptation + 1.0f;
     math_pid_set_clamp(&gPidIdleValveAirFlow, table->idle_valve_pos_min, table->idle_valve_pos_max);
     math_pid_set_clamp(&gPidIdleValveRpm, table->idle_valve_pos_min, table->idle_valve_pos_max);
@@ -2131,7 +2199,7 @@ static void ecu_update(void)
       throttle_target_idle_correction = 0;
     }
   } else {
-    idle_table_valve_pos = math_interpolate_1d(ipEngineTemp, table->start_idle_valve_pos);
+    idle_table_valve_pos = ecu_interpolate_1d_u8(ipEngineTemp, table->start_idle_valve_pos, &table->transform.start_idle_valve_pos);
     throttle_target = throttle_target_start;
     throttle_target += throttle_target_stop * 0.01f * (100.0f - throttle_target);
   }
@@ -2202,17 +2270,17 @@ static void ecu_update(void)
   idle_wish_valve_pos = CLAMP(idle_wish_valve_pos, 0, IDLE_VALVE_POS_MAX);
 
   if(!gIgnCanShutdown) {
-	  out_set_idle_valve(roundf(idle_wish_valve_pos));
-	  if (throttle_target <= 0.001f && gEtcTest.StartedTime == 0) {
+    out_set_idle_valve(roundf(idle_wish_valve_pos));
+    if (throttle_target <= 0.001f && gEtcTest.StartedTime == 0) {
       gParameters.EtcMotorFullCloseFlag = 1;
-	  } else {
+    } else {
       gParameters.EtcMotorFullCloseFlag = 0;
-	  }
-	  if(throttle_idle_time > 10.0f && gEtcTest.StartedTime == 0) {
-	    gParameters.EtcMotorActiveFlag = 0;
-	  } else {
+    }
+    if(throttle_idle_time > 10.0f && gEtcTest.StartedTime == 0) {
+      gParameters.EtcMotorActiveFlag = 0;
+    } else {
       gParameters.EtcMotorActiveFlag = 1;
-	  }
+    }
   }
 
   gStatus.Knock.Voltage = 0;
@@ -2221,8 +2289,8 @@ static void ecu_update(void)
 
   if(running) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
-      knock_cy_level_multiplier[i] = math_interpolate_1d(ipRpm, table->knock_cy_level_multiplier[i]);
-      knock_cy_level_multiplier_correction[i] = math_interpolate_1d(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier[i] = ecu_interpolate_1d_u8(ipRpm32, table->knock_cy_level_multiplier[i], &table->transform.knock_cy_level_multiplier);
+      knock_cy_level_multiplier_correction[i] = ecu_interpolate_1d_s8(ipRpm32, gEcuCorrections.knock_cy_level_multiplier[i], &table->transform.knock_cy_level_multiplier);
       knock_cy_level_multiplier[i] *= knock_cy_level_multiplier_correction[i] + 1.0f;
       knock_cy_level_multiplier[i] = CLAMP(knock_cy_level_multiplier[i], 0.1f, 5.0f);
 
@@ -2324,7 +2392,8 @@ static void ecu_update(void)
     }
 
     if(knock_running) {
-      knock_zone = math_interpolate_2d_clamp(ipRpm, ipFilling, TABLE_ROTATES_MAX, table->knock_zone, 0.0f, 1.0f);
+      knock_zone = ecu_interpolate_2d_u8(ipRpm16, ipFilling16, TABLE_ROTATES_16, table->knock_zone, &table->transform.knock_zone);
+      knock_zone = CLAMP(knock_zone, 0.0f, 1.0f);
 
       for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
         if(gStatus.Knock.UpdatedInternally[i]) {
@@ -2452,7 +2521,7 @@ static void ecu_update(void)
     ipLearmParamsIndex.indexes[0] = CLAMP(ipLearmParamsIndex.indexes[0], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
     ipLearmParamsIndex.indexes[1] = CLAMP(ipLearmParamsIndex.indexes[1], 0, LEARN_ACCEPT_CYCLES_BUFFER_SIZE - 1);
 
-    wish_fuel_ratio_learn = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->WishFuelRatio, sizeof(sLearnParameters));
+    //wish_fuel_ratio_learn = ecu_interpolate_1d_offset_u8(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->WishFuelRatio, sizeof(sLearnParameters));
     fuel_ratio_diff = fuel_ratio / wish_fuel_ratio_learn;
 
 #else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
@@ -2470,7 +2539,7 @@ static void ecu_update(void)
       knock_lpf_calculation = lpf_calculation;
       filling_lpf_calculation = lpf_calculation;
 
-      if(calibration && corr_math_interpolate_2d_set_func) {
+      if(calibration) {
         if(gEcuParams.useLambdaSensor && gStatus.Sensors.Struct.Lambda == HAL_OK && injector_status == HAL_OK && o2_valid &&
             (idle_calibration || !idle_corr_flag) && calibration_permitted_to_perform) {
           gEcuCorrections.long_term_correction = 0.0f;
@@ -2479,9 +2548,9 @@ static void ecu_update(void)
           short_term_correction_pid = 0.0f;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
-          float learn_rpm = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters));
-          float learn_map = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters));
-          float learn_tps = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ThrottlePosition, sizeof(sLearnParameters));
+          //float learn_rpm = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->RPM, sizeof(sLearnParameters));
+          //float learn_map = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->ManifoldAirPressure, sizeof(sLearnParameters));
+          //float learn_tps = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->ThrottlePosition, sizeof(sLearnParameters));
 
 #ifdef DEBUG
           gLearnRpm = learn_rpm;
@@ -2489,14 +2558,14 @@ static void ecu_update(void)
           gLearnTps = learn_tps;
 #endif /* DEBUG */
 
-          ipLearnRpm = math_interpolate_input(learn_rpm, table->rotates, table->rotates_count);
-          ipLearnPressure = math_interpolate_input(learn_map, table->pressures, table->pressures_count);
-          ipLearnThrottle = math_interpolate_input(learn_tps, table->throttles, table->throttles_count);
+          ipLearnRpm32 = ecu_interpolate_input_u16(learn_rpm, table->rotates_32, TABLE_ROTATES_32, &table->transform.rotates_32);
+          ipLearnPressure32 = ecu_interpolate_input_u16(learn_map, table->pressures_32, TABLE_PRESSURES_32, &table->transform.pressures_32);
+          ipLearnThrottle32 = ecu_interpolate_input_u16(learn_tps, table->throttles_32, TABLE_THROTTLES_32, &table->transform.throttles_32);
 
 #else /* LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
-          ipLearnRpm = ipRpm;
-          ipLearnPressure = ipPressure;
-          ipLearnThrottle = ipThrottle;
+          ipLearnRpm32 = ipRpm32;
+          ipLearnPressure32 = ipPressure32;
+          ipLearnThrottle32 = ipThrottle32;
 #endif /* !LEARN_ACCEPT_CYCLES_BUFFER_SIZE */
 
           if((use_map_sensor || use_tps_sensor) && !econ_flag && calibrate_gbc) {
@@ -2513,18 +2582,18 @@ static void ecu_update(void)
 
             if(use_map_sensor) {
               filling_map_temp_correction += (filling_map_corrected - 1.0f) * filling_lpf_calculation * (1.0f - filling_nmap_tps_koff);
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_map, filling_map_temp_correction, -1.0f, 1.0f);
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map);
+              corr_math_interpolate_2d_set_func(ipLearnRpm32, ipLearnPressure32, TABLE_ROTATES_32, gEcuTempCorrections.filling_gbc_map, filling_map_temp_correction, -1.0f, 1.0f);
+              calib_cur_progress = corr_ecu_interpolate_2d_func_u8(ipLearnRpm32, ipLearnPressure32, TABLE_ROTATES_32, gEcuCorrections.progress_filling_gbc_map, &gEcuParamTransformProgress);
               calib_cur_progress = (percentage * filling_lpf_calculation) + (calib_cur_progress * (1.0f - filling_lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnPressure, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_map, calib_cur_progress, 0.0f, 1.0f);
+              corr_ecu_interpolate_2d_set_func_u8(ipLearnRpm32, ipLearnPressure32, TABLE_ROTATES_32, gEcuCorrections.progress_filling_gbc_map, &gEcuParamTransformProgress, calib_cur_progress, 0.0f, 1.0f);
             }
 
             if(use_tps_sensor) {
               filling_tps_temp_correction += (filling_gbc_tps_corrected - 1.0f) * filling_lpf_calculation;
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuTempCorrections.filling_gbc_tps, filling_tps_temp_correction, -1.0f, 1.0f);
-              calib_cur_progress = corr_math_interpolate_2d_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps);
+              corr_math_interpolate_2d_set_func(ipLearnRpm32, ipLearnThrottle32, TABLE_ROTATES_32, gEcuTempCorrections.filling_gbc_tps, filling_tps_temp_correction, -1.0f, 1.0f);
+              calib_cur_progress = corr_ecu_interpolate_2d_func_u8(ipLearnRpm32, ipLearnThrottle32, TABLE_ROTATES_32, gEcuCorrections.progress_filling_gbc_tps, &gEcuParamTransformProgress);
               calib_cur_progress = (percentage * filling_lpf_calculation) + (calib_cur_progress * (1.0f - filling_lpf_calculation));
-              corr_math_interpolate_2d_set_func(ipLearnRpm, ipLearnThrottle, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_filling_gbc_tps, calib_cur_progress, 0.0f, 1.0f);
+              corr_ecu_interpolate_2d_set_func_u8(ipLearnRpm32, ipLearnThrottle32, TABLE_ROTATES_32, gEcuCorrections.progress_filling_gbc_tps, &gEcuParamTransformProgress, calib_cur_progress, 0.0f, 1.0f);
             }
           }
         }
@@ -2534,17 +2603,17 @@ static void ecu_update(void)
           idle_valve_pos_dif = (idle_wish_valve_pos / idle_table_valve_pos) - 1.0f;
           idle_valve_pos_adaptation += idle_valve_pos_dif * lpf_calculation;
 
-          math_interpolate_1d_set(ipEngineTemp, gEcuCorrections.idle_valve_position, idle_valve_pos_adaptation, -1.0f, 1.0f);
+          ecu_interpolate_1d_set_s8(ipEngineTemp, gEcuCorrections.idle_valve_position, &table->transform.idle_valve_position, idle_valve_pos_adaptation, -1.0f, 1.0f);
 
           percentage = (idle_valve_pos_dif + 1.0f);
           if(percentage > 1.0f) percentage = 1.0f / percentage;
-          calib_cur_progress = math_interpolate_1d(ipEngineTemp, gEcuCorrectionsProgress.progress_idle_valve_position);
+          calib_cur_progress = ecu_interpolate_1d_u8(ipEngineTemp, gEcuCorrections.progress_idle_valve_position, &gEcuParamTransformProgress);
           calib_cur_progress = (percentage * lpf_calculation) + (calib_cur_progress * (1.0f - lpf_calculation));
-          math_interpolate_1d_set(ipEngineTemp, gEcuCorrectionsProgress.progress_idle_valve_position, calib_cur_progress, 0.0f, 1.0f);
+          ecu_interpolate_1d_set_u8(ipEngineTemp, gEcuCorrections.progress_idle_valve_position, &gEcuParamTransformProgress, calib_cur_progress, 0.0f, 1.0f);
         }
 
         if(gEcuParams.useKnockSensor && gStatus.Sensors.Struct.Knock == HAL_OK) {
-          calib_cur_progress = corr_math_interpolate_2d_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions);
+          calib_cur_progress = corr_ecu_interpolate_2d_func_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.progress_ignitions, &gEcuParamTransformProgress);
 
           if(knock_zone > 0.05f && !idle_flag) {
             for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
@@ -2560,20 +2629,20 @@ static void ecu_update(void)
                   calib_cur_progress = 0.0f;
 
                   ignition_advance_cy[i] -= knock_zone * knock_lpf_calculation;
-                  corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i], ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
+                  corr_ecu_interpolate_2d_set_func_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignition_corr_cy[i], &table->transform.ignition_corr_cy, ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
 
-                  math_interpolate_2d_set(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
+                  ecu_interpolate_2d_set_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuParamTransformOne, detonation_count_table, 0.0f, 99.0f);
                 } else {
 #if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
                     knock_lpf_calculation *= 0.2f; //5 sec
                     ignition_advance_cy[i] = -table->knock_ign_corr_max * knock_zone * knock_lpf_calculation + ignition_advance_cy[i] * (1.0f - knock_lpf_calculation);
-                    corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrections.ignition_corr_cy[i], ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
+                    corr_ecu_interpolate_2d_set_func_s8(ipRpm, ipFilling, TABLE_ROTATES, gEcuCorrections.ignition_corr_cy[i], &table->transform.ignition_corr_cy, ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
                   }
 #endif /* KNOCK_DETONATION_INCREASING_ADVANCE */
                   calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
                 }
-                corr_math_interpolate_2d_set_func(ipRpm, ipFilling, TABLE_ROTATES_MAX, gEcuCorrectionsProgress.progress_ignitions, calib_cur_progress, 0.0f, 1.0f);
+                corr_ecu_interpolate_2d_set_func_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.progress_ignitions, &gEcuParamTransformProgress, calib_cur_progress, 0.0f, 1.0f);
               }
             }
           } else if(idle_flag) {
@@ -2589,11 +2658,11 @@ static void ecu_update(void)
                     knock_cy_level_diff -= 1.0f;
 
                     knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
-                    math_interpolate_1d_set(ipRpm, gEcuCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+                    ecu_interpolate_1d_set_s8(ipRpm32, gEcuCorrections.knock_cy_level_multiplier[i], &table->transform.knock_cy_level_multiplier, knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
 
-                    calib_cur_progress = math_interpolate_1d(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
+                    calib_cur_progress = ecu_interpolate_1d_u8(ipRpm32, gEcuCorrections.progress_knock_cy_level_multiplier[i], &gEcuParamTransformProgress);
                     calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
-                    math_interpolate_1d_set(ipRpm, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i], calib_cur_progress, 0.0f, 1.0f);
+                    ecu_interpolate_1d_set_u8(ipRpm32, gEcuCorrections.progress_knock_cy_level_multiplier[i], &gEcuParamTransformProgress, calib_cur_progress, 0.0f, 1.0f);
                   }
                   gStatus.Knock.UpdatedAdaptation[i] = 0;
                 }
@@ -2641,8 +2710,8 @@ static void ecu_update(void)
   if(DelayDiff(now, last_temp_fill_correction) >= 200000) {
     last_temp_fill_correction = now;
 
-    for(int y = 0; y < table->pressures_count; y++) {
-      for(int x = 0; x < table->rotates_count; x++) {
+    for(int y = 0; y < TABLE_PRESSURES_32; y++) {
+      for(int x = 0; x < TABLE_ROTATES_32; x++) {
         filling_map_correction = gEcuCorrections.filling_gbc_map[y][x];
         filling_map_correction += gEcuTempCorrections.filling_gbc_map[y][x];
         filling_map_correction = CLAMP(filling_map_correction, -1.0f, 1.0f);
@@ -2651,8 +2720,8 @@ static void ecu_update(void)
       }
     }
 
-    for(int y = 0; y < table->throttles_count; y++) {
-      for(int x = 0; x < table->rotates_count; x++) {
+    for(int y = 0; y < TABLE_THROTTLES_32; y++) {
+      for(int x = 0; x < TABLE_ROTATES_32; x++) {
         filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
         filling_tps_correction += gEcuTempCorrections.filling_gbc_tps[y][x];
         filling_tps_correction = CLAMP(filling_tps_correction, -1.0f, 1.0f);
@@ -2663,8 +2732,8 @@ static void ecu_update(void)
   } else if(DelayDiff(now, last_temp_knock_correction) >= 500000) {
     last_temp_knock_correction = now;
 
-    for(int y = 0; y < table->fillings_count; y++) {
-      for(int x = 0; x < table->rotates_count; x++) {
+    for(int y = 0; y < TABLE_FILLING_32; y++) {
+      for(int x = 0; x < TABLE_ROTATES_32; x++) {
         ignition_knock_correction = -FLT_MAX;
         for(int c = 0; c < ECU_CYLINDERS_COUNT; c++) {
           ignition_advance_cy[c] = gEcuCorrections.ignition_corr_cy[c][y][x];
@@ -4274,9 +4343,9 @@ static void ecu_fan_process(void)
 
   status = gStatus.Sensors.Struct.EngineTemp;
 
-  ipEngineTemp = math_interpolate_input(gParameters.EngineTemp, table->engine_temps, table->engine_temp_count);
-  ipSpeed = math_interpolate_input(gParameters.Speed, table->speeds, table->speeds_count);
-  fan_advance_control = math_interpolate_2d_limit(ipSpeed, ipEngineTemp, TABLE_SPEEDS_MAX, table->fan_advance_control);
+  ipEngineTemp = ecu_interpolate_input_s8(gParameters.EngineTemp, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
+  ipSpeed = ecu_interpolate_input_u8(gParameters.Speed, table->speeds, TABLE_SPEEDS, &table->transform.speeds);
+  fan_advance_control = ecu_interpolate_2d_limit_s8(ipSpeed, ipEngineTemp, TABLE_SPEEDS, table->fan_advance_control, &table->transform.fan_advance_control);
 
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
@@ -4629,7 +4698,7 @@ static void ecu_drag_process(void)
         if(DelayDiff(now, Drag.TimeLast) >= DRAG_POINTS_DISTANCE)
         {
           Drag.TimeLast = now;
-          if(Drag.PointsCount < DRAG_MAX_POINTS)
+          if(Drag.PointsCount < DRAG_POINTS)
           {
             Drag.StopTime = now;
             Drag.Points[Drag.PointsCount].RPM = rpm;
@@ -4871,7 +4940,7 @@ static void ecu_mem_loop(void)
 
   if(Mem.issaving)
   {
-    flashstatus = config_save_all(&gEcuParams, &gEcuCorrections, gEcuTable, TABLE_SETUPS_MAX);
+    flashstatus = config_save_all(&gEcuParams, &gEcuCorrections, gEcuTable, TABLE_SETUPS);
     if(flashstatus)
     {
       PK_SaveConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
@@ -4884,7 +4953,7 @@ static void ecu_mem_loop(void)
   }
   else if(Mem.isloading)
   {
-    flashstatus = config_load_all(&gEcuParams, gEcuTable, TABLE_SETUPS_MAX);
+    flashstatus = config_load_all(&gEcuParams, gEcuTable, TABLE_SETUPS);
     if(flashstatus)
     {
       PK_RestoreConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
@@ -4941,7 +5010,6 @@ static void ecu_diagnostic_loop(void)
 static void ecu_corrections_loop(void)
 {
   static int8_t old_correction = -1;
-  static uint32_t prev_conversion = 0;
   uint32_t now = Delay_Tick;
   uint8_t perform_correction = gEcuParams.performAdaptation;
 
@@ -4951,16 +5019,10 @@ static void ecu_corrections_loop(void)
   if(perform_correction != old_correction) {
     old_correction = perform_correction;
     if(perform_correction) {
-      memset(&gEcuCorrectionsProgress, 0, sizeof(gEcuCorrectionsProgress));
+      memset(&gEcuCorrections, 0, sizeof(gEcuCorrections));
       memset(&gEcuCorrections, 0, sizeof(gEcuCorrections));
       memset(&gEcuTempCorrections, 0, sizeof(gEcuTempCorrections));
     }
-    prev_conversion = now;
-  }
-  if(DelayDiff(now, prev_conversion) > 500000)
-  {
-    prev_conversion = now;
-    config_transform_progress_to_corrections(&gEcuCorrections, &gEcuCorrectionsProgress);
   }
 
   speed_setinputcorrective(gEcuParams.speedInputCorrection);
@@ -5117,15 +5179,15 @@ static void ecu_config_process(void)
   int32_t integrator_time;
   sCspsData data = csps_data();
   float rpm = csps_getrpm(data);
-  sMathInterpolateInput ipRpm;
+  sMathInterpolateInput ipRpm32;
 
   O2_SetLambdaForceEnabled(gForceParameters.LambdaForceEnabled);
 
   if(gEcuParams.useKnockSensor) {
-    ipRpm =  math_interpolate_input(rpm, table->rotates, table->rotates_count);
-    knock_frequency = roundf(math_interpolate_1d(ipRpm, table->knock_filter_frequency));
-    knock_gain = roundf(math_interpolate_1d(ipRpm, table->knock_gain));
-    integrator_time = roundf(math_interpolate_1d(ipRpm, table->knock_integrator_time));
+    ipRpm32 =  ecu_interpolate_input_u16(rpm, table->rotates_32, TABLE_ROTATES_32, &table->transform.rotates_32);
+    knock_frequency = roundf(ecu_interpolate_1d_u8(ipRpm32, table->knock_filter_frequency, &table->transform.knock_filter_frequency));
+    knock_gain = roundf(ecu_interpolate_1d_u8(ipRpm32, table->knock_gain, &table->transform.knock_gain));
+    integrator_time = roundf(ecu_interpolate_1d_u8(ipRpm32, table->knock_integrator_time, &table->transform.knock_integrator_time));
 
     Knock_SetBandpassFilterFrequency(knock_frequency);
     Knock_SetGainValue(knock_gain);
@@ -5861,7 +5923,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(size > PACKET_TABLE_MAX_SIZE || size > sizeof(sEcuTable))
         PK_TableMemoryData.ErrorCode = 3;
 
-      if(table >= TABLE_SETUPS_MAX)
+      if(table >= TABLE_SETUPS)
         PK_TableMemoryData.ErrorCode = 4;
 
       if(PK_TableMemoryData.ErrorCode == 0)
@@ -5893,7 +5955,7 @@ void ecu_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t length
       if(size > PACKET_TABLE_MAX_SIZE || size > sizeof(sEcuTable))
         PK_TableMemoryAcknowledge.ErrorCode = 3;
 
-      if(table >= TABLE_SETUPS_MAX)
+      if(table >= TABLE_SETUPS)
         PK_TableMemoryAcknowledge.ErrorCode = 4;
 
       if(PK_TableMemoryAcknowledge.ErrorCode == 0)

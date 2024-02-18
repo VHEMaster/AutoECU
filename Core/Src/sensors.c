@@ -5,10 +5,10 @@
  *      Author: VHEMaster
  */
 
+#include "interpolation.h"
 #include "sensors.h"
 #include "misc.h"
 #include "adc.h"
-#include "interpolation.h"
 #include "defines.h"
 #include "delay.h"
 

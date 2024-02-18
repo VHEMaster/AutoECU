@@ -58,3 +58,18 @@ INLINE float math_median(const float *array, unsigned int size)
 
   return value;
 }
+
+INLINE int math_binary_search(const float *array, int start_index, int end_index, float element)
+{
+  int iterations = 0;
+  while(start_index <= end_index && ++iterations < 256) {
+    int middle = start_index + ((end_index- start_index ) >> 1);
+    if (array[middle] <= element && array[middle + 1] > element)
+      return middle;
+    if (array[middle + 1] <= element)
+      start_index = middle + 1;
+    else if(array[middle] >= element)
+      end_index = middle - 1;
+  }
+  return -1;
+}

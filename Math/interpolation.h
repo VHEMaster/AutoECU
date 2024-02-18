@@ -18,10 +18,15 @@ typedef struct {
     float mult;
 }sMathInterpolateInput;
 
+typedef struct {
+    float gain;
+    float offset;
+}sMathInterpolationTransform;
+
 void math_interpolate_test(void);
 
 sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size);
-sMathInterpolateInput math_interpolate_input_limit(float value, const float *table, uint32_t size);
+
 float math_interpolate_1d(sMathInterpolateInput input, const float *table);
 float math_interpolate_2d(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t x_size, const float (*table)[x_size]);
@@ -29,8 +34,6 @@ float math_interpolate_2d_limit(sMathInterpolateInput input_x, sMathInterpolateI
     uint32_t x_size, const float (*table)[x_size]);
 float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
     uint32_t x_size, const float (*table)[x_size]);
-float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t x_size, const float (*table)[x_size], float clamp_min, float clamp_max);
 
 float math_interpolate_1d_set(sMathInterpolateInput input, float *table, float new_value, float limit_l, float limit_h);
 float math_interpolate_2d_set(sMathInterpolateInput input_x, sMathInterpolateInput input_y,

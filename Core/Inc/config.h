@@ -13,9 +13,6 @@
 
 HAL_StatusTypeDef config_init(void);
 
-void config_transform_progress_to_corrections(sEcuCorrections *corrections, const sEcuCorrectionsProgress *progress);
-void config_transform_corrections_to_progress(sEcuCorrectionsProgress *progress, const sEcuCorrections *corrections);
-
 int8_t config_load_table(sEcuTable *table, uint8_t number);
 int8_t config_save_table(const sEcuTable *table, uint8_t number);
 void config_default_table(sEcuTable *table, uint8_t number);

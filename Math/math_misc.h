@@ -10,5 +10,6 @@
 
 void math_minmax(const float *array, unsigned int size, float *pmin, float *pmax);
 float math_median(const float *array, unsigned int size);
+int math_binary_search(const float *array, int start_index, int end_index, float element);
 
 #endif /* MATH_MISC_H_ */

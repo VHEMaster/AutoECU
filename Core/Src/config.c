@@ -24,42 +24,62 @@ static const float default_cylinders[ECU_CYLINDERS_COUNT] = {
     1, 2, 3, 4
 };
 
-static const float default_pressures[TABLE_PRESSURES_MAX] = {
+static const float default_pressures_16[TABLE_PRESSURES_16] = {
     10000, 16200, 22400, 28600, 34800, 41000, 47200, 53400,
     59600, 65800, 72000, 78200, 84400, 90600, 96800, 103000
 };
 
-static const float default_idle_rotates[TABLE_ROTATES_MAX] = {
+static const float default_pressures_32[TABLE_PRESSURES_32] = {
+    10000, 16200, 22400, 28600, 34800, 41000, 47200, 53400,
+    59600, 65800, 72000, 78200, 84400, 90600, 96800, 103000
+};
+
+static const float default_idle_rotates[TABLE_ROTATES_16] = {
     525, 556, 588, 625, 667, 714, 769, 833,
     909, 1000, 1111, 1250, 1429, 1667, 2000, 2500,
 };
 
-static const float default_rotates[TABLE_ROTATES_MAX] = {
+static const float default_rotates_16[TABLE_ROTATES_16] = {
     600, 740, 870, 1050, 1250, 1490, 1800, 2150,
     2560, 3040, 3590, 4310, 5100, 6060, 7190, 8500
 };
 
-static const float default_throttles[TABLE_THROTTLES_MAX] = {
+static const float default_rotates_32[TABLE_ROTATES_32] = {
+    600, 740, 870, 1050, 1250, 1490, 1800, 2150,
+    2560, 3040, 3590, 4310, 5100, 6060, 7190, 8500
+};
+
+static const float default_throttles_16[TABLE_THROTTLES_16] = {
     0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
     24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
 };
 
-static const float default_pedals[TABLE_PEDALS_MAX] = {
+static const float default_throttles_32[TABLE_THROTTLES_32] = {
     0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
     24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
 };
 
-static const float default_fillings[TABLE_FILLING_MAX] = {
+static const float default_pedals[TABLE_PEDALS] = {
+    0.0f, 1.73f, 3.47f, 5.65f, 8.26f, 11.30f, 15.22f, 19.56f,
+    24.78f, 30.87f, 37.83f, 46.96f, 56.96f, 69.13f, 83.48f, 100.0f
+};
+
+static const float default_fillings_16[TABLE_FILLING_16] = {
     33, 65, 98, 130, 163, 195, 228, 260,
     293, 325, 358, 390, 423, 455, 488, 520,
 };
 
-static const float default_filling_select_koff_tps[TABLE_FILLING_MAX] = {
+static const float default_fillings_32[TABLE_FILLING_32] = {
+    33, 65, 98, 130, 163, 195, 228, 260,
+    293, 325, 358, 390, 423, 455, 488, 520,
+};
+
+static const float default_filling_select_koff_tps[TABLE_ROTATES_16] = {
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
 };
 
-static const float default_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_filling_gbc_map[TABLE_PRESSURES_32][TABLE_ROTATES_32] = {
     { 0.0630f, 0.0618f, 0.0617f, 0.0616f, 0.0617f, 0.0623f, 0.0641f, 0.0733f, 0.0737f, 0.0723f, 0.1202f, 0.1042f, 0.0727f, 0.0756f, 0.0720f, 0.0720f, },
     { 0.1009f, 0.1007f, 0.1003f, 0.1000f, 0.1000f, 0.1009f, 0.1035f, 0.1208f, 0.0847f, 0.2082f, 0.0493f, 0.0003f, 0.0003f, 0.0941f, 0.1171f, 0.0917f, },
     { 0.0976f, 0.0973f, 0.0966f, 0.0959f, 0.0958f, 0.0971f, 0.1243f, 0.2682f, 0.1938f, 0.0314f, 0.0293f, 0.0384f, 0.0751f, 0.0856f, 0.1383f, 0.1230f, },
@@ -78,7 +98,7 @@ static const float default_filling_gbc_map[TABLE_PRESSURES_MAX][TABLE_ROTATES_MA
     { 0.9341f, 0.9662f, 0.8227f, 0.7917f, 0.7908f, 0.7980f, 0.7020f, 0.7355f, 0.8476f, 0.8688f, 0.9177f, 0.9330f, 0.9659f, 0.8647f, 0.8444f, 0.8272f, },
 };
 
-static const float default_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MAX] = {
+static const float default_filling_gbc_tps[TABLE_THROTTLES_32][TABLE_ROTATES_32] = {
     { 0.5186f, 0.3679f, 0.3370f, 0.2421f, 0.2151f, 0.2013f, 0.0348f, 0.2959f, 0.1818f, 0.2116f, 0.1050f, 0.0723f, 0.0553f, 0.0863f, 0.0210f, 0.0170f, },
     { 0.5869f, 0.4980f, 0.4453f, 0.3859f, 0.3487f, 0.2453f, 0.0727f, 0.0580f, 0.2138f, 0.1524f, 0.1561f, 0.0372f, 0.0909f, 0.1351f, 0.0141f, 0.0270f, },
     { 0.6296f, 0.5033f, 0.3940f, 0.2894f, 0.2427f, 0.1889f, 0.1456f, 0.1278f, 0.0952f, 0.0871f, 0.0402f, 0.0169f, 0.0130f, 0.1122f, 0.0345f, 0.0360f, },
@@ -97,7 +117,7 @@ static const float default_filling_gbc_tps[TABLE_THROTTLES_MAX][TABLE_ROTATES_MA
     { 0.7510f, 0.7800f, 0.7800f, 0.7800f, 0.7831f, 0.7514f, 0.6828f, 0.7114f, 0.7804f, 0.8197f, 0.8694f, 0.8746f, 0.8958f, 0.8369f, 0.8040f, 0.7719f, },
 };
 
-static const float default_throttle_position[TABLE_PEDALS_MAX][TABLE_ROTATES_MAX] = {
+static const float default_throttle_position[TABLE_PEDALS][TABLE_ROTATES_16] = {
     { 0.0f, 0.0f, 0.0f, 0.9f, 3.2f, 5.5f, 8.7f, 11.9f, 15.9f, 21.1f, 24.3f, 31.3f, 37.9f, 42.9f, 44.0f, 46.8f, },
     { 0.0f, 0.0f, 0.0f, 0.9f, 3.2f, 5.5f, 8.7f, 11.9f, 15.9f, 21.1f, 24.8f, 32.3f, 39.5f, 44.0f, 46.0f, 49.0f, },
     { 0.0f, 0.0f, 0.0f, 0.9f, 3.2f, 5.5f, 8.7f, 11.9f, 15.9f, 21.1f, 25.7f, 33.4f, 40.9f, 45.1f, 49.3f, 50.9f, },
@@ -116,7 +136,7 @@ static const float default_throttle_position[TABLE_PEDALS_MAX][TABLE_ROTATES_MAX
     { 0.0f, 2.0f, 8.8f, 14.9f, 21.7f, 29.5f, 37.7f, 48.4f, 56.0f, 65.3f, 71.5f, 79.7f, 84.8f, 90.5f, 96.5f, 100.0f, },
 };
 
-static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_ignitions[TABLE_FILLING_32][TABLE_ROTATES_32] = {
     { 15.7f, 16.0f, 16.2f, 19.0f, 24.0f, 29.0f, 37.0f, 40.0f, 42.0f, 43.0f, 43.0f, 44.0f, 44.0f, 44.0f, 44.0f, 45.0f, },
     { 16.0f, 16.6f, 17.6f, 21.7f, 26.0f, 31.0f, 38.0f, 41.0f, 42.0f, 43.0f, 43.0f, 44.0f, 44.0f, 44.0f, 44.0f, 45.0f, },
     { 16.1f, 16.8f, 18.3f, 22.6f, 27.0f, 31.0f, 38.0f, 41.0f, 42.0f, 43.0f, 43.0f, 44.0f, 44.0f, 44.0f, 44.0f, 45.0f, },
@@ -135,7 +155,7 @@ static const float default_ignitions[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 11.6f, 11.8f, 13.3f, 14.1f, 15.4f, 19.0f, 21.7f, 24.7f, 29.6f, 30.4f, 29.3f, 28.6f, 29.7f, 29.9f, 31.2f, 32.9f, },
 };
 
-static const float default_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_fuel_mixtures[TABLE_FILLING_16][TABLE_FILLING_16] = {
     { 13.6f, 13.7f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
     { 13.6f, 13.7f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
     { 13.6f, 13.7f, 13.8f, 13.9f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, 14.0f, },
@@ -154,7 +174,7 @@ static const float default_fuel_mixtures[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] =
     { 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, 12.8f, },
 };
 
-static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_injection_phase[TABLE_FILLING_16][TABLE_ROTATES_16] = {
     { 156, 156, 157, 157, 157, 156, 156, 156, 160, 171, 196, 227, 254, 268, 274, 276, },
     { 157, 157, 158, 158, 158, 160, 161, 164, 170, 183, 206, 237, 262, 277, 284, 287, },
     { 159, 159, 160, 160, 161, 165, 169, 174, 182, 198, 220, 248, 274, 288, 297, 301, },
@@ -173,20 +193,15 @@ static const float default_injection_phase[TABLE_FILLING_MAX][TABLE_ROTATES_MAX]
     { 337, 339, 347, 363, 385, 414, 441, 466, 490, 514, 527, 536, 542, 548, 557, 568, },
 };
 
-static const float default_injection_phase_lpf[TABLE_ROTATES_MAX] = {
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-    0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f,
-};
-
-static const float default_enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS_MAX] = {
+static const float default_enrichment_rate_start_load[TABLE_ENRICHMENT_PERCENTS] = {
     0.0f, 5.0f, 10.0f, 15.0f, 25.0f, 40.0f, 60.0f, 80.0f
 };
 
-static const float default_enrichment_rate_load_derivative[TABLE_ENRICHMENT_PERCENTS_MAX] = {
+static const float default_enrichment_rate_load_derivative[TABLE_ENRICHMENT_PERCENTS] = {
     0, 500, 1200, 2000, 3200, 4500, 6000, 8000,
 };
 
-static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS][TABLE_ENRICHMENT_PERCENTS] = {
     { 0.00f, 0.31f, 0.55f, 0.70f, 0.80f, 0.85f, 0.95f, 1.00f, },
     { 0.00f, 0.23f, 0.46f, 0.60f, 0.70f, 0.75f, 0.80f, 0.90f, },
     { 0.00f, 0.15f, 0.34f, 0.45f, 0.50f, 0.55f, 0.60f, 0.75f, },
@@ -197,7 +212,7 @@ static const float default_enrichment_rate[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_
     { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, },
 };
 
-static const float default_enrichment_tps_selection[TABLE_ENRICHMENT_PERCENTS_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+static const float default_enrichment_tps_selection[TABLE_ENRICHMENT_PERCENTS][TABLE_ENRICHMENT_PERCENTS] = {
     { 0.00f, 0.40f, 0.60f, 0.85f, 0.97f, 1.00f, 1.00f, 1.00f, },
     { 0.00f, 0.36f, 0.54f, 0.74f, 0.94f, 0.98f, 0.99f, 1.00f, },
     { 0.00f, 0.28f, 0.50f, 0.66f, 0.85f, 0.95f, 0.98f, 1.00f, },
@@ -208,22 +223,22 @@ static const float default_enrichment_tps_selection[TABLE_ENRICHMENT_PERCENTS_MA
     { 0.00f, 0.00f, 0.10f, 0.24f, 0.36f, 0.50f, 0.58f, 0.62f, },
 };
 
-static const float default_enrichment_accel_dead_band[TABLE_ROTATES_MAX] = {
+static const float default_enrichment_accel_dead_band[TABLE_ROTATES_16] = {
     37000, 39000, 42000, 45000, 50000, 58000, 68000, 78000,
     88000, 100000, 109000, 124000, 141000, 164000, 197000, 220000,
 };
 
-static const float default_enrichment_sync_amount[TABLE_ROTATES_MAX] = {
+static const float default_enrichment_sync_amount[TABLE_ROTATES_16] = {
     0.50f, 0.50f, 0.50f, 0.55f, 0.60f, 0.65f, 0.73f, 0.80f,
     0.83f, 0.85f, 0.87f, 0.89f, 0.91f, 0.93f, 0.97f, 1.00f,
 };
 
-static const float default_enrichment_async_amount[TABLE_ROTATES_MAX] = {
+static const float default_enrichment_async_amount[TABLE_ROTATES_16] = {
     0.30f, 0.30f, 0.30f, 0.32f, 0.35f, 0.39f, 0.43f, 0.48f,
     0.51f, 0.53f, 0.55f, 0.58f, 0.65f, 0.76f, 0.80f, 0.80f,
 };
 
-static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHMENT_PERCENTS_MAX] = {
+static const float default_enrichment_ign_corr[TABLE_ROTATES_16][TABLE_ENRICHMENT_PERCENTS] = {
     { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f, },
     { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f, },
     { -4.0f, -3.9f, -3.7f, -3.6f, -3.3f, -2.9f, -2.4f, -2.0f, },
@@ -243,179 +258,179 @@ static const float default_enrichment_ign_corr[TABLE_ROTATES_MAX][TABLE_ENRICHME
 };
 
 
-static const float default_enrichment_temp_mult[TABLE_TEMPERATURES_MAX] = {
+static const float default_enrichment_temp_mult[TABLE_TEMPERATURES] = {
     2.00f, 1.93f, 1.79f, 1.68f, 1.55f, 1.44f, 1.36f, 1.30f,
     1.24f, 1.19f, 1.14f, 1.12f, 1.10f, 1.10f, 1.10f, 1.10f,
 };
 
-static const float default_enrichment_injection_phase[TABLE_ROTATES_MAX] = {
+static const float default_enrichment_injection_phase[TABLE_ROTATES_16] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const float default_ignition_time_rpm_mult[TABLE_ROTATES_MAX] = {
+static const float default_ignition_time_rpm_mult[TABLE_ROTATES_16] = {
     4.0f, 1.7f, 1.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
     1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
 };
 
-static const float default_voltages[8] = {
+static const float default_voltages[TABLE_VOLTAGES] = {
     0.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 25.0f
 };
 
-static const float default_ignition_time[TABLE_VOLTAGES_MAX] = {
+static const float default_ignition_time[TABLE_VOLTAGES] = {
     5700, 4500, 3200, 2500, 2100, 1800, 1600, 1000
 };
 
-static const float default_injector_lag[TABLE_VOLTAGES_MAX] = {
+static const float default_injector_lag[TABLE_VOLTAGES] = {
     5.00f, 3.00f, 2.18f, 1.67f, 1.18f, 0.91f, 0.63f, 0.03f,
 };
 
-static const float default_engine_temps[TABLE_TEMPERATURES_MAX] = {
+static const float default_engine_temps[TABLE_TEMPERATURES] = {
     -20, -10, 0, 10, 20, 30, 40, 50,
     60, 70, 80, 90, 100, 110, 120, 130
 };
 
-static const float default_warmup_mixtures[TABLE_TEMPERATURES_MAX] = {
+static const float default_warmup_mixtures[TABLE_TEMPERATURES] = {
     13.4f, 13.5f, 13.6f, 13.7f, 13.8f, 13.9f, 14.4f, 14.7f,
     14.7f, 14.6f, 14.6f, 14.6f, 14.6f, 14.0f, 13.6f, 13.0f
 };
 
-static const float default_warmup_mix_koffs[TABLE_TEMPERATURES_MAX] = {
+static const float default_warmup_mix_koffs[TABLE_TEMPERATURES] = {
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
 };
 
-static const float default_warmup_mix_corrs[TABLE_TEMPERATURES_MAX] = {
+static const float default_warmup_mix_corrs[TABLE_TEMPERATURES] = {
     0.06f, 0.06f, 0.05f, 0.05f, 0.04f, 0.03f, 0.02f, 0.01f,
     0.01f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
 };
 
-static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES_MAX] = {
+static const float default_cold_start_idle_corrs[TABLE_TEMPERATURES] = {
     0.30f, 0.30f, 0.30f, 0.28f, 0.24f, 0.18f, 0.17f, 0.13f,
     0.09f, 0.05f, 0.04f, 0.03f, 0.01f, 0.01f, 0.01f, 0.01f,
 };
 
-static const float default_cold_start_idle_times[TABLE_TEMPERATURES_MAX] = {
+static const float default_cold_start_idle_times[TABLE_TEMPERATURES] = {
     25, 24, 23, 22, 18, 13, 7, 5,
     4, 3, 2, 1, 1, 1, 1, 1,
 };
 
-static const float default_start_tps_corrs[TABLE_THROTTLES_MAX] = {
+static const float default_start_tps_corrs[TABLE_THROTTLES_16] = {
     1.00f, 1.00f, 1.00f, 1.00f, 0.98f, 0.94f, 0.90f, 0.86f,
     0.81f, 0.77f, 0.72f, 0.65f, 0.56f, 0.38f, 0.00f, 0.00f,
 };
 
-static const float default_start_async_filling[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_async_filling[TABLE_TEMPERATURES] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const float default_start_large_filling[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_large_filling[TABLE_TEMPERATURES] = {
     147.1f, 139.7f, 132.4f, 117.6f, 95.6f, 73.5f, 58.8f, 47.8f,
     40.4f, 36.8f, 33.1f, 31.6f, 31.6f, 31.6f, 31.6f, 31.6f
 };
 
-static const float default_start_small_filling[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_small_filling[TABLE_TEMPERATURES] = {
     62.5f, 61.0f, 53.7f, 46.3f, 36.8f, 30.9f, 27.2f, 25.0f,
     23.5f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f, 22.8f
 };
 
-static const float default_start_filling_time[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_filling_time[TABLE_TEMPERATURES] = {
     1.3f, 1.3f, 1.2f, 1.1f, 0.9f, 0.8f, 0.6f, 0.5f,
     0.4f, 0.3f, 0.3f, 0.2f, 0.1f, 0.1f, 0.1f, 0.1f,
 };
 
-static const float default_start_injection_phase[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_injection_phase[TABLE_TEMPERATURES] = {
     50, 50, 60, 70, 80, 90, 100, 100,
     100, 100, 100, 100, 100, 100, 100, 100,
 };
 
-static const float default_start_ignition[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_ignition[TABLE_TEMPERATURES] = {
     10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f,
     10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f
 };
 
-static const float default_start_idle_valve_pos[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_idle_valve_pos[TABLE_TEMPERATURES] = {
     100.0f, 100.0f, 95.0f, 90.0f, 85.0f, 80.0f, 75.0f, 70.0f,
     65.0f, 60.0f, 55.0f, 55.0f, 55.0f, 50.0f, 50.0f, 50.0f,
 };
 
-static const float default_idle_wish_rotates[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_wish_rotates[TABLE_TEMPERATURES] = {
     1560, 1560, 1520, 1500, 1460, 1420, 1380, 1350,
     1300, 1280, 1250, 1250, 1250, 1290, 1340, 1400,
 };
 
-static const float default_idle_valve_position[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_valve_position[TABLE_TEMPERATURES] = {
     70, 70, 70, 70, 65, 60, 55, 55,
     53, 50, 50, 50, 50, 50, 50, 50,
 };
 
-static const float default_idle_valve_econ_position[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_econ_position[TABLE_ROTATES_32] = {
     60, 59, 57, 55, 52, 49, 47, 45,
     42, 37, 35, 35, 38, 45, 49, 50,
 };
 
-static const float default_idle_wish_massair[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_wish_massair[TABLE_TEMPERATURES] = {
     27.0f, 26.0f, 25.0f, 24.0f, 23.3f, 21.6f, 19.9f, 18.0f,
     17.4f, 16.7f, 16.0f, 16.0f, 16.0f, 17.0f, 18.0f, 18.5f,
 };
 
-static const float default_idle_wish_ignition_static[TABLE_ROTATES_MAX] = {
+static const float default_idle_wish_ignition_static[TABLE_ROTATES_16] = {
     14.0f, 16.0f, 18.0f, 21.0f, 25.0f, 25.7f, 23.0f, 20.0f,
     17.0f, 14.0f, 11.0f, 10.0f, 10.0f, 11.0f, 13.0f, 17.0f,
 };
 
-static const float default_idle_wish_ignition[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_wish_ignition[TABLE_TEMPERATURES] = {
     20.0f, 20.0f, 20.0f, 20.0f, 18.9f, 15.0f, 12.7f, 11.0f,
     10.0f, 9.0f, 8.0f, 8.0f, 9.0f, 10.8f, 12.3f, 14.0f,
 };
 
-static const float default_speeds[TABLE_SPEEDS_MAX] = {
+static const float default_speeds[TABLE_SPEEDS] = {
     0, 3, 10, 20, 30, 40, 50, 60,
     70, 80, 90, 100, 110, 120, 130, 140
 };
 
-static const float default_idle_rpm_shift[TABLE_SPEEDS_MAX] = {
+static const float default_idle_rpm_shift[TABLE_SPEEDS] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const float default_knock_noise_level[TABLE_ROTATES_MAX] = {
+static const float default_knock_noise_level[TABLE_ROTATES_32] = {
     1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f,
     1.00f, 1.02f, 1.05f, 1.10f, 1.20f, 1.30f, 1.45f, 1.60f,
 };
 
-static const float default_knock_threshold[TABLE_ROTATES_MAX] = {
+static const float default_knock_threshold[TABLE_ROTATES_32] = {
     1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f,
     1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f,
 };
 
-static const float default_knock_detect_phase_start[TABLE_ROTATES_MAX] = {
+static const float default_knock_detect_phase_start[TABLE_ROTATES_32] = {
     -19, -23, -27, -31, -35, -39, -42, -45,
     -47, -48, -49, -50, -50, -50, -50, -50,
 };
 
-static const float default_knock_detect_phase_end[TABLE_ROTATES_MAX] = {
+static const float default_knock_detect_phase_end[TABLE_ROTATES_32] = {
     2, 3, 4, 6, 8, 9, 10, 10,
     10, 10, 10, 10, 10, 10, 10, 10,
 };
 
-static const float default_knock_integrator_time[TABLE_ROTATES_MAX] = {
+static const float default_knock_integrator_time[TABLE_ROTATES_32] = {
     11, 11, 11, 11, 11, 11, 11, 11,
     11, 11, 11, 11, 11, 11, 11, 11,
 };
 
-static const float default_knock_filter_frequency[TABLE_ROTATES_MAX] = {
+static const float default_knock_filter_frequency[TABLE_ROTATES_32] = {
     41, 41, 41, 41, 41, 41, 41, 41,
     42, 42, 42, 42, 42, 43, 43, 43,
 };
 
-static const float default_knock_gain[TABLE_ROTATES_MAX] = {
+static const float default_knock_gain[TABLE_ROTATES_32] = {
     1, 1, 1, 2, 4, 6, 13, 18,
     28, 33, 38, 47, 54, 58, 60, 60,
 };
 
-static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
+static const float default_knock_zone[TABLE_FILLING_16][TABLE_ROTATES_16] = {
     { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, },
     { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, },
     { 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, },
@@ -434,19 +449,19 @@ static const float default_knock_zone[TABLE_FILLING_MAX][TABLE_ROTATES_MAX] = {
     { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
 };
 
-static const float default_knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_MAX] = {
+static const float default_knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_32] = {
     { 1.08f, 1.38f, 1.27f, 1.56f, 1.56f, 1.37f, 1.28f, 1.42f, 1.37f, 1.35f, 1.19f, 1.08f, 1.05f, 1.07f, 1.02f, 1.00f, },
     { 1.04f, 1.19f, 1.12f, 1.09f, 1.03f, 1.07f, 1.05f, 1.14f, 1.12f, 1.16f, 1.02f, 0.94f, 1.00f, 0.99f, 1.00f, 1.00f, },
     { 1.06f, 1.22f, 1.13f, 1.24f, 1.16f, 1.03f, 1.06f, 1.03f, 0.97f, 1.06f, 1.04f, 0.98f, 1.01f, 1.00f, 1.01f, 1.00f, },
     { 1.05f, 1.22f, 1.15f, 1.27f, 1.30f, 1.26f, 1.25f, 1.40f, 1.44f, 1.41f, 1.30f, 1.13f, 1.06f, 1.07f, 1.02f, 1.00f, },
 };
 
-static const float default_air_temps[TABLE_TEMPERATURES_MAX] = {
+static const float default_air_temps[TABLE_TEMPERATURES] = {
     -40, -30, -20, -10, -5, 0, 5, 10,
     15, 20, 30, 40, 50, 60, 70, 80
 };
 
-static const float default_air_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX] = {
+static const float default_air_temp_mix_corrs[TABLE_TEMPERATURES][TABLE_FILLING_16] = {
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
@@ -465,7 +480,7 @@ static const float default_air_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILL
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 };
 
-static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX] = {
+static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES][TABLE_FILLING_16] = {
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.5f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, },
@@ -484,7 +499,7 @@ static const float default_air_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILL
     { 0.0f, 0.0f, -0.5f, -0.5f, -1.0f, -2.0f, -2.5f, -2.5f, -2.5f, -3.0f, -3.0f, -3.0f, -3.0f, -3.0f, -3.0f, -3.0f, },
 };
 
-static const float default_engine_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX] = {
+static const float default_engine_temp_mix_corrs[TABLE_TEMPERATURES][TABLE_FILLING_16] = {
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
@@ -503,7 +518,7 @@ static const float default_engine_temp_mix_corrs[TABLE_TEMPERATURES_MAX][TABLE_F
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
 };
 
-static const float default_engine_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_FILLING_MAX] = {
+static const float default_engine_temp_ign_corrs[TABLE_TEMPERATURES][TABLE_FILLING_16] = {
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
     { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, },
@@ -522,92 +537,92 @@ static const float default_engine_temp_ign_corrs[TABLE_TEMPERATURES_MAX][TABLE_F
     { -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, -6.0f, },
 };
 
-static const float default_idle_pids_rpm_koffs[TABLE_ROTATES_MAX] = {
+static const float default_idle_pids_rpm_koffs[TABLE_ROTATES_16] = {
     0.45f, 0.53f, 0.61f, 0.69f, 0.77f, 0.85f, 0.93f, 1.00f,
     1.08f, 1.16f, 1.24f, 1.32f, 1.40f, 1.48f, 1.56f, 1.64f
 };
 
-static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_massair_pid_p[TABLE_ROTATES_16] = {
     2.000f, 2.000f, 1.900f, 1.800f, 1.700f, 1.600f, 1.400f, 1.200f,
     1.200f, 1.200f, 1.200f, 1.200f, 1.200f, 1.200f, 1.200f, 1.200f,
 };
 
-static const float default_idle_valve_to_massair_pid_i[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_massair_pid_i[TABLE_ROTATES_16] = {
     5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 5.000f, 4.600f, 3.998f,
     3.600f, 2.000f, 1.200f, 0.800f, 0.700f, 0.700f, 0.700f, 0.700f,
 };
 
-static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_massair_pid_d[TABLE_ROTATES_16] = {
     0.0020f, 0.0020f, 0.0080f, 0.0130f, 0.0200f, 0.0150f, 0.0020f, 0.0010f,
     0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f, 0.0010f,
 };
 
-static const float default_idle_valve_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_rpm_pid_p[TABLE_ROTATES_16] = {
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
 };
 
-static const float default_idle_valve_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_rpm_pid_i[TABLE_ROTATES_16] = {
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
 };
 
-static const float default_idle_valve_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+static const float default_idle_valve_to_rpm_pid_d[TABLE_ROTATES_16] = {
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
 };
 
-static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+static const float default_idle_ign_to_rpm_pid_p[TABLE_ROTATES_16] = {
     0.020f, 0.020f, 0.020f, 0.020f, 0.020f, 0.010f, 0.004f, 0.000f,
     0.004f, 0.020f, 0.040f, 0.020f, 0.020f, 0.020f, 0.020f, 0.020f,
 };
 
-static const float default_idle_ign_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+static const float default_idle_ign_to_rpm_pid_i[TABLE_ROTATES_16] = {
     0.020f, 0.020f, 0.020f, 0.020f, 0.010f, 0.006f, 0.003f, 0.002f,
     0.003f, 0.005f, 0.008f, 0.004f, 0.002f, 0.002f, 0.002f, 0.002f,
 };
 
-static const float default_idle_ign_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+static const float default_idle_ign_to_rpm_pid_d[TABLE_ROTATES_16] = {
     0.0000f, 0.0000f, 0.0000f, 0.0004f, 0.0004f, 0.0004f, 0.0002f, 0.0001f,
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
 };
 
-static const float default_idle_rpm_pid_act_1[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_rpm_pid_act_1[TABLE_TEMPERATURES] = {
     0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
     0.390f, 0.370f, 0.340f, 0.340f, 0.340f, 0.340f, 0.340f, 0.340f,
 };
 
-static const float default_idle_rpm_pid_act_2[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_rpm_pid_act_2[TABLE_TEMPERATURES] = {
     0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.600f, 0.550f,
     0.480f, 0.420f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f, 0.400f,
 };
 
-static const float default_tsps_relative_pos[TABLE_ROTATES_MAX] = {
+static const float default_tsps_relative_pos[TABLE_ROTATES_32] = {
     -112.0f, -112.0f, -112.0f, -112.0f, -112.0f, -111.9f, -111.7f, -111.5f,
     -111.2f, -111.0f, -111.0f, -111.0f, -111.0f, -111.0f, -111.0f, -111.0f,
 };
 
-static const float default_tsps_desync_thr[TABLE_ROTATES_MAX] = {
+static const float default_tsps_desync_thr[TABLE_ROTATES_16] = {
     9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f,
     9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f, 9.0f,
 };
 
-static const float default_idle_ignition_time_by_tps[TABLE_THROTTLES_MAX] = {
+static const float default_idle_ignition_time_by_tps[TABLE_THROTTLES_32] = {
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
     0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f,
 };
 
-static const float default_idle_econ_delay[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_econ_delay[TABLE_TEMPERATURES] = {
     30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 30.0f, 20.0f,
     10.0f, 3.0f, 1.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f,
 };
 
-static const float default_start_econ_delay[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_econ_delay[TABLE_TEMPERATURES] = {
     5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 4.8f, 4.5f,
     4.0f, 3.5f, 3.2f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
-static const float default_fan_advance_control[TABLE_TEMPERATURES_MAX][TABLE_SPEEDS_MAX] = {
+static const float default_fan_advance_control[TABLE_TEMPERATURES][TABLE_SPEEDS] = {
     { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
     { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
     { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
@@ -626,82 +641,82 @@ static const float default_fan_advance_control[TABLE_TEMPERATURES_MAX][TABLE_SPE
     { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
 };
 
-static const float default_idle_throttle_to_massair_pid_p[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_massair_pid_p[TABLE_ROTATES_16] = {
     0.200f, 0.200f, 0.200f, 0.190f, 0.180f, 0.170f, 0.150f, 0.120f,
     0.120f, 0.120f, 0.120f, 0.120f, 0.120f, 0.120f, 0.120f, 0.120f,
 };
 
-static const float default_idle_throttle_to_massair_pid_i[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_massair_pid_i[TABLE_ROTATES_16] = {
     0.300f, 0.300f, 0.300f, 0.300f, 0.300f, 0.270f, 0.220f, 0.200f,
     0.170f, 0.080f, 0.060f, 0.050f, 0.050f, 0.050f, 0.050f, 0.050f,
 };
 
-static const float default_idle_throttle_to_massair_pid_d[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_massair_pid_d[TABLE_ROTATES_16] = {
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
 };
 
-static const float default_idle_throttle_to_rpm_pid_p[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_rpm_pid_p[TABLE_ROTATES_16] = {
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
 };
 
-static const float default_idle_throttle_to_rpm_pid_i[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_rpm_pid_i[TABLE_ROTATES_16] = {
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
     0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f, 0.000f,
 };
 
-static const float default_idle_throttle_to_rpm_pid_d[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_to_rpm_pid_d[TABLE_ROTATES_16] = {
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
     0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f, 0.0000f,
 };
 
-static const float default_throttle_position_1d[TABLE_PEDALS_MAX] = {
+static const float default_throttle_position_1d[TABLE_PEDALS] = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.6f, 1.2f, 2.3f, 4.0f,
     6.2f, 9.6f, 17.1f, 32.6f, 51.0f, 73.9f, 100.0f, 100.0f,
 };
 
-static const float default_throttle_startup_move_time[TABLE_TEMPERATURES_MAX] = {
+static const float default_throttle_startup_move_time[TABLE_TEMPERATURES] = {
     3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
     3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
-static const float default_stop_throttle_position[TABLE_PEDALS_MAX] = {
+static const float default_stop_throttle_position[TABLE_PEDALS] = {
     0.0f, 1.7f, 3.5f, 5.7f, 8.3f, 11.3f, 15.2f, 19.6f,
     24.8f, 30.9f, 37.8f, 47.0f, 57.0f, 69.1f, 83.5f, 100.0f,
 };
 
-static const float default_idle_throttle_position[TABLE_TEMPERATURES_MAX] = {
+static const float default_idle_throttle_position[TABLE_TEMPERATURES] = {
     6.2f, 5.8f, 5.4f, 5.0f, 4.8f, 4.5f, 4.3f, 3.9f,
     3.6f, 3.3f, 3.2f, 3.2f, 3.2f, 3.3f, 3.4f, 3.6f,
 };
 
-static const float default_idle_throttle_econ_position[TABLE_ROTATES_MAX] = {
+static const float default_idle_throttle_econ_position[TABLE_ROTATES_32] = {
     3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 2.8f, 2.2f, 1.5f,
     0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 };
 
-static const float default_pedal_ignition_control[TABLE_ROTATES_MAX] = {
+static const float default_pedal_ignition_control[TABLE_ROTATES_16] = {
     8.0f, 8.0f, 8.0f, 8.0f, 8.0f, 8.0f, 8.0f, 8.0f,
     7.9f, 7.5f, 7.1f, 6.4f, 5.5f, 4.3f, 2.9f, 1.5f,
 };
 
-static const float default_start_throttle_position[TABLE_TEMPERATURES_MAX] = {
+static const float default_start_throttle_position[TABLE_TEMPERATURES] = {
     8.0f, 8.0f, 8.0f, 7.5f, 7.2f, 6.9f, 6.5f, 5.9f,
     5.5f, 5.2f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f,
 };
 
-static const float default_dynamic_fuel_corr_gbc[TABLE_FILLING_MAX] = {
+static const float default_dynamic_fuel_corr_gbc[TABLE_FILLING_16] = {
     0.02f, 0.02f, 0.02f, 0.03f, 0.08f, 0.15f, 0.22f, 0.31f,
     0.39f, 0.46f, 0.55f, 0.67f, 0.79f, 0.83f, 0.95f, 1.10f,
 };
 
-static const float default_dynamic_fuel_corr_temp[TABLE_TEMPERATURES_MAX] = {
+static const float default_dynamic_fuel_corr_temp[TABLE_TEMPERATURES] = {
     1.00f, 0.92f, 0.78f, 0.68f, 0.55f, 0.43f, 0.35f, 0.30f,
     0.24f, 0.19f, 0.13f, 0.10f, 0.10f, 0.10f, 0.10f, 0.10f,
 };
 
-static const float default_dynamic_fuel_corr_lpf[TABLE_ROTATES_MAX] = {
+static const float default_dynamic_fuel_corr_lpf[TABLE_ROTATES_16] = {
     0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f,
     0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.75f,
 };
@@ -745,25 +760,21 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_throttle_pos_min = 0;
   table->idle_throttle_pos_max = 2;
 
-  table->cylinders_count = ITEMSOF(default_cylinders);
   memcpy(table->cylinders, default_cylinders, sizeof(default_cylinders));
 
-  table->voltages_count = ITEMSOF(default_voltages);
   memcpy(table->voltages, default_voltages, sizeof(default_voltages));
 
-  table->pressures_count = ITEMSOF(default_pressures);
-  memcpy(table->pressures, default_pressures, sizeof(default_pressures));
+  memcpy(table->pressures_16, default_pressures_16, sizeof(default_pressures_16));
+  memcpy(table->pressures_32, default_pressures_32, sizeof(default_pressures_32));
 
-  table->rotates_count = ITEMSOF(default_rotates);
-  memcpy(table->rotates, default_rotates, sizeof(default_rotates));
+  memcpy(table->rotates_16, default_rotates_16, sizeof(default_rotates_16));
+  memcpy(table->rotates_32, default_rotates_32, sizeof(default_rotates_32));
 
-  table->idle_rotates_count = ITEMSOF(default_idle_rotates);
   memcpy(table->idle_rotates, default_idle_rotates, sizeof(default_idle_rotates));
 
-  table->throttles_count = ITEMSOF(default_throttles);
-  memcpy(table->throttles, default_throttles, sizeof(default_throttles));
+  memcpy(table->throttles_16, default_throttles_16, sizeof(default_throttles_16));
+  memcpy(table->throttles_32, default_throttles_32, sizeof(default_throttles_32));
 
-  table->pedals_count = ITEMSOF(default_pedals);
   memcpy(table->pedals, default_pedals, sizeof(default_pedals));
 
   memcpy(table->filling_gbc_map, default_filling_gbc_map, sizeof(default_filling_gbc_map));
@@ -775,9 +786,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->filling_select_koff_tps, default_filling_select_koff_tps, sizeof(default_filling_select_koff_tps));
   table->throttle_position_use_1d = 1;
 
-  table->enrichment_rate_start_load_count = ITEMSOF(default_enrichment_rate_start_load);
   memcpy(table->enrichment_rate_start_load, default_enrichment_rate_start_load, sizeof(default_enrichment_rate_start_load));
-  table->enrichment_rate_load_derivative_count = ITEMSOF(default_enrichment_rate_load_derivative);
   memcpy(table->enrichment_rate_load_derivative, default_enrichment_rate_load_derivative, sizeof(default_enrichment_rate_load_derivative));
 
   memcpy(table->enrichment_rate, default_enrichment_rate, sizeof(default_enrichment_rate));
@@ -789,8 +798,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->enrichment_injection_phase, default_enrichment_injection_phase, sizeof(default_enrichment_injection_phase));
   memcpy(table->enrichment_tps_selection, default_enrichment_tps_selection, sizeof(default_enrichment_tps_selection));
 
-  table->fillings_count = ITEMSOF(default_fillings);
-  memcpy(table->fillings, default_fillings, sizeof(default_fillings));
+  memcpy(table->fillings_16, default_fillings_16, sizeof(default_fillings_16));
+  memcpy(table->fillings_32, default_fillings_32, sizeof(default_fillings_32));
 
   memcpy(table->ignitions, default_ignitions, sizeof(default_ignitions));
   memset(table->ignition_corr_cy, 0, sizeof(table->ignition_corr_cy));
@@ -798,15 +807,12 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->fuel_mixtures, default_fuel_mixtures, sizeof(default_fuel_mixtures));
   memcpy(table->injection_phase, default_injection_phase, sizeof(default_injection_phase));
 
-  memcpy(table->injection_phase_lpf, default_injection_phase_lpf, sizeof(default_injection_phase_lpf));
   memcpy(table->ignition_time_rpm_mult, default_ignition_time_rpm_mult, sizeof(default_ignition_time_rpm_mult));
   memcpy(table->ignition_time, default_ignition_time, sizeof(default_ignition_time));
   memcpy(table->injector_lag, default_injector_lag, sizeof(default_injector_lag));
 
-  table->engine_temp_count = ITEMSOF(default_engine_temps);
   memcpy(table->engine_temps, default_engine_temps, sizeof(default_engine_temps));
 
-  table->air_temp_count = ITEMSOF(default_air_temps);
   memcpy(table->air_temps, default_air_temps, sizeof(default_air_temps));
   memcpy(table->air_temp_mix_corr, default_air_temp_mix_corrs, sizeof(default_air_temp_mix_corrs));
   memcpy(table->air_temp_ign_corr, default_air_temp_ign_corrs, sizeof(default_air_temp_ign_corrs));
@@ -840,7 +846,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   memcpy(table->start_throttle_position, default_start_throttle_position, sizeof(default_start_throttle_position));
   table->start_large_count = 4;
 
-  table->idle_pids_rpm_koffs_count = ITEMSOF(default_idle_pids_rpm_koffs);
   memcpy(table->idle_pids_rpm_koffs, default_idle_pids_rpm_koffs, sizeof(default_idle_pids_rpm_koffs));
   memcpy(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(default_idle_valve_to_massair_pid_p));
   memcpy(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(default_idle_valve_to_massair_pid_i));
@@ -877,7 +882,6 @@ void config_default_table(sEcuTable *table, uint8_t number)
   table->idle_air_fan_low_corr = 0.1f;
   table->idle_air_fan_high_corr = 0.2f;
 
-  table->speeds_count = ITEMSOF(default_speeds);
   memcpy(table->speeds, default_speeds, sizeof(default_speeds));
   memcpy(table->idle_rpm_shift, default_idle_rpm_shift, sizeof(default_idle_rpm_shift));
 
@@ -974,82 +978,6 @@ void config_default_params(sEcuParams *table)
 
 }
 
-void config_transform_progress_to_corrections(sEcuCorrections *corrections, const sEcuCorrectionsProgress *progress)
-{
-  const float multiplier = 255.0f;
-
-  if(!progress || !corrections) {
-    return;
-  }
-
-  for(int y = 0; y < TABLE_FILLING_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      float value = progress->progress_ignitions[y][x];
-      if(value > 1.0f) value = 1.0f;
-      corrections->progress_ignitions[y][x] = value * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      float value = progress->progress_filling_gbc_map[y][x];
-      if(value > 1.0f) value = 1.0f;
-      corrections->progress_filling_gbc_map[y][x] = value * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      float value = progress->progress_filling_gbc_tps[y][x];
-      if(value > 1.0f) value = 1.0f;
-      corrections->progress_filling_gbc_tps[y][x] = value * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
-    float value = progress->progress_idle_valve_position[y];
-    if(value > 1.0f) value = 1.0f;
-    corrections->progress_idle_valve_position[y] = value * multiplier;
-  }
-  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      float value = progress->progress_knock_cy_level_multiplier[y][x];
-      if(value > 1.0f) value = 1.0f;
-      corrections->progress_knock_cy_level_multiplier[y][x] = value * multiplier;
-    }
-  }
-}
-
-void config_transform_corrections_to_progress(sEcuCorrectionsProgress *progress, const sEcuCorrections *corrections)
-{
-  const float multiplier = 1.0f / 255.0f;
-
-  if(!progress || !corrections) {
-    return;
-  }
-
-  for(int y = 0; y < TABLE_FILLING_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      progress->progress_ignitions[y][x] = corrections->progress_ignitions[y][x] * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_PRESSURES_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      progress->progress_filling_gbc_map[y][x] = corrections->progress_filling_gbc_map[y][x] * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_THROTTLES_MAX; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      progress->progress_filling_gbc_tps[y][x] = corrections->progress_filling_gbc_tps[y][x] * multiplier;
-    }
-  }
-  for(int y = 0; y < TABLE_TEMPERATURES_MAX; y++) {
-    progress->progress_idle_valve_position[y] = corrections->progress_idle_valve_position[y] * multiplier;
-  }
-  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
-    for(int x = 0; x < TABLE_ROTATES_MAX; x++) {
-      progress->progress_knock_cy_level_multiplier[y][x] = corrections->progress_knock_cy_level_multiplier[y][x] * multiplier;
-    }
-  }
-}
-
 void config_default_corrections(sEcuCorrections *table)
 {
   memset(table, 0, sizeof(sEcuCorrections));
@@ -1070,14 +998,14 @@ HAL_StatusTypeDef config_init(void)
 
 int8_t config_load_table(sEcuTable *table, uint8_t number)
 {
-  if(number >= TABLE_SETUPS_MAX)
+  if(number >= TABLE_SETUPS)
     return -1;
   return flash_page_load(table, sizeof(sEcuTable), CONFIG_OFFSET_TABLES + number);
 }
 
 int8_t config_save_table(const sEcuTable *table, uint8_t number)
 {
-  if(number >= TABLE_SETUPS_MAX)
+  if(number >= TABLE_SETUPS)
     return -1;
   return flash_page_save(table, sizeof(sEcuTable), CONFIG_OFFSET_TABLES + number);
 }

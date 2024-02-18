@@ -5,23 +5,9 @@
  *      Author: VHEMaster
  */
 
-#include "defines.h"
 #include "interpolation.h"
-
-STATIC_INLINE int math_binary_search(const float *array, int start_index, int end_index, float element)
-{
-  int iterations = 0;
-  while(start_index <= end_index && ++iterations < 256) {
-    int middle = start_index + ((end_index- start_index ) >> 1);
-    if (array[middle] <= element && array[middle + 1] > element)
-      return middle;
-    if (array[middle + 1] <= element)
-      start_index = middle + 1;
-    else if(array[middle] >= element)
-      end_index = middle - 1;
-  }
-  return -1;
-}
+#include "math_misc.h"
+#include "defines.h"
 
 INLINE sMathInterpolateInput math_interpolate_input(float value, const float *table, uint32_t size)
 {
@@ -69,18 +55,6 @@ INLINE sMathInterpolateInput math_interpolate_input(float value, const float *ta
   if(result.values[1] != result.values[0])
     result.mult = (value - result.values[0]) / (result.values[1] - result.values[0]);
   else result.mult = 1.0f;
-
-  return result;
-}
-
-INLINE sMathInterpolateInput math_interpolate_input_limit(float value, const float *table, uint32_t size)
-{
-  sMathInterpolateInput result = math_interpolate_input(value, table, size);
-
-  if(result.mult > 1.0f)
-    result.mult = 1.0f;
-  else if(result.mult < 0.0f)
-    result.mult = 0.0f;
 
   return result;
 }
@@ -139,19 +113,6 @@ INLINE float math_interpolate_2d_point(sMathInterpolateInput input_x, sMathInter
     index_y = 1;
 
   result = table[input_y.indexes[index_y]][input_x.indexes[index_x]];
-
-  return result;
-}
-
-INLINE float math_interpolate_2d_clamp(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
-    uint32_t x_size, const float (*table)[x_size], float clamp_min, float clamp_max)
-{
-  float result = math_interpolate_2d(input_x, input_y, x_size, table);
-
-  if(result < clamp_min)
-    result = clamp_min;
-  if(result > clamp_max)
-    result = clamp_max;
 
   return result;
 }
@@ -257,3 +218,423 @@ float math_interpolate_1d_offset(sMathInterpolateInput input, const float *table
 
   return result;
 }
+
+
+INLINE sMathInterpolateInput math_interpolate_input_u8(float value, const uint8_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE sMathInterpolateInput math_interpolate_input_u16(float value, const uint16_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE sMathInterpolateInput math_interpolate_input_u32(float value, const uint32_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE sMathInterpolateInput math_interpolate_input_s8(float value, const int8_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE sMathInterpolateInput math_interpolate_input_s16(float value, const int16_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE sMathInterpolateInput math_interpolate_input_s32(float value, const int32_t *table, uint32_t size, const sMathInterpolationTransform *transform)
+{
+  float table_float[size];
+
+  for(int i = 0; i < size; i++) {
+    table_float[i] = table[i] * transform->gain + transform->offset;
+  }
+
+  return math_interpolate_input(value, table_float, size);
+}
+
+INLINE float math_interpolate_1d_u8(sMathInterpolateInput input, const uint8_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_1d_u16(sMathInterpolateInput input, const uint16_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_1d_u32(sMathInterpolateInput input, const uint32_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_1d_s8(sMathInterpolateInput input, const int8_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_1d_s16(sMathInterpolateInput input, const int16_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_1d_s32(sMathInterpolateInput input, const int32_t *table, const sMathInterpolationTransform *transform)
+{
+  float result;
+  float output[2];
+
+  output[0] = table[input.indexes[0]] * transform->gain + transform->offset;
+  output[1] = table[input.indexes[1]] * transform->gain + transform->offset;
+
+  result = (output[1] - output[0]) * input.mult + output[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_u8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+
+INLINE float math_interpolate_2d_u16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+
+INLINE float math_interpolate_2d_u32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_s8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+
+INLINE float math_interpolate_2d_s16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+
+INLINE float math_interpolate_2d_s32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  float output_1d[2];
+  float input_2d[2][2];
+
+  input_2d[0][0] = table[input_y.indexes[0]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[0][1] = table[input_y.indexes[0]][input_x.indexes[1]] * transform->gain + transform->offset;
+  input_2d[1][0] = table[input_y.indexes[1]][input_x.indexes[0]] * transform->gain + transform->offset;
+  input_2d[1][1] = table[input_y.indexes[1]][input_x.indexes[1]] * transform->gain + transform->offset;
+
+  output_1d[0] = (input_2d[0][1] - input_2d[0][0]) * input_x.mult + input_2d[0][0];
+  output_1d[1] = (input_2d[1][1] - input_2d[1][0]) * input_x.mult + input_2d[1][0];
+  result = (output_1d[1] - output_1d[0]) * input_y.mult + output_1d[0];
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_limit_u8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_u8(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_limit_u16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_u16(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_limit_u32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_u32(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_limit_s8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_s8(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_limit_s16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_s16(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_limit_s32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  input_x.mult = CLAMP(input_x.mult, 0.0f, 1.0f);
+  input_y.mult = CLAMP(input_y.mult, 0.0f, 1.0f);
+
+  return math_interpolate_2d_s32(input_x, input_y, x_size, table, transform);
+}
+
+INLINE float math_interpolate_2d_point_u8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_point_u16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_point_u32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const uint32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_point_s8(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int8_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_point_s16(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int16_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+
+INLINE float math_interpolate_2d_point_s32(sMathInterpolateInput input_x, sMathInterpolateInput input_y,
+    uint32_t x_size, const int32_t (*table)[x_size], const sMathInterpolationTransform *transform)
+{
+  float result = 0.0f;
+  uint8_t index_x = 0;
+  uint8_t index_y = 0;
+
+  if(input_x.mult >= 0.5f)
+    index_x = 1;
+  if(input_y.mult >= 0.5f)
+    index_y = 1;
+
+  result = table[input_y.indexes[index_y]][input_x.indexes[index_x]] * transform->gain + transform->offset;
+
+  return result;
+}
+

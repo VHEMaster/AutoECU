@@ -11,6 +11,7 @@
  *      Author: VHEMaster
  */
 
+#include "interpolation.h"
 #include "pid.h"
 #include "misc.h"
 #include "adc.h"
@@ -18,7 +19,6 @@
 #include "csps.h"
 #include "sensors.h"
 #include "defines.h"
-#include "interpolation.h"
 #include <string.h>
 #include <stdlib.h>
 
