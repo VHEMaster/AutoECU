@@ -1047,7 +1047,10 @@ static void ecu_update(void)
   static uint32_t enleanment_post_cycles = 0;
   static uint32_t idle_accelerate_post_cycles = 0;
   static uint32_t last_temp_fill_correction = 0;
+  static uint32_t last_temp_fill_correction_index_tps = 0;
+  static uint32_t last_temp_fill_correction_index_map = 0;
   static uint32_t last_temp_knock_correction = 0;
+  static uint32_t last_temp_knock_correction_index = 0;
   static uint32_t enrichment_halfturns = 0;
   uint8_t enrichment_process_trigger = 0;
 
@@ -2710,10 +2713,15 @@ static void ecu_update(void)
     }
   }
 
-  if(DelayDiff(now, last_temp_fill_correction) >= 200000) {
+  if(DelayDiff(now, last_temp_fill_correction) >= (200000 / MIN(TABLE_PRESSURES_32, TABLE_THROTTLES_32))) {
     last_temp_fill_correction = now;
+    last_temp_fill_correction_index_tps++;
+    last_temp_fill_correction_index_map++;
+    last_temp_fill_correction_index_tps %= TABLE_THROTTLES_32;
+    last_temp_fill_correction_index_map %= TABLE_PRESSURES_32;
 
-    for(int y = 0; y < TABLE_PRESSURES_32; y++) {
+    /* for(int y = 0; y < TABLE_PRESSURES_32; y++) */ {
+      int y = last_temp_fill_correction_index_map;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
         filling_map_correction = gEcuCorrections.filling_gbc_map[y][x];
         filling_map_correction += (gEcuTempCorrections.filling_gbc_map[y][x] - gEcuCorrections.transform.filling_gbc_map.offset) / gEcuCorrections.transform.filling_gbc_map.gain;
@@ -2723,7 +2731,8 @@ static void ecu_update(void)
       }
     }
 
-    for(int y = 0; y < TABLE_THROTTLES_32; y++) {
+    /* for(int y = 0; y < TABLE_THROTTLES_32; y++) */ {
+      int y = last_temp_fill_correction_index_tps;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
         filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
         filling_tps_correction += (gEcuTempCorrections.filling_gbc_tps[y][x] - gEcuCorrections.transform.filling_gbc_tps.offset) / gEcuCorrections.transform.filling_gbc_tps.gain;
@@ -2732,10 +2741,13 @@ static void ecu_update(void)
         gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
       }
     }
-  } else if(DelayDiff(now, last_temp_knock_correction) >= 500000) {
+  } else if(DelayDiff(now, last_temp_knock_correction) >= (500000 / TABLE_FILLING_32)) {
     last_temp_knock_correction = now;
+    last_temp_knock_correction_index++;
+    last_temp_knock_correction_index %= TABLE_FILLING_32;
 
-    for(int y = 0; y < TABLE_FILLING_32; y++) {
+    /* for(int y = 0; y < TABLE_FILLING_32; y++) */ {
+      int y = last_temp_knock_correction_index;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
         ignition_knock_correction = -FLT_MAX;
         for(int c = 0; c < ECU_CYLINDERS_COUNT; c++) {
