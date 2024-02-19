@@ -21,6 +21,127 @@
 
 #define CONFIG_OFFSET_CRITICALS 1920
 
+static const sEcuTableTransform default_ecu_table_transform = {
+    .cylinders = { .gain = 1.0f, .offset = 0.0f },
+    .voltages = { .gain = 0.1f, .offset = 0.0f },
+    .pressures_16 = { .gain = 10.0f, .offset = 0.0f },
+    .pressures_32 = { .gain = 10.0f, .offset = 0.0f },
+    .rotates_16 = { .gain = 1.0f, .offset = 0.0f },
+    .rotates_32 = { .gain = 1.0f, .offset = 0.0f },
+    .idle_rotates = { .gain = 1.0f, .offset = 0.0f },
+    .throttles_16 = { .gain = 0.01f, .offset = 0.0f },
+    .throttles_32 = { .gain = 0.01f, .offset = 0.0f },
+    .pedals = { .gain = 0.01f, .offset = 0.0f },
+    .filling_gbc_map = { .gain = 0.0001f, .offset = 0.0f },
+    .filling_gbc_tps = { .gain = 0.0001f, .offset = 0.0f },
+    .throttle_position = { .gain = 0.01f, .offset = 0.0f },
+    .stop_throttle_position = { .gain = 0.01f, .offset = 0.0f },
+    .filling_select_koff_tps = { .gain = 0.005f, .offset = 0.0f },
+    .enrichment_injection_phase = { .gain = 3.0f, .offset = 0.0f },
+    .enrichment_rate_start_load = { .gain = 0.5f, .offset = 0.0f },
+    .enrichment_rate_load_derivative = { .gain = 100.0f, .offset = 0.0f },
+    .enrichment_rate = { .gain = 0.01f, .offset = 0.0f },
+    .enrichment_sync_amount = { .gain = 0.01f, .offset = 0.0f },
+    .enrichment_async_amount = { .gain = 0.01f, .offset = 0.0f },
+    .enrichment_ign_corr = { .gain = 0.1f, .offset = 0.0f },
+    .enrichment_temp_mult = { .gain = 0.01f, .offset = 0.0f },
+    .fillings_16 = { .gain = 3.0f, .offset = 0.0f },
+    .fillings_32 = { .gain = 3.0f, .offset = 0.0f },
+    .ignitions = { .gain = 0.2f, .offset = 0.0f },
+    .ignition_corr_cy = { .gain = 0.1f, .offset = 0.0f },
+    .injection_corr_cy = { .gain = 0.1f, .offset = 0.0f },
+    .fuel_mixtures = { .gain = 0.05f, .offset = 5.0f },
+    .injection_phase = { .gain = 3.0f, .offset = 0.0f },
+    .ignition_time_rpm_mult = { .gain = 0.05f, .offset = 0.0f },
+    .ignition_time = { .gain = 50.0f, .offset = 0.0f },
+    .injector_lag = { .gain = 0.02f, .offset = 0.0f },
+    .engine_temps = { .gain = 1.25f, .offset = 0.0f },
+    .air_temps = { .gain = 1.25f, .offset = 0.0f },
+    .air_temp_mix_corr = { .gain = 0.005f, .offset = 0.0f },
+    .air_temp_ign_corr = { .gain = 0.1f, .offset = 0.0f },
+    .engine_temp_mix_corr = { .gain = 0.005f, .offset = 0.0f },
+    .engine_temp_ign_corr = { .gain = 0.1f, .offset = 0.0f },
+    .idle_wish_rotates = { .gain = 10.0f, .offset = 500.0f },
+    .idle_wish_massair = { .gain = 0.1f, .offset = 9.0f },
+    .idle_wish_ignition = { .gain = 0.2f, .offset = -10.0f },
+    .idle_wish_ignition_static = { .gain = 0.2f, .offset = -10.0f },
+    .idle_valve_position = { .gain = 1.0f, .offset = 0.0f },
+    .idle_throttle_position = { .gain = 0.1f, .offset = 0.0f },
+    .idle_rpm_pid_act_1 = { .gain = 0.005f, .offset = 0.0f },
+    .idle_rpm_pid_act_2 = { .gain = 0.005f, .offset = 0.0f },
+    .idle_pids_rpm_koffs = { .gain = 0.005f, .offset = 1.0f },
+    .idle_valve_to_massair_pid_p = { .gain = 0.05f, .offset = 0.0f },
+    .idle_valve_to_massair_pid_i = { .gain = 0.05f, .offset = 0.0f },
+    .idle_valve_to_massair_pid_d = { .gain = 0.001f, .offset = 0.0f },
+    .idle_valve_to_rpm_pid_p = { .gain = 0.01f, .offset = 0.0f },
+    .idle_valve_to_rpm_pid_i = { .gain = 0.005f, .offset = 0.0f },
+    .idle_valve_to_rpm_pid_d = { .gain = 0.0001f, .offset = 0.0f },
+    .idle_throttle_to_massair_pid_p = { .gain = 0.01f, .offset = 0.0f },
+    .idle_throttle_to_massair_pid_i = { .gain = 0.01f, .offset = 0.0f },
+    .idle_throttle_to_massair_pid_d = { .gain = 0.0001f, .offset = 0.0f },
+    .idle_throttle_to_rpm_pid_p = { .gain = 0.001f, .offset = 0.0f },
+    .idle_throttle_to_rpm_pid_i = { .gain = 0.0005f, .offset = 0.0f },
+    .idle_throttle_to_rpm_pid_d = { .gain = 0.0001f, .offset = 0.0f },
+    .idle_ign_to_rpm_pid_p = { .gain = 0.001f, .offset = 0.0f },
+    .idle_ign_to_rpm_pid_i = { .gain = 0.0005f, .offset = 0.0f },
+    .idle_ign_to_rpm_pid_d = { .gain = 0.0001f, .offset = 0.0f },
+    .warmup_mixtures = { .gain = 0.05f, .offset = 5.0f },
+    .warmup_mix_koffs = { .gain = 0.005f, .offset = 0.0f },
+    .warmup_mix_corrs = { .gain = 0.005f, .offset = 0.0f },
+    .cold_start_idle_corrs = { .gain = 0.01f, .offset = 0.0f },
+    .cold_start_idle_times = { .gain = 0.5f, .offset = 0.0f },
+    .start_injection_phase = { .gain = 2.0f, .offset = 0.0f },
+    .start_idle_valve_pos = { .gain = 1.0f, .offset = 0.0f },
+    .start_throttle_position = { .gain = 0.1f, .offset = 0.0f },
+    .start_ignition = { .gain = 0.2f, .offset = 0.0f },
+    .start_tps_corrs = { .gain = 0.01f, .offset = 0.0f },
+    .start_async_filling = { .gain = 0.01f, .offset = 0.0f },
+    .start_large_filling = { .gain = 0.01f, .offset = 0.0f },
+    .start_small_filling = { .gain = 0.01f, .offset = 0.0f },
+    .start_filling_time = { .gain = 0.05f, .offset = 0.0f },
+    .speeds = { .gain = 1.0f, .offset = 0.0f },
+    .idle_rpm_shift = { .gain = 10.0f, .offset = 0.0f },
+    .knock_noise_level = { .gain = 0.01f, .offset = 0.0f },
+    .knock_threshold = { .gain = 0.02f, .offset = 0.0f },
+    .knock_zone = { .gain = 0.005f, .offset = 0.0f },
+    .knock_gain = { .gain = 1.0f, .offset = 0.0f },
+    .knock_filter_frequency = { .gain = 1.0f, .offset = 0.0f },
+    .knock_cy_level_multiplier = { .gain = 0.01f, .offset = 0.0f },
+    .cy_corr_injection = { .gain = 0.1f, .offset = 0.0f },
+    .cy_corr_ignition = { .gain = 0.005f, .offset = 0.0f },
+    .tsps_relative_pos = { .gain = 0.2f, .offset = -114.0f },
+    .tsps_desync_thr = { .gain = 0.1f, .offset = 0.0f },
+    .idle_ignition_time_by_tps = { .gain = 0.02f, .offset = 0.0f },
+    .idle_econ_delay = { .gain = 0.1f, .offset = 0.0f },
+    .start_econ_delay = { .gain = 0.1f, .offset = 0.0f },
+    .fan_advance_control = { .gain = 0.01f, .offset = 0.0f },
+    .idle_valve_econ_position = { .gain = 1.0f, .offset = 0.0f },
+    .idle_throttle_econ_position = { .gain = 0.1f, .offset = 0.0f },
+    .pedal_ignition_control = { .gain = 0.1f, .offset = 0.0f },
+    .throttle_position_1d = { .gain = 0.01f, .offset = 0.0f },
+    .throttle_startup_move_time = { .gain = 0.1f, .offset = 0.0f },
+    .knock_detect_phase_start = { .gain = 1.0f, .offset = 0.0f },
+    .knock_detect_phase_end = { .gain = 1.0f, .offset = 0.0f },
+    .knock_integrator_time = { .gain = 1.0f, .offset = 0.0f },
+    .enrichment_tps_selection = { .gain = 0.005f, .offset = 0.0f },
+    .enrichment_accel_dead_band = { .gain = 1000.0f, .offset = 0.0f },
+    .dynamic_fuel_corr_gbc = { .gain = 0.01f, .offset = 0.0f },
+    .dynamic_fuel_corr_temp = { .gain = 0.01f, .offset = 0.0f },
+    .dynamic_fuel_corr_lpf = { .gain = 0.005f, .offset = 0.0f },
+};
+
+static const sEcuCorrectionsTransform default_ecu_corrections_transform = {
+    .ignitions = { .gain = 0.08f, .offset = 0.0f },
+    .filling_gbc_map = { .gain = 0.005f, .offset = 0.0f },
+    .filling_gbc_tps = { .gain = 0.005f, .offset = 0.0f },
+    .idle_valve_position = { .gain = 0.01f, .offset = 0.0f },
+    .knock_cy_level_multiplier = { .gain = 0.01f, .offset = 0.0f },
+    .ignition_corr_cy = { .gain = 0.08f, .offset = 0.0f },
+    .injection_corr_cy = { .gain = 0.001f, .offset = 0.0f },
+    .knock_detonation_counter = { .gain = 1.0f, .offset = 0.0f },
+    .progress = { .gain = 0.0039215f, .offset = 0.0f },
+};
+
 static const float default_cylinders[ECU_CYLINDERS_COUNT] = {
     1, 2, 3, 4
 };
@@ -798,6 +919,7 @@ static const float default_dynamic_fuel_corr_lpf[TABLE_ROTATES_16] = {
 void config_default_table(sEcuTable *table, uint8_t number)
 {
   memset(table, 0, sizeof(sEcuTable));
+  memcpy(&table->transform, &default_ecu_table_transform, sizeof(default_ecu_table_transform));
 
   sprintf(table->name, "Default %d", number + 1);
 
@@ -907,9 +1029,9 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->cold_start_idle_corrs, default_cold_start_idle_corrs, sizeof(table->cold_start_idle_corrs), sizeof(default_cold_start_idle_corrs), &table->transform.cold_start_idle_corrs);
   ecu_transform_to_u8(table->cold_start_idle_times, default_cold_start_idle_times, sizeof(table->cold_start_idle_times), sizeof(default_cold_start_idle_times), &table->transform.cold_start_idle_times);
   ecu_transform_to_u8(table->start_tps_corrs, default_start_tps_corrs, sizeof(table->start_tps_corrs), sizeof(default_start_tps_corrs), &table->transform.start_tps_corrs);
-  ecu_transform_to_u8(table->start_async_filling, default_start_async_filling, sizeof(table->start_async_filling), sizeof(default_start_async_filling), &table->transform.start_async_filling);
-  ecu_transform_to_u8(table->start_large_filling, default_start_large_filling, sizeof(table->start_large_filling), sizeof(default_start_large_filling), &table->transform.start_large_filling);
-  ecu_transform_to_u8(table->start_small_filling, default_start_small_filling, sizeof(table->start_small_filling), sizeof(default_start_small_filling), &table->transform.start_small_filling);
+  ecu_transform_to_u16(table->start_async_filling, default_start_async_filling, sizeof(table->start_async_filling), sizeof(default_start_async_filling), &table->transform.start_async_filling);
+  ecu_transform_to_u16(table->start_large_filling, default_start_large_filling, sizeof(table->start_large_filling), sizeof(default_start_large_filling), &table->transform.start_large_filling);
+  ecu_transform_to_u16(table->start_small_filling, default_start_small_filling, sizeof(table->start_small_filling), sizeof(default_start_small_filling), &table->transform.start_small_filling);
   ecu_transform_to_u8(table->start_filling_time, default_start_filling_time, sizeof(table->start_filling_time), sizeof(default_start_filling_time), &table->transform.start_filling_time);
   ecu_transform_to_u8(table->start_ignition, default_start_ignition, sizeof(table->start_ignition), sizeof(default_start_ignition), &table->transform.start_ignition);
   ecu_transform_to_u8(table->start_injection_phase, default_start_injection_phase, sizeof(table->start_injection_phase), sizeof(default_start_injection_phase), &table->transform.start_injection_phase);
@@ -964,8 +1086,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->knock_gain, default_knock_gain, sizeof(table->knock_gain), sizeof(default_knock_gain), &table->transform.knock_gain);
   ecu_transform_to_u8(table->knock_filter_frequency, default_knock_filter_frequency, sizeof(table->knock_filter_frequency), sizeof(default_knock_filter_frequency), &table->transform.knock_filter_frequency);
   ecu_transform_to_u8(*table->knock_cy_level_multiplier, *default_knock_cy_level_multiplier, sizeof(table->knock_cy_level_multiplier), sizeof(default_knock_cy_level_multiplier), &table->transform.knock_cy_level_multiplier);
-  ecu_transform_to_u8(table->knock_detect_phase_start, default_knock_detect_phase_start, sizeof(table->knock_detect_phase_start), sizeof(default_knock_detect_phase_start), &table->transform.knock_detect_phase_start);
-  ecu_transform_to_u8(table->knock_detect_phase_end, default_knock_detect_phase_end, sizeof(table->knock_detect_phase_end), sizeof(default_knock_detect_phase_end), &table->transform.knock_detect_phase_end);
+  ecu_transform_to_s8(table->knock_detect_phase_start, default_knock_detect_phase_start, sizeof(table->knock_detect_phase_start), sizeof(default_knock_detect_phase_start), &table->transform.knock_detect_phase_start);
+  ecu_transform_to_s8(table->knock_detect_phase_end, default_knock_detect_phase_end, sizeof(table->knock_detect_phase_end), sizeof(default_knock_detect_phase_end), &table->transform.knock_detect_phase_end);
   ecu_transform_to_u8(table->knock_integrator_time, default_knock_integrator_time, sizeof(table->knock_integrator_time), sizeof(default_knock_integrator_time), &table->transform.knock_integrator_time);
 
   ecu_transform_to_s8(table->tsps_relative_pos, default_tsps_relative_pos, sizeof(table->tsps_relative_pos), sizeof(default_tsps_relative_pos), &table->transform.tsps_relative_pos);
@@ -1046,12 +1168,13 @@ void config_default_params(sEcuParams *table)
 
   table->map_pressure_gain = 19000.0f;
   table->map_pressure_offset = 10000.0f;
-
 }
 
 void config_default_corrections(sEcuCorrections *table)
 {
   memset(table, 0, sizeof(sEcuCorrections));
+
+  memcpy(&table->transform, &default_ecu_corrections_transform, sizeof(default_ecu_corrections_transform));
 }
 
 void config_default_critical_backup(sEcuCriticalBackup *table)

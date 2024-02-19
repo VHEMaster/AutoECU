@@ -1266,6 +1266,7 @@ static void ecu_update(void)
 
 #ifdef SIMULATION
   gStatus.Sensors.Struct.Tps = tps_status;
+  gStatus.Sensors.Struct.Map = HAL_OK;
   gDebugMapFiltered = gDebugMap * sens_lpf_slow + gDebugMapFiltered * (1.0f - sens_lpf_slow);
   pressure = gDebugMapFiltered;
   air_temp = gDebugAirTemp;
@@ -1294,11 +1295,11 @@ static void ecu_update(void)
     gStatus.Sensors.Struct.Tps = sens_get_throttle_position(&throttle);
   }
   gStatus.Sensors.Struct.Map = sens_get_map(&pressure);
+  gStatus.Sensors.Struct.Map |= sens_set_map_lpf(sens_lpf_slow);
   gStatus.Sensors.Struct.AirTemp = sens_get_air_temperature(&air_temp);
   gStatus.Sensors.Struct.EngineTemp = sens_get_engine_temperature(&engine_temp);
 #endif
 
-  gStatus.Sensors.Struct.Map |= sens_set_map_lpf(sens_lpf_slow);
 
   if(use_map_sensor && gStatus.Sensors.Struct.Map != HAL_OK) {
     use_map_sensor = 0;
@@ -1583,9 +1584,9 @@ static void ecu_update(void)
   ipColdStartTemp = ecu_interpolate_input_s8(cold_start_idle_temperature, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
   cold_start_idle_corr = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_corrs, &table->transform.cold_start_idle_corrs);
   cold_start_idle_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_times, &table->transform.cold_start_idle_times);
-  start_async_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_async_filling, &table->transform.start_async_filling);
-  start_large_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_large_filling, &table->transform.start_large_filling);
-  start_small_filling = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_small_filling, &table->transform.start_small_filling);
+  start_async_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_async_filling, &table->transform.start_async_filling);
+  start_large_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_large_filling, &table->transform.start_large_filling);
+  start_small_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_small_filling, &table->transform.start_small_filling);
   start_filling_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_filling_time, &table->transform.start_filling_time);
   enrichment_temp_mult = ecu_interpolate_1d_u8(ipEngineTemp, table->enrichment_temp_mult, &table->transform.enrichment_temp_mult);
   enrichment_injection_phase = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_injection_phase, &table->transform.enrichment_injection_phase);
@@ -1611,8 +1612,8 @@ static void ecu_update(void)
   idle_rpm_shift = ecu_interpolate_1d_u8(ipSpeed, table->idle_rpm_shift, &table->transform.idle_rpm_shift);
   knock_noise_level = ecu_interpolate_1d_u8(ipRpm32, table->knock_noise_level, &table->transform.knock_noise_level);
   knock_threshold = ecu_interpolate_1d_u8(ipRpm32, table->knock_threshold, &table->transform.knock_threshold);
-  knock_detect_phase_start = ecu_interpolate_1d_u8(ipRpm32, table->knock_detect_phase_start, &table->transform.knock_detect_phase_start);
-  knock_detect_phase_end = ecu_interpolate_1d_u8(ipRpm32, table->knock_detect_phase_end, &table->transform.knock_detect_phase_end);
+  knock_detect_phase_start = ecu_interpolate_1d_s8(ipRpm32, table->knock_detect_phase_start, &table->transform.knock_detect_phase_start);
+  knock_detect_phase_end = ecu_interpolate_1d_s8(ipRpm32, table->knock_detect_phase_end, &table->transform.knock_detect_phase_end);
 
   idle_wish_rpm += idle_rpm_shift;
 
