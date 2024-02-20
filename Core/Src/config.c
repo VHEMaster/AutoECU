@@ -107,8 +107,6 @@ static const sEcuTableTransform default_ecu_table_transform = {
     .knock_gain = { .gain = 1.0f, .offset = 0.0f },
     .knock_filter_frequency = { .gain = 1.0f, .offset = 0.0f },
     .knock_cy_level_multiplier = { .gain = 0.01f, .offset = 0.0f },
-    .cy_corr_injection = { .gain = 0.1f, .offset = 0.0f },
-    .cy_corr_ignition = { .gain = 0.005f, .offset = 0.0f },
     .tsps_relative_pos = { .gain = 0.2f, .offset = -114.0f },
     .tsps_desync_thr = { .gain = 0.1f, .offset = 0.0f },
     .idle_ignition_time_by_tps = { .gain = 0.02f, .offset = 0.0f },
@@ -545,7 +543,9 @@ static const float default_idle_valve_position[TABLE_TEMPERATURES] = {
 
 static const float default_idle_valve_econ_position[TABLE_ROTATES_32] = {
     60, 59, 57, 55, 52, 49, 47, 45,
-    42, 37, 35, 35, 38, 45, 49, 50,
+    42, 37, 35, 35, 35, 35, 35, 35,
+    35, 35, 35, 35, 35, 35, 35, 35,
+    35, 35, 35, 35, 38, 45, 49, 50,
 };
 
 static const float default_idle_wish_massair[TABLE_TEMPERATURES] = {
@@ -1039,7 +1039,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->start_throttle_position, default_start_throttle_position, sizeof(table->start_throttle_position), sizeof(default_start_throttle_position), &table->transform.start_throttle_position);
   table->start_large_count = 4;
 
-  ecu_transform_to_u8(table->idle_pids_rpm_koffs, default_idle_pids_rpm_koffs, sizeof(table->idle_pids_rpm_koffs), sizeof(default_idle_pids_rpm_koffs), &table->transform.idle_pids_rpm_koffs);
+  ecu_transform_to_s8(table->idle_pids_rpm_koffs, default_idle_pids_rpm_koffs, sizeof(table->idle_pids_rpm_koffs), sizeof(default_idle_pids_rpm_koffs), &table->transform.idle_pids_rpm_koffs);
   ecu_transform_to_s16(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(table->idle_valve_to_massair_pid_p), sizeof(default_idle_valve_to_massair_pid_p), &table->transform.idle_valve_to_massair_pid_p);
   ecu_transform_to_s16(table->idle_valve_to_massair_pid_i, default_idle_valve_to_massair_pid_i, sizeof(table->idle_valve_to_massair_pid_i), sizeof(default_idle_valve_to_massair_pid_i), &table->transform.idle_valve_to_massair_pid_i);
   ecu_transform_to_s16(table->idle_valve_to_massair_pid_d, default_idle_valve_to_massair_pid_d, sizeof(table->idle_valve_to_massair_pid_d), sizeof(default_idle_valve_to_massair_pid_d), &table->transform.idle_valve_to_massair_pid_d);
