@@ -734,7 +734,7 @@ STATIC_INLINE void ecu_pid_update(uint8_t isidle, uint8_t running, float idle_wi
 {
   uint32_t table_number = gParameters.CurrentTable;
   sEcuTable *table = &gEcuTable[table_number];
-  sMathInterpolateInput ipIdleWishToRpmRelation = ecu_interpolate_input_u8(idle_wish_to_rpm_relation, table->idle_pids_rpm_koffs, TABLE_ROTATES_16, &table->transform.idle_pids_rpm_koffs);
+  sMathInterpolateInput ipIdleWishToRpmRelation = ecu_interpolate_input_s8(idle_wish_to_rpm_relation, table->idle_pids_rpm_koffs, TABLE_ROTATES_16, &table->transform.idle_pids_rpm_koffs);
 
   math_pid_set_clamp(&gPidIdleIgnition, table->idle_ign_deviation_min, table->idle_ign_deviation_max);
 
@@ -2550,9 +2550,9 @@ static void ecu_update(void)
           short_term_correction_pid = 0.0f;
 
 #if defined(LEARN_ACCEPT_CYCLES_BUFFER_SIZE) && LEARN_ACCEPT_CYCLES_BUFFER_SIZE > 0
-          //float learn_rpm = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->RPM, sizeof(sLearnParameters));
-          //float learn_map = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->ManifoldAirPressure, sizeof(sLearnParameters));
-          //float learn_tps = ecu_interpolate_1d_offset_(ipLearmParamsIndex, &gLearnParamsPtrs[, &table->transform.[0]->ThrottlePosition, sizeof(sLearnParameters));
+          float learn_rpm = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->RPM, sizeof(sLearnParameters));
+          float learn_map = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ManifoldAirPressure, sizeof(sLearnParameters));
+          float learn_tps = math_interpolate_1d_offset(ipLearmParamsIndex, &gLearnParamsPtrs[0]->ThrottlePosition, sizeof(sLearnParameters));
 
 #ifdef DEBUG
           gLearnRpm = learn_rpm;
@@ -2560,9 +2560,9 @@ static void ecu_update(void)
           gLearnTps = learn_tps;
 #endif /* DEBUG */
 
-          //ipLearnRpm32 = ecu_interpolate_input_u16(learn_rpm, table->rotates_32, TABLE_ROTATES_32, &table->transform.rotates_32);
-          //ipLearnPressure32 = ecu_interpolate_input_u16(learn_map, table->pressures_32, TABLE_PRESSURES_32, &table->transform.pressures_32);
-          //ipLearnThrottle32 = ecu_interpolate_input_u16(learn_tps, table->throttles_32, TABLE_THROTTLES_32, &table->transform.throttles_32);
+          ipLearnRpm32 = ecu_interpolate_input_u16(learn_rpm, table->rotates_32, TABLE_ROTATES_32, &table->transform.rotates_32);
+          ipLearnPressure32 = ecu_interpolate_input_u16(learn_map, table->pressures_32, TABLE_PRESSURES_32, &table->transform.pressures_32);
+          ipLearnThrottle32 = ecu_interpolate_input_u16(learn_tps, table->throttles_32, TABLE_THROTTLES_32, &table->transform.throttles_32);
 
           ipLearnRpm32 = ipRpm32;
           ipLearnPressure32 = ipPressure32;
