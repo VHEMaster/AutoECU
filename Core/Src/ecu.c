@@ -1587,10 +1587,10 @@ static void ecu_update(void)
   ipColdStartTemp = ecu_interpolate_input_s8(cold_start_idle_temperature, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
   cold_start_idle_corr = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_corrs, &table->transform.cold_start_idle_corrs);
   cold_start_idle_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->cold_start_idle_times, &table->transform.cold_start_idle_times);
-  start_async_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_async_filling, &table->transform.start_async_filling);
-  start_large_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_large_filling, &table->transform.start_large_filling);
-  start_small_filling = ecu_interpolate_1d_u16(ipColdStartTemp, table->start_small_filling, &table->transform.start_small_filling);
-  start_filling_time = ecu_interpolate_1d_u8(ipColdStartTemp, table->start_filling_time, &table->transform.start_filling_time);
+  start_async_filling = ecu_interpolate_1d_u16(ipEngineTemp, table->start_async_filling, &table->transform.start_async_filling);
+  start_large_filling = ecu_interpolate_1d_u16(ipEngineTemp, table->start_large_filling, &table->transform.start_large_filling);
+  start_small_filling = ecu_interpolate_1d_u16(ipEngineTemp, table->start_small_filling, &table->transform.start_small_filling);
+  start_filling_time = ecu_interpolate_1d_u8(ipEngineTemp, table->start_filling_time, &table->transform.start_filling_time);
   enrichment_temp_mult = ecu_interpolate_1d_u8(ipEngineTemp, table->enrichment_temp_mult, &table->transform.enrichment_temp_mult);
   enrichment_injection_phase = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_injection_phase, &table->transform.enrichment_injection_phase);
 
