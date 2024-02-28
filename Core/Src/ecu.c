@@ -2156,6 +2156,10 @@ static void ecu_update(void)
   throttle_startup_move_koff = CLAMP(throttle_startup_move_koff, 0.0f, 1.0f);
 
   if(running) {
+    if(gForceParameters.Enable.WishIdleThrottlePosition) {
+      throttle_target_idle = gForceParameters.WishIdleThrottlePosition;
+    }
+
     throttle_target = throttle_target_idle * throttle_startup_move_koff + throttle_target_start * (1.0f - throttle_startup_move_koff);
     throttle_target += throttle_target_pedal * 0.01f * (100.0f - throttle_target);
 
@@ -2209,6 +2213,13 @@ static void ecu_update(void)
   idle_wish_valve_pos = idle_table_valve_pos;
 
   ecu_pid_update(idle_pid_flag, running, idle_wish_to_rpm_relation, now);
+
+  if(gForceParameters.Enable.WishIdleThrottlePosition) {
+    math_pid_reset(&gPidIdleThrottleAirFlow, now);
+    math_pid_reset(&gPidIdleThrottleRpm, now);
+    throttle_target_adaptation = 0;
+    throttle_target_idle_correction = 0;
+  }
 
   if(idle_pid_flag) {
     idle_wish_valve_pos += idle_valve_pos_correction;
@@ -2903,12 +2914,14 @@ static void ecu_update(void)
     gParameters.PedalPosition = pedal;
     gParameters.ThrottleTargetPosition = gLocalParams.EtcThrottleTargetPosition;
     gParameters.ThrottleDefaultPosition = gLocalParams.EtcThrottleDefaultPosition;
+    gParameters.WishIdleThrottlePosition = throttle_target_idle;
 
     if(gEtcTest.StartedTime == 0) {
       gParameters.WishThrottleTargetPosition = throttle_target;
     }
   } else {
     gParameters.WishThrottleTargetPosition = throttle;
+    gParameters.WishIdleThrottlePosition = 0;
     gParameters.PedalPosition = 0;
     gParameters.ThrottleTargetPosition = 0;
     gParameters.ThrottleDefaultPosition = 0;
