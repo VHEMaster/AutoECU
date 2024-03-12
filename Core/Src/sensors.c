@@ -123,7 +123,7 @@ STATIC_INLINE HAL_StatusTypeDef getMapPressureByVoltages(float map, float ref, f
 
   *pressure = map * gSensMapGain + gSensMapOffset;
 
-  if(map < 0.02f) {
+  if(map < 0.03f) {
     ret = HAL_ERROR;
   }
 
