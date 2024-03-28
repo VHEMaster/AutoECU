@@ -5,7 +5,7 @@
 #include <string.h>
 
 #define CSPS_DATA_COUNT 116
-#define ANGLE_INITIAL (-114.0f)
+#define ANGLE_INITIAL (-116.0f)
 #define IRQ_SIZE 5
 #define DATA_SIZE 16
 
