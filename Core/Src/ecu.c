@@ -819,10 +819,10 @@ static void ecu_update_shared_parameters(void)
 }
 
 #ifdef SIMULATION
-float gDebugMap = 50000;
+float gDebugMap = 103000;
 float gDebugMapFiltered = 103000;
-float gDebugAirTemp = 30.0f;
-float gDebugEngineTemp = 90.0f;
+float gDebugAirTemp = 20.0f;
+float gDebugEngineTemp = 20.0f;
 float gDebugThrottle = 0;
 float gDebugReferenceVoltage = 5.1f;
 float gDebugPowerVoltage = 14.4f;
@@ -1821,7 +1821,7 @@ static void ecu_update(void)
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
   }
-  if(!rotates || gLocalParams.StartupInjectionStarted)
+  if(!rotates || !gLocalParams.StartupInjectionStarted)
     start_halfturns = 0;
 
   if(start_halfturns < start_large_count)
