@@ -1100,6 +1100,7 @@ static void ecu_update(void)
   float start_async_filling;
   float start_large_filling;
   float start_small_filling;
+  float start_large_to_small_koff;
   float start_filling_time;
   float start_filling_mult;
   float start_async_time;
@@ -1140,6 +1141,8 @@ static void ecu_update(void)
   HAL_StatusTypeDef knock_status;
   HAL_StatusTypeDef injector_status;
   uint32_t start_large_count;
+  uint32_t start_large_to_small_transition;
+  uint32_t start_cycles_to_retry;
   uint8_t rotates;
   uint8_t found;
   uint8_t running;
@@ -1806,6 +1809,12 @@ static void ecu_update(void)
   }
 
   start_large_count = table->start_large_count;
+  start_large_to_small_transition = table->start_large_to_small_transition;
+  start_cycles_to_retry = table->start_cycles_to_retry;
+  if(start_cycles_to_retry == 0) {
+    start_cycles_to_retry = UINT_MAX;
+  }
+
   if(use_etc) {
     injection_start_mult = ecu_interpolate_1d_u8(ipThrottle16, table->start_tps_corrs, &table->transform.start_tps_corrs);
   } else {
@@ -1820,13 +1829,22 @@ static void ecu_update(void)
 
   for(int i = 0; i < halfturns_performed; i++) {
     start_halfturns++;
+    if(start_halfturns >= start_cycles_to_retry) {
+      start_halfturns = 0;
+    }
   }
   if(!rotates || !gLocalParams.StartupInjectionStarted)
     start_halfturns = 0;
 
-  if(start_halfturns < start_large_count)
+  start_large_to_small_koff = ((float)start_halfturns - (float)start_large_count + 1.0f) / ((float)start_large_to_small_transition + 2.0f);
+
+  if(start_large_to_small_koff <= 0.0f) {
     cycle_fuel_flow_startup = start_large_filling;
-  else cycle_fuel_flow_startup = start_small_filling;
+  } else if(start_large_to_small_koff >= 1.0f) {
+    cycle_fuel_flow_startup = start_small_filling;
+  } else {
+    cycle_fuel_flow_startup = start_large_filling * (1.0f - start_large_to_small_koff) + start_small_filling * start_large_to_small_koff;
+  }
 
   cycle_air_flow_injection = cycle_air_flow;
 

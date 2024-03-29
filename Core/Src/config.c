@@ -1038,6 +1038,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->start_idle_valve_pos, default_start_idle_valve_pos, sizeof(table->start_idle_valve_pos), sizeof(default_start_idle_valve_pos), &table->transform.start_idle_valve_pos);
   ecu_transform_to_u8(table->start_throttle_position, default_start_throttle_position, sizeof(table->start_throttle_position), sizeof(default_start_throttle_position), &table->transform.start_throttle_position);
   table->start_large_count = 4;
+  table->start_large_to_small_transition = 16;
+  table->start_cycles_to_retry = 32;
 
   ecu_transform_to_s8(table->idle_pids_rpm_koffs, default_idle_pids_rpm_koffs, sizeof(table->idle_pids_rpm_koffs), sizeof(default_idle_pids_rpm_koffs), &table->transform.idle_pids_rpm_koffs);
   ecu_transform_to_s16(table->idle_valve_to_massair_pid_p, default_idle_valve_to_massair_pid_p, sizeof(table->idle_valve_to_massair_pid_p), sizeof(default_idle_valve_to_massair_pid_p), &table->transform.idle_valve_to_massair_pid_p);
