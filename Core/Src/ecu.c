@@ -4380,27 +4380,26 @@ static void ecu_fan_process(void)
   GPIO_PinState out_fan_sw_state = switch_state;
   GPIO_PinState out_fan_sw_state_temp = switch_state;
 
-  sMathInterpolateInput ipEngineTemp = {0};
   sMathInterpolateInput ipSpeed = {0};
+  float engine_temp;
+  float fan_temp_enablement_low;
+  float fan_temp_enablement_mid;
+  float fan_temp_enablement_high;
 
 #ifdef SIMULATION
   force = GPIO_PIN_RESET;
 #endif
 
-  float fan_advance_control;
-  float fan_advance_control_low = table->fan_advance_control_low;
-  float fan_advance_control_mid = table->fan_advance_control_mid;
-  float fan_advance_control_high = table->fan_advance_control_high;
-
-  status = gStatus.Sensors.Struct.EngineTemp;
-
-  ipEngineTemp = ecu_interpolate_input_s8(gParameters.EngineTemp, table->engine_temps, TABLE_TEMPERATURES, &table->transform.engine_temps);
-  ipSpeed = ecu_interpolate_input_u8(gParameters.Speed, table->speeds, TABLE_SPEEDS, &table->transform.speeds);
-  fan_advance_control = ecu_interpolate_2d_limit_s8(ipSpeed, ipEngineTemp, TABLE_SPEEDS, table->fan_advance_control, &table->transform.fan_advance_control);
-
   uint8_t running = csps_isrunning();
   uint8_t rotates = csps_isrotates();
   uint32_t now = Delay_Tick;
+
+  status = gStatus.Sensors.Struct.EngineTemp;
+  engine_temp = gParameters.EngineTemp;
+  ipSpeed = ecu_interpolate_input_u8(gParameters.Speed, table->speeds, TABLE_SPEEDS, &table->transform.speeds);
+  fan_temp_enablement_low = ecu_interpolate_1d_u8(ipSpeed, table->fan_enablement_speed[0], &table->transform.fan_enablement_speed);
+  fan_temp_enablement_mid = ecu_interpolate_1d_u8(ipSpeed, table->fan_enablement_speed[1], &table->transform.fan_enablement_speed);
+  fan_temp_enablement_high = ecu_interpolate_1d_u8(ipSpeed, table->fan_enablement_speed[2], &table->transform.fan_enablement_speed);
 
   if(!now)
     now += 1;
@@ -4412,11 +4411,6 @@ static void ecu_fan_process(void)
   if(running_last > 0 && DelayDiff(now, running_last) > FAN_TIMEOUT) {
     running_last = 0;
   }
-
-  //fan_advance_control = gParameters.EngineTemp;
-  //fan_advance_control_low = gEcuParams.fanLowTemperature;
-  //fan_advance_control_mid = gEcuParams.fanMidTemperature;
-  //fan_advance_control_high = gEcuParams.fanHighTemperature;
 
   if(!force_enabled) {
     if(/* fan_pin_state && */switch_state) {
@@ -4448,7 +4442,7 @@ static void ecu_fan_process(void)
     out_fan_sw_state_temp = GPIO_PIN_SET;
     fan_state = 2;
   } else if(fan_state == 0) {
-    if(fan_advance_control > fan_advance_control_mid) {
+    if(engine_temp > fan_temp_enablement_mid) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     } else {
@@ -4456,15 +4450,15 @@ static void ecu_fan_process(void)
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 1) {
-    if(fan_advance_control > fan_advance_control_high) {
+    if(engine_temp > fan_temp_enablement_high) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_SET;
-    } else if(fan_advance_control < fan_advance_control_low) {
+    } else if(engine_temp < fan_temp_enablement_low) {
       out_fan_state = GPIO_PIN_RESET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }
   } else if(fan_state == 2) {
-    if(fan_advance_control < fan_advance_control_mid) {
+    if(engine_temp < fan_temp_enablement_mid) {
       out_fan_state = GPIO_PIN_SET;
       out_fan_sw_state_temp = GPIO_PIN_RESET;
     }

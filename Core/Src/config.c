@@ -85,6 +85,8 @@ static const sEcuTableTransform default_ecu_table_transform = {
     .idle_ign_to_rpm_pid_p = { .gain = 0.001f, .offset = 0.0f },
     .idle_ign_to_rpm_pid_i = { .gain = 0.0005f, .offset = 0.0f },
     .idle_ign_to_rpm_pid_d = { .gain = 0.0001f, .offset = 0.0f },
+    .fan_enablement_speed = { .gain = 0.5f, .offset = 40.0f },
+    .fan_speeds = { .gain = 1.0f, .offset = 0.0f },
     .warmup_mixtures = { .gain = 0.05f, .offset = 5.0f },
     .warmup_mix_koffs = { .gain = 0.005f, .offset = 0.0f },
     .warmup_mix_corrs = { .gain = 0.005f, .offset = 0.0f },
@@ -112,7 +114,6 @@ static const sEcuTableTransform default_ecu_table_transform = {
     .idle_ignition_time_by_tps = { .gain = 0.02f, .offset = 0.0f },
     .idle_econ_delay = { .gain = 0.1f, .offset = 0.0f },
     .start_econ_delay = { .gain = 0.1f, .offset = 0.0f },
-    .fan_advance_control = { .gain = 0.01f, .offset = 0.0f },
     .idle_valve_econ_position = { .gain = 1.0f, .offset = 0.0f },
     .idle_throttle_econ_position = { .gain = 0.1f, .offset = 0.0f },
     .pedal_ignition_control = { .gain = 0.1f, .offset = 0.0f },
@@ -816,23 +817,14 @@ static const float default_start_econ_delay[TABLE_TEMPERATURES] = {
     4.0f, 3.5f, 3.2f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f,
 };
 
-static const float default_fan_advance_control[TABLE_TEMPERATURES][TABLE_SPEEDS] = {
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { -1.00f, -1.00f, -0.70f, -0.60f, -0.50f, -0.50f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { 0.00f, 0.00f, -0.15f, -0.20f, -0.30f, -0.30f, -0.40f, -0.70f, -0.90f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, -1.00f, },
-    { 1.00f, 1.00f, 1.00f, 1.00f, 0.70f, 0.70f, 0.50f, 0.25f, 0.25f, 0.25f, 0.15f, -0.10f, -0.10f, -0.10f, -0.10f, -0.10f, },
-    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 0.90f, 0.80f, 0.70f, 0.50f, 0.30f, 0.20f, 0.20f, 0.20f, 0.20f, 0.20f, },
-    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
-    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
-    { 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, },
+static const float default_fan_enablement_speed[TABLE_FAN_SPEEDS][TABLE_SPEEDS] = {
+    { 88.0f, 88.0f, 88.5f, 89.5f, 90.0f, 90.5f, 91.0f, 91.5f, 92.0f, 92.5f, 93.0f, 93.0f, 93.0f, 93.0f, 93.0f, 93.0f, },
+    { 89.0f, 89.5f, 90.0f, 91.0f, 91.5f, 92.0f, 92.5f, 93.0f, 93.5f, 94.0f, 94.5f, 95.0f, 95.0f, 95.0f, 95.0f, 95.0f, },
+    { 91.0f, 91.0f, 91.5f, 92.0f, 92.5f, 93.0f, 94.0f, 94.5f, 95.0f, 95.5f, 96.0f, 96.5f, 97.0f, 97.5f, 98.0f, 98.0f, },
+};
+
+static const float default_fan_speeds[TABLE_FAN_SPEEDS] = {
+    0, 1, 2,
 };
 
 static const float default_idle_throttle_to_massair_pid_p[TABLE_ROTATES_16] = {
@@ -1102,10 +1094,8 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->dynamic_fuel_corr_temp, default_dynamic_fuel_corr_temp, sizeof(table->dynamic_fuel_corr_temp), sizeof(default_dynamic_fuel_corr_temp), &table->transform.dynamic_fuel_corr_temp);
   ecu_transform_to_u8(table->dynamic_fuel_corr_lpf, default_dynamic_fuel_corr_lpf, sizeof(table->dynamic_fuel_corr_lpf), sizeof(default_dynamic_fuel_corr_lpf), &table->transform.dynamic_fuel_corr_lpf);
 
-  table->fan_advance_control_low  = -0.20f;
-  table->fan_advance_control_mid  =  0.00f;
-  table->fan_advance_control_high =  0.20f;
-  ecu_transform_to_s8(*table->fan_advance_control, *default_fan_advance_control, sizeof(table->fan_advance_control), sizeof(default_fan_advance_control), &table->transform.fan_advance_control);
+  ecu_transform_to_u8(*table->fan_enablement_speed, *default_fan_enablement_speed, sizeof(table->fan_enablement_speed), sizeof(default_fan_enablement_speed), &table->transform.fan_enablement_speed);
+  ecu_transform_to_u8(table->fan_speeds, default_fan_speeds, sizeof(table->fan_speeds), sizeof(default_fan_speeds), &table->transform.fan_speeds);
 
   memset(table->ignition_corr_cy, 0, sizeof(table->ignition_corr_cy));
   memset(table->injection_corr_cy, 0, sizeof(table->injection_corr_cy));
@@ -1139,10 +1129,6 @@ void config_default_params(sEcuParams *table)
   table->isSingleCoil = 0;
   table->isIndividualCoils = 0;
   table->isEconEnabled = 0;
-
-  table->fanHighTemperature = 93;
-  table->fanMidTemperature = 91;
-  table->fanLowTemperature = 89;
 
   table->isBluetoothEnabled = 0;
   table->bluetoothPin = 1902;
