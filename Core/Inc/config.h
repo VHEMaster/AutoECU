@@ -32,4 +32,7 @@ int8_t config_save_critical_backup(const sEcuCriticalBackup *table);
 int8_t config_load_all(sEcuParams *params, sEcuTable *tables, uint32_t tables_count);
 int8_t config_save_all(const sEcuParams *params, const sEcuCorrections *corrections, const sEcuTable *tables, uint32_t tables_count);
 
+
+void config_transform_progress_to_corrections(sEcuCorrections *corrections, const sEcuCorrectionsProgress *progress);
+void config_transform_corrections_to_progress(sEcuCorrectionsProgress *progress, const sEcuCorrections *corrections);
 #endif /* INC_CONFIG_H_ */

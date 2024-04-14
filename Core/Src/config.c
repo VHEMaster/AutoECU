@@ -1170,6 +1170,87 @@ void config_default_critical_backup(sEcuCriticalBackup *table)
   memset(table, 0, sizeof(sEcuCriticalBackup));
 }
 
+
+void config_transform_progress_to_corrections(sEcuCorrections *corrections, const sEcuCorrectionsProgress *progress)
+{
+  const sEcuParamTransform *transform;
+
+  if(!progress || !corrections) {
+    return;
+  }
+
+  transform = &corrections->transform.progress;
+
+  for(int y = 0; y < TABLE_FILLING_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      float value = progress->progress_ignitions[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_ignitions[y][x] = (value - transform->offset) / transform->gain;
+    }
+  }
+  for(int y = 0; y < TABLE_PRESSURES_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      float value = progress->progress_filling_gbc_map[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_filling_gbc_map[y][x] = (value - transform->offset) / transform->gain;
+    }
+  }
+  for(int y = 0; y < TABLE_THROTTLES_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      float value = progress->progress_filling_gbc_tps[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_filling_gbc_tps[y][x] = (value - transform->offset) / transform->gain;
+    }
+  }
+  for(int y = 0; y < TABLE_TEMPERATURES; y++) {
+    float value = progress->progress_idle_valve_position[y];
+    if(value > 1.0f) value = 1.0f;
+    corrections->progress_idle_valve_position[y] = (value - transform->offset) / transform->gain;
+  }
+  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      float value = progress->progress_knock_cy_level_multiplier[y][x];
+      if(value > 1.0f) value = 1.0f;
+      corrections->progress_knock_cy_level_multiplier[y][x] = (value - transform->offset) / transform->gain;
+    }
+  }
+}
+
+void config_transform_corrections_to_progress(sEcuCorrectionsProgress *progress, const sEcuCorrections *corrections)
+{
+  const sEcuParamTransform *transform;
+
+  if(!progress || !corrections) {
+    return;
+  }
+
+  transform = &corrections->transform.progress;
+
+  for(int y = 0; y < TABLE_FILLING_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      progress->progress_ignitions[y][x] = corrections->progress_ignitions[y][x] * transform->gain + transform->offset;
+    }
+  }
+  for(int y = 0; y < TABLE_PRESSURES_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      progress->progress_filling_gbc_map[y][x] = corrections->progress_filling_gbc_map[y][x] * transform->gain + transform->offset;
+    }
+  }
+  for(int y = 0; y < TABLE_THROTTLES_32; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      progress->progress_filling_gbc_tps[y][x] = corrections->progress_filling_gbc_tps[y][x] * transform->gain + transform->offset;
+    }
+  }
+  for(int y = 0; y < TABLE_TEMPERATURES; y++) {
+    progress->progress_idle_valve_position[y] = corrections->progress_idle_valve_position[y] * transform->gain + transform->offset;
+  }
+  for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) {
+    for(int x = 0; x < TABLE_ROTATES_32; x++) {
+      progress->progress_knock_cy_level_multiplier[y][x] = corrections->progress_knock_cy_level_multiplier[y][x] * transform->gain + transform->offset;
+    }
+  }
+}
+
 HAL_StatusTypeDef config_init(void)
 {
   HAL_StatusTypeDef status = HAL_OK;
