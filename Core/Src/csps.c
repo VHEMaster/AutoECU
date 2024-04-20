@@ -211,7 +211,7 @@ INLINE void csps_tsps_exti(uint32_t timestamp)
   if(csps_tsps_enabled && csps_found && csps_rotates) {
     csps_tsps_rel_pos = tsps_pos;
 
-    if(desync <= csps_tsps_maximum_desync) {
+    if(desync <= csps_tsps_maximum_desync * 2) {
       csps_phase_found = 1;
       csps_phase_is_simulating = 0;
       csps_phase_simulated = 0;
