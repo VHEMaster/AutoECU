@@ -2761,7 +2761,7 @@ static void ecu_update(void)
     }
   }
 
-  if(DelayDiff(now, last_temp_fill_correction) >= (200000 / MIN(TABLE_PRESSURES_32, TABLE_THROTTLES_32))) {
+  if(DelayDiff(now, last_temp_fill_correction) >= (500000 / MIN(TABLE_PRESSURES_32, TABLE_THROTTLES_32))) {
     last_temp_fill_correction = now;
     last_temp_fill_correction_index_tps++;
     last_temp_fill_correction_index_map++;
@@ -2774,32 +2774,38 @@ static void ecu_update(void)
       int y = last_temp_fill_correction_index_map;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
         filling_map_correction = gEcuCorrections.filling_gbc_map[y][x];
-        filling_map_correction += (gEcuTempCorrections.filling_gbc_map[y][x] - gEcuCorrections.transform.filling_gbc_map.offset) / gEcuCorrections.transform.filling_gbc_map.gain;
-        filling_map_correction = CLAMP(filling_map_correction, SCHAR_MIN, SCHAR_MAX);
-        gEcuCorrections.filling_gbc_map[y][x] = filling_map_correction;
-        gEcuTempCorrections.filling_gbc_map[y][x] = 0;
+        if(fabsf(gEcuTempCorrections.filling_gbc_map[y][x]) > gEcuCorrections.transform.filling_gbc_map.gain * 1.05f) {
+          filling_map_correction += (gEcuTempCorrections.filling_gbc_map[y][x] - gEcuCorrections.transform.filling_gbc_map.offset) / gEcuCorrections.transform.filling_gbc_map.gain;
+          filling_map_correction = CLAMP(filling_map_correction, SCHAR_MIN, SCHAR_MAX);
+          gEcuCorrections.filling_gbc_map[y][x] = filling_map_correction;
+          gEcuTempCorrections.filling_gbc_map[y][x] = 0;
+        }
       }
     }
 
     /* for(int y = 0; y < TABLE_THROTTLES_32; y++) */ {
       int y = last_temp_fill_correction_index_tps;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
-        filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
-        filling_tps_correction += (gEcuTempCorrections.filling_gbc_tps[y][x] - gEcuCorrections.transform.filling_gbc_tps.offset) / gEcuCorrections.transform.filling_gbc_tps.gain;
-        filling_tps_correction = CLAMP(filling_tps_correction, SCHAR_MIN, SCHAR_MAX);
-        gEcuCorrections.filling_gbc_tps[y][x] = filling_tps_correction;
-        gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
+        if(fabsf(gEcuTempCorrections.filling_gbc_tps[y][x]) > gEcuCorrections.transform.filling_gbc_tps.gain * 1.05f) {
+          filling_tps_correction = gEcuCorrections.filling_gbc_tps[y][x];
+          filling_tps_correction += (gEcuTempCorrections.filling_gbc_tps[y][x] - gEcuCorrections.transform.filling_gbc_tps.offset) / gEcuCorrections.transform.filling_gbc_tps.gain;
+          filling_tps_correction = CLAMP(filling_tps_correction, SCHAR_MIN, SCHAR_MAX);
+          gEcuCorrections.filling_gbc_tps[y][x] = filling_tps_correction;
+          gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
+        }
       }
     }
 
     /* for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) */ {
       int y = last_temp_knock_cy_correction;
       for(int x = 0; x < TABLE_ROTATES_32; x++) {
-        knock_cy_level_multiplier_correction[y] = gEcuCorrections.knock_cy_level_multiplier[y][x];
-        knock_cy_level_multiplier_correction[y] += (gEcuTempCorrections.knock_cy_level_multiplier[y][x] - gEcuCorrections.transform.knock_cy_level_multiplier.offset) / gEcuCorrections.transform.knock_cy_level_multiplier.gain;
-        knock_cy_level_multiplier_correction[y] = CLAMP(knock_cy_level_multiplier_correction[y], SCHAR_MIN, SCHAR_MAX);
-        gEcuCorrections.knock_cy_level_multiplier[y][x] = knock_cy_level_multiplier_correction[y];
-        gEcuTempCorrections.knock_cy_level_multiplier[y][x] = 0;
+        if(fabsf(gEcuTempCorrections.knock_cy_level_multiplier[y][x]) > gEcuCorrections.transform.knock_cy_level_multiplier.gain * 1.05f) {
+          knock_cy_level_multiplier_correction[y] = gEcuCorrections.knock_cy_level_multiplier[y][x];
+          knock_cy_level_multiplier_correction[y] += (gEcuTempCorrections.knock_cy_level_multiplier[y][x] - gEcuCorrections.transform.knock_cy_level_multiplier.offset) / gEcuCorrections.transform.knock_cy_level_multiplier.gain;
+          knock_cy_level_multiplier_correction[y] = CLAMP(knock_cy_level_multiplier_correction[y], SCHAR_MIN, SCHAR_MAX);
+          gEcuCorrections.knock_cy_level_multiplier[y][x] = knock_cy_level_multiplier_correction[y];
+          gEcuTempCorrections.knock_cy_level_multiplier[y][x] = 0;
+        }
       }
     }
   } else if(DelayDiff(now, last_temp_knock_correction) >= (500000 / TABLE_FILLING_32)) {
