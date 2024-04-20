@@ -115,6 +115,7 @@ typedef enum {
 typedef struct {
     float filling_gbc_map[TABLE_PRESSURES_32][TABLE_ROTATES_32];
     float filling_gbc_tps[TABLE_THROTTLES_32][TABLE_ROTATES_32];
+    float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT][TABLE_ROTATES_32];
 }sEcuCorrectionsTemp;
 
 typedef struct {
@@ -977,6 +978,7 @@ static void ecu_update(void)
   float knock_low_noise_lpf = 0;
   float knock_cy_level_diff;
   static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
+  static float knock_cy_level_multiplier_temp_correction[ECU_CYLINDERS_COUNT] = {0};
   static float knock_cy_level_multiplier_correction[ECU_CYLINDERS_COUNT] = {0};
   float ignition_advance_cy[ECU_CYLINDERS_COUNT];
   float injection_correction_cy[ECU_CYLINDERS_COUNT];
@@ -985,6 +987,7 @@ static void ecu_update(void)
   static uint32_t prev_halfturns = 0;
   uint32_t halfturns;
   uint32_t halfturns_performed = 0;
+  static float econ_running_time = 0;
   float running_time = 0;
   static float running_time_latest = 0;
   static float throttle_idle_time = 0;
@@ -1051,6 +1054,7 @@ static void ecu_update(void)
   static uint32_t enleanment_post_cycles = 0;
   static uint32_t idle_accelerate_post_cycles = 0;
   static uint32_t last_temp_fill_correction = 0;
+  static uint32_t last_temp_knock_cy_correction = 0;
   static uint32_t last_temp_fill_correction_index_tps = 0;
   static uint32_t last_temp_fill_correction_index_map = 0;
   static uint32_t last_temp_knock_correction = 0;
@@ -1130,6 +1134,7 @@ static void ecu_update(void)
   float learn_cycles_delay_mult;
 
   uint8_t etc_econ_flag;
+  uint8_t econ_timing_flag;
   uint8_t econ_flag;
   uint8_t enrichment_async_enabled;
   uint8_t enrichment_sync_enabled;
@@ -1256,8 +1261,12 @@ static void ecu_update(void)
   }
 
   running_time = gLocalParams.RunningTime;
-  if(running)
+  if(running) {
     running_time += (float)DelayDiff(now, running_time_last) * 0.000001f;
+    econ_running_time += diff_sec;
+  } else {
+    econ_running_time = 0;
+  }
 
   while(halfturns != prev_halfturns) {
     halfturns_performed++;
@@ -1824,8 +1833,11 @@ static void ecu_update(void)
   } else {
     injection_start_mult = ecu_interpolate_1d_u8(ipPedal, table->start_tps_corrs, &table->transform.start_tps_corrs);
   }
-  etc_econ_flag = econ_flag;
-  econ_flag = econ_flag && gEcuParams.isEconEnabled && (idle_econ_time > idle_econ_delay) && (running_time > start_econ_delay);
+
+  econ_timing_flag = idle_econ_time > idle_econ_delay && econ_running_time > start_econ_delay;
+
+  etc_econ_flag = econ_flag && econ_timing_flag;
+  econ_flag = econ_flag && gEcuParams.isEconEnabled && econ_timing_flag;
 
   if(econ_flag) {
     idle_accelerate_post_cycles = 0;
@@ -2326,6 +2338,8 @@ static void ecu_update(void)
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       knock_cy_level_multiplier[i] = ecu_interpolate_1d_u8(ipRpm32, table->knock_cy_level_multiplier[i], &table->transform.knock_cy_level_multiplier);
       knock_cy_level_multiplier_correction[i] = ecu_interpolate_1d_s8(ipRpm32, gEcuCorrections.knock_cy_level_multiplier[i], &gEcuCorrections.transform.knock_cy_level_multiplier);
+      knock_cy_level_multiplier_temp_correction[i] = math_interpolate_1d(ipRpm32, gEcuTempCorrections.knock_cy_level_multiplier[i]);
+      knock_cy_level_multiplier_correction[i] += knock_cy_level_multiplier_temp_correction[i];
       knock_cy_level_multiplier[i] *= knock_cy_level_multiplier_correction[i] + 1.0f;
       knock_cy_level_multiplier[i] = CLAMP(knock_cy_level_multiplier[i], 0.1f, 5.0f);
 
@@ -2697,8 +2711,8 @@ static void ecu_update(void)
                     knock_cy_level_diff /= gStatus.Knock.VoltagesCorrected[i];
                     knock_cy_level_diff -= 1.0f;
 
-                    knock_cy_level_multiplier_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
-                    ecu_interpolate_1d_set_s8(ipRpm32, gEcuCorrections.knock_cy_level_multiplier[i], &gEcuCorrections.transform.knock_cy_level_multiplier, knock_cy_level_multiplier_correction[i], -1.0f, 1.0f);
+                    knock_cy_level_multiplier_temp_correction[i] += knock_cy_level_diff * knock_lpf_calculation;
+                    math_interpolate_1d_set(ipRpm32, gEcuTempCorrections.knock_cy_level_multiplier[i], knock_cy_level_multiplier_temp_correction[i], -1.0f, 1.0f);
 
                     calib_cur_progress = math_interpolate_1d(ipRpm32, gEcuCorrectionsProgress.progress_knock_cy_level_multiplier[i]);
                     calib_cur_progress = (1.0f * knock_lpf_calculation) + (calib_cur_progress * (1.0f - knock_lpf_calculation));
@@ -2751,8 +2765,10 @@ static void ecu_update(void)
     last_temp_fill_correction = now;
     last_temp_fill_correction_index_tps++;
     last_temp_fill_correction_index_map++;
+    last_temp_knock_cy_correction++;
     last_temp_fill_correction_index_tps %= TABLE_THROTTLES_32;
     last_temp_fill_correction_index_map %= TABLE_PRESSURES_32;
+    last_temp_knock_cy_correction %= ECU_CYLINDERS_COUNT;
 
     /* for(int y = 0; y < TABLE_PRESSURES_32; y++) */ {
       int y = last_temp_fill_correction_index_map;
@@ -2773,6 +2789,17 @@ static void ecu_update(void)
         filling_tps_correction = CLAMP(filling_tps_correction, SCHAR_MIN, SCHAR_MAX);
         gEcuCorrections.filling_gbc_tps[y][x] = filling_tps_correction;
         gEcuTempCorrections.filling_gbc_tps[y][x] = 0;
+      }
+    }
+
+    /* for(int y = 0; y < ECU_CYLINDERS_COUNT; y++) */ {
+      int y = last_temp_knock_cy_correction;
+      for(int x = 0; x < TABLE_ROTATES_32; x++) {
+        knock_cy_level_multiplier_correction[y] = gEcuCorrections.knock_cy_level_multiplier[y][x];
+        knock_cy_level_multiplier_correction[y] += (gEcuTempCorrections.knock_cy_level_multiplier[y][x] - gEcuCorrections.transform.knock_cy_level_multiplier.offset) / gEcuCorrections.transform.knock_cy_level_multiplier.gain;
+        knock_cy_level_multiplier_correction[y] = CLAMP(knock_cy_level_multiplier_correction[y], SCHAR_MIN, SCHAR_MAX);
+        gEcuCorrections.knock_cy_level_multiplier[y][x] = knock_cy_level_multiplier_correction[y];
+        gEcuTempCorrections.knock_cy_level_multiplier[y][x] = 0;
       }
     }
   } else if(DelayDiff(now, last_temp_knock_correction) >= (500000 / TABLE_FILLING_32)) {
