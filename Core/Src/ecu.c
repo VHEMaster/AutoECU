@@ -2072,7 +2072,7 @@ static void ecu_update(void)
       enrichment_tps_selection = 0.0f;
     }
 
-    enrichment_ign_corr = ecu_interpolate_2d_limit_u8(ipEnrLoadStart, ipRpm16, TABLE_ENRICHMENT_PERCENTS, table->enrichment_ign_corr, &table->transform.enrichment_ign_corr);
+    enrichment_ign_corr = ecu_interpolate_2d_limit_s8(ipEnrLoadStart, ipRpm16, TABLE_ENRICHMENT_PERCENTS, table->enrichment_ign_corr, &table->transform.enrichment_ign_corr);
 
     if(enrichment_sync_enabled) {
       enrichment_amount_sync = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_sync_amount, &table->transform.enrichment_sync_amount);

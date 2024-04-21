@@ -980,7 +980,7 @@ void config_default_table(sEcuTable *table, uint8_t number)
   ecu_transform_to_u8(table->enrichment_accel_dead_band, default_enrichment_accel_dead_band, sizeof(table->enrichment_accel_dead_band), sizeof(default_enrichment_accel_dead_band), &table->transform.enrichment_accel_dead_band);
   ecu_transform_to_u8(table->enrichment_sync_amount, default_enrichment_sync_amount, sizeof(table->enrichment_sync_amount), sizeof(default_enrichment_sync_amount), &table->transform.enrichment_sync_amount);
   ecu_transform_to_u8(table->enrichment_async_amount, default_enrichment_async_amount, sizeof(table->enrichment_async_amount), sizeof(default_enrichment_async_amount), &table->transform.enrichment_async_amount);
-  ecu_transform_to_u8(*table->enrichment_ign_corr, *default_enrichment_ign_corr, sizeof(table->enrichment_ign_corr), sizeof(default_enrichment_ign_corr), &table->transform.enrichment_ign_corr);
+  ecu_transform_to_s8(*table->enrichment_ign_corr, *default_enrichment_ign_corr, sizeof(table->enrichment_ign_corr), sizeof(default_enrichment_ign_corr), &table->transform.enrichment_ign_corr);
   ecu_transform_to_u8(table->enrichment_temp_mult, default_enrichment_temp_mult, sizeof(table->enrichment_temp_mult), sizeof(default_enrichment_temp_mult), &table->transform.enrichment_temp_mult);
   ecu_transform_to_u8(table->enrichment_injection_phase, default_enrichment_injection_phase, sizeof(table->enrichment_injection_phase), sizeof(default_enrichment_injection_phase), &table->transform.enrichment_injection_phase);
   ecu_transform_to_u8(*table->enrichment_tps_selection, *default_enrichment_tps_selection, sizeof(table->enrichment_tps_selection), sizeof(default_enrichment_tps_selection), &table->transform.enrichment_tps_selection);
