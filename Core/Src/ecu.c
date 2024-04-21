@@ -980,6 +980,7 @@ static void ecu_update(void)
   static float knock_cy_level_multiplier[ECU_CYLINDERS_COUNT] = {0};
   static float knock_cy_level_multiplier_temp_correction[ECU_CYLINDERS_COUNT] = {0};
   static float knock_cy_level_multiplier_correction[ECU_CYLINDERS_COUNT] = {0};
+  float ignition_advance_corrective;
   float ignition_advance_cy[ECU_CYLINDERS_COUNT];
   float injection_correction_cy[ECU_CYLINDERS_COUNT];
 
@@ -1728,7 +1729,7 @@ static void ecu_update(void)
   ignition_advance += engine_temp_ign_corr;
   ignition_advance += ignition_corr_final;
 
-  detonation_count_table = ecu_interpolate_2d_limit_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuCorrections.transform.knock_detonation_counter);
+  detonation_count_table = ecu_interpolate_2d_point_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuCorrections.transform.knock_detonation_counter);
   if(!gForceParameters.Enable.IgnitionAdvance) {
     for(int i = 0; i < ECU_CYLINDERS_COUNT; i++) {
       ignition_advance_cy[i] = ecu_interpolate_2d_limit_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, table->ignition_corr_cy[i], &table->transform.ignition_corr_cy);
@@ -2682,10 +2683,14 @@ static void ecu_update(void)
 
                   calib_cur_progress = 0.0f;
 
-                  ignition_advance_cy[i] -= knock_zone * knock_lpf_calculation;
-                  corr_ecu_interpolate_2d_set_func_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignition_corr_cy[i], &gEcuCorrections.transform.ignition_corr_cy, ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
+                  ignition_advance_corrective = knock_zone * knock_lpf_calculation;
+                  if(ignition_advance_corrective < gEcuCorrections.transform.ignition_corr_cy.gain) {
+                    ignition_advance_corrective = gEcuCorrections.transform.ignition_corr_cy.gain;
+                  }
+                  ignition_advance_cy[i] -= ignition_advance_corrective;
+                  ecu_interpolate_2d_set_point_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignition_corr_cy[i], &gEcuCorrections.transform.ignition_corr_cy, ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
 
-                  ecu_interpolate_2d_set_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuCorrections.transform.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
+                  ecu_interpolate_2d_set_point_u8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.knock_detonation_counter, &gEcuCorrections.transform.knock_detonation_counter, detonation_count_table, 0.0f, 99.0f);
                 } else {
 #if defined(KNOCK_DETONATION_INCREASING_ADVANCE) && KNOCK_DETONATION_INCREASING_ADVANCE > 0
                   if(detonation_count_table < 3.0f) {
