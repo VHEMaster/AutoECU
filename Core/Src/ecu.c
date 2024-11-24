@@ -53,6 +53,7 @@
 #define DEFAULT_IDLE_VALVE_POSITION 100
 #define IGNITION_ACCEPTION_FEATURE  1
 #define KNOCK_DETONATION_INCREASING_ADVANCE 0
+#define KNOCK_DETECTION_ON_ENGINE_TEMP_THRESHOLD 60.0f
 #define KNOCK_LOW_NOISE_ON_ENGINE_TEMP_THRESHOLD 70.0f
 #define GBC_CALIBRATION_ON_ENGINE_TEMP_THRESHOLD 70.0f
 #define FUEL_PUMP_ON_INJ_CH1_ONLY   1
@@ -2450,14 +2451,17 @@ static void ecu_update(void)
           if(gStatus.Knock.Detonates[i] > 0.01f) {
             gStatus.Knock.DetonationCount++;
             gStatus.Knock.DetonationCountPerSecond += 1.0f;
-            gStatus.Knock.DetonationCountCy[i]++;
-            gStatus.Knock.CylinderStatus[i] |= KnockStatusDedonation;
-            gStatus.Knock.DetonationLastCy[i] = hal_now;
-            if(gStatus.Knock.Detonates[i] > 0.7f) {
-              gStatus.Knock.CylinderStatus[i] |= KnockStatusStrongDedonation;
-              gStatus.Knock.StrongDetonationLastCy[i] = hal_now;
+
+            if(engine_temp >= KNOCK_DETECTION_ON_ENGINE_TEMP_THRESHOLD) {
+              gStatus.Knock.DetonationCountCy[i]++;
+              gStatus.Knock.CylinderStatus[i] |= KnockStatusDedonation;
+              gStatus.Knock.DetonationLastCy[i] = hal_now;
+              if(gStatus.Knock.Detonates[i] > 0.7f) {
+                gStatus.Knock.CylinderStatus[i] |= KnockStatusStrongDedonation;
+                gStatus.Knock.StrongDetonationLastCy[i] = hal_now;
+              }
+              gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
             }
-            gStatus.Knock.Advances[i] += (gStatus.Knock.Period[i] * 0.000001f * 3.3f) * gStatus.Knock.Detonates[i];  //0.3 seconds to advance
           } else {
             if(gStatus.Knock.Advances[i] > 0.0f) {
               gStatus.Knock.Advances[i] -= gStatus.Knock.Period[i] * 0.000001f * 0.1f; //10 seconds to restore
