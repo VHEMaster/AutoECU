@@ -48,6 +48,7 @@ static uint32_t cspc_irq_data[IRQ_SIZE] = {0};
 static volatile uint8_t csps_ftime = 1;
 static volatile uint8_t csps_found = 0;
 static volatile uint8_t csps_rotates = 0;
+static volatile uint32_t csps_rotatepulses = 0;
 static volatile uint8_t csps_running = 0;
 static volatile uint8_t csps_phased = 0;
 static volatile uint8_t csps_phase_found = 0;
@@ -301,6 +302,7 @@ ITCM_FUNC void csps_handle(uint32_t timestamp)
   }
 
   csps_rotates = 1;
+  csps_rotatepulses++;
 
   //if(found) {
     t1++;
@@ -715,6 +717,11 @@ INLINE uint8_t csps_isrotates(void)
   return csps_rotates;
 }
 
+INLINE uint32_t csps_getrotatepulses(void)
+{
+  return csps_rotatepulses;
+}
+
 INLINE uint8_t csps_isphased(sCspsData data)
 {
   return data.PhasedActive;
@@ -796,6 +803,7 @@ void csps_loop(void)
     csps_found = 0;
     csps_rpm = 0;
     csps_rotates = 0;
+    csps_rotatepulses = 0;
     csps_phase_found = 0;
     csps_phase_simulated = 0;
     csps_phase_is_simulating = 0;

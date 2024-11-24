@@ -30,6 +30,7 @@ float csps_getrpm(sCspsData data);
 float csps_getperiod(sCspsData data);
 float csps_getuspa(sCspsData data);
 uint8_t csps_isrotates(void);
+uint32_t csps_getrotatepulses(void);
 uint8_t csps_isrunning(void);
 uint8_t csps_isfound(void);
 uint8_t csps_isphased(sCspsData data);

@@ -4362,7 +4362,7 @@ static void ecu_fuelpump_process(void)
   static uint8_t active = 0;
   static uint8_t was_rotating = 1;
   uint32_t now = Delay_Tick;
-  uint8_t rotates = csps_isrotates();
+  uint8_t rotates = csps_getrotatepulses() > 32;
   uint8_t can_shutdown = gIgnCanShutdown;
   uint8_t time_to_last;
 
@@ -4393,6 +4393,10 @@ static void ecu_fuelpump_process(void)
       was_rotating = 0;
     }
 #endif
+  }
+
+  if(gIgnShutdownReady) {
+    active = 0;
   }
 
   if(active) {
@@ -4433,7 +4437,7 @@ static void ecu_fan_process(void)
 #endif
 
   uint8_t running = csps_isrunning();
-  uint8_t rotates = csps_isrotates();
+  uint8_t rotates = csps_getrotatepulses() > 32;
   uint32_t now = Delay_Tick;
 
   status = gStatus.Sensors.Struct.EngineTemp;
@@ -4514,6 +4518,11 @@ static void ecu_fan_process(void)
   } else {
     high_start_time = now;
     out_fan_sw_state = out_fan_sw_state_temp;
+  }
+
+  if(gIgnShutdownReady) {
+    out_fan_state = GPIO_PIN_RESET;
+    out_fan_sw_state = GPIO_PIN_RESET;
   }
 
   out_set_fan(out_fan_state);
