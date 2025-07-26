@@ -2683,14 +2683,9 @@ static void ecu_update(void)
                   gStatus.Knock.AdaptationDetonates[i] = 0;
                   detonation_count_table += 1.0f;
 
-                  knock_lpf_calculation *= 5.00f * 1.4142f; //1 degree per 0.2 sec * sqrt(2)
-
                   calib_cur_progress = 0.0f;
 
-                  ignition_advance_corrective = knock_zone * knock_lpf_calculation;
-                  if(ignition_advance_corrective < gEcuCorrections.transform.ignition_corr_cy.gain) {
-                    ignition_advance_corrective = gEcuCorrections.transform.ignition_corr_cy.gain;
-                  }
+                  ignition_advance_corrective = gEcuCorrections.transform.ignition_corr_cy.gain * 1.5f;
                   ignition_advance_cy[i] -= ignition_advance_corrective;
                   ecu_interpolate_2d_set_point_s8(ipRpm32, ipFilling32, TABLE_ROTATES_32, gEcuCorrections.ignition_corr_cy[i], &gEcuCorrections.transform.ignition_corr_cy, ignition_advance_cy[i], -abs_knock_ign_corr_max, abs_knock_ign_corr_max);
 
