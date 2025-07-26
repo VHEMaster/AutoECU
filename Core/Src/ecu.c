@@ -474,12 +474,12 @@ static volatile int8_t gBackupStatus = 0;
 static volatile int8_t gBackupSaveReq = 0;
 static volatile int8_t gBackupSaveRes = 0;
 
-static sMathPid gPidIdleValveAirFlow = {0};
-static sMathPid gPidIdleValveRpm = {0};
-static sMathPid gPidIdleThrottleAirFlow = {0};
-static sMathPid gPidIdleThrottleRpm = {0};
-static sMathPid gPidIdleIgnition = {0};
-static sMathPid gPidShortTermCorr = {0};
+static math_pid_ctx_t gPidIdleValveAirFlow = {0};
+static math_pid_ctx_t gPidIdleValveRpm = {0};
+static math_pid_ctx_t gPidIdleThrottleAirFlow = {0};
+static math_pid_ctx_t gPidIdleThrottleRpm = {0};
+static math_pid_ctx_t gPidIdleIgnition = {0};
+static math_pid_ctx_t gPidShortTermCorr = {0};
 
 volatile static uint8_t gEtcErrorReset = 0;
 volatile static uint32_t gEtcCommLast = 0;

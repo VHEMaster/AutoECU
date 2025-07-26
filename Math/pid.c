@@ -11,7 +11,7 @@
 #include <string.h>
 #include <float.h>
 
-INLINE void math_pid_reset(sMathPid *pid, unsigned int time)
+INLINE void math_pid_reset(math_pid_ctx_t *pid, unsigned int time)
 {
   pid->Current = 0;
   pid->Target = 0;
@@ -23,32 +23,32 @@ INLINE void math_pid_reset(sMathPid *pid, unsigned int time)
   pid->LastTime = time;
 }
 
-INLINE void math_pid_set_target(sMathPid *pid, float target)
+INLINE void math_pid_set_target(math_pid_ctx_t *pid, float target)
 {
   pid->Target = target;
 }
 
-INLINE void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd)
+INLINE void math_pid_set_koffs(math_pid_ctx_t *pid, float Kp, float Ki, float Kd)
 {
   pid->Kp = Kp;
   pid->Ki = Ki;
   pid->Kd = Kd;
 }
 
-INLINE void math_pid_set_clamp(sMathPid *pid, float from, float to)
+INLINE void math_pid_set_clamp(math_pid_ctx_t *pid, float from, float to)
 {
   pid->ClampFrom = from;
   pid->ClampTo = to;
 }
 
-INLINE void math_pid_init(sMathPid *pid)
+INLINE void math_pid_init(math_pid_ctx_t *pid)
 {
-  memset(pid, 0, sizeof(sMathPid));
+  memset(pid, 0, sizeof(math_pid_ctx_t));
   pid->ClampFrom = FLT_MIN;
   pid->ClampTo = FLT_MAX;
 }
 
-INLINE float math_pid_update(sMathPid *pid, float input, unsigned int time)
+INLINE float math_pid_update(math_pid_ctx_t *pid, float input, unsigned int time)
 {
   float error = pid->Target - input;
   float output;

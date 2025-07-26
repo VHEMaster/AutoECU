@@ -22,14 +22,14 @@ typedef struct {
     float Output;
     float Error;
     unsigned int LastTime;
-}sMathPid;
+}math_pid_ctx_t;
 
-void math_pid_reset(sMathPid *pid, unsigned int time);
-void math_pid_set_target(sMathPid *pid, float target);
-void math_pid_set_koffs(sMathPid *pid, float Kp, float Ki, float Kd);
-void math_pid_set_clamp(sMathPid *pid, float from, float to);
-void math_pid_init(sMathPid *pid);
+void math_pid_reset(math_pid_ctx_t *pid, unsigned int time);
+void math_pid_set_target(math_pid_ctx_t *pid, float target);
+void math_pid_set_koffs(math_pid_ctx_t *pid, float Kp, float Ki, float Kd);
+void math_pid_set_clamp(math_pid_ctx_t *pid, float from, float to);
+void math_pid_init(math_pid_ctx_t *pid);
 
-float math_pid_update(sMathPid *pid, float input, unsigned int time);
+float math_pid_update(math_pid_ctx_t *pid, float input, unsigned int time);
 
 #endif /* PID_H_ */

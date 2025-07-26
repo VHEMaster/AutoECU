@@ -137,7 +137,7 @@ static uint8_t OutputsDiagBytes[MiscDiagChCount] = {0};
 static uint8_t OutputsDiagnosticStored[MiscDiagChCount] = {0};
 static HAL_StatusTypeDef OutputsAvailability[MiscDiagChCount] = {0};
 
-static sMathPid o2_pid;
+static math_pid_ctx_t o2_pid;
 
 static sO2Status O2Status = {0};
 
