@@ -242,7 +242,7 @@ STATIC_INLINE void mid_loop(void)
 #endif
 }
 
-INLINE ITCM_FUNC void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+INLINE void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim13) {
     injector_irq(InjectorCy1);
@@ -285,14 +285,14 @@ INLINE ITCM_FUNC void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   }
 }
 
-INLINE ITCM_FUNC void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+INLINE void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim9 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
     htim9.Instance->CCR1 = o2_pwm_period;
   }
 }
 
-INLINE ITCM_FUNC void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+INLINE void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == TIM5_CH1_SENS_CSPS_Pin) {
 #ifndef SIMULATION
