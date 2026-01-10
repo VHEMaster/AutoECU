@@ -453,6 +453,7 @@ static uint8_t gCheckBitmap[CHECK_BITMAP_SIZE] = {0};
 static sProFIFO fifoAsyncInjection = {0};
 static uint32_t fifoAsyncInjectionBuffer[ASYNC_INJECTION_FIFO_SIZE] = {0};
 static float enrichmentLoadStates[ENRICHMENT_LOAD_STATES_COUNT] = {0};
+static float enrichmentFillingStates[ENRICHMENT_LOAD_STATES_COUNT] = {0};
 
 static uint8_t gEcuImmoStartAllowed = 0;
 static uint8_t gEcuIgnStartAllowed = 0;
@@ -1014,9 +1015,13 @@ static void ecu_update(void)
   float enrichment_ign_corr;
   float enrichment_temp_mult;
   float enrichment_result;
+  float enrichment_by_rate;
+  float enrichment_by_filling;
   float enrichment_rate;
   static float enrichment_amount_sync = 0;
   static float enrichment_amount_async = 0;
+  static float enrichment_by_rate_amount = 0;
+  static float enrichment_by_filling_amount = 0;
   float enrichment_async_time;
   static float enrichment_tps_selection = 0;
 
@@ -1030,12 +1035,16 @@ static void ecu_update(void)
 
   float enrichment_load_value_start = 0;
   static float enrichment_load_value_start_accept = 0;
+  static float enrichment_filling_diff_accept = 0;
+  float enrichment_blending = 0;
   float enrichment_load_value = 0;
+  float enrichment_filling_value = 0;
   static float enrichment_load_derivative_final = 0;
   static float enrichment_load_derivative_accept = 0;
   static float enrichment_time_pass = 0;
   static uint32_t enrichment_async_last = 0;
   float enrichment_load_diff;
+  float enrichment_filling_diff;
   float enrichment_load_derivative;
   uint32_t enrichment_load_values_count = 0;
   uint32_t enrichment_load_values_divider = 0;
@@ -1934,6 +1943,8 @@ static void ecu_update(void)
   enrichment_injection_phase_decay_time = table->enrichment_injection_phase_decay_time * 1000.0f;
   enrichment_async_pulses_divider = table->enrichment_async_pulses_divider;
   enrichment_async_pulses_divider = MAX(enrichment_async_pulses_divider, 1);
+  enrichment_by_rate_amount = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_by_rate_amount, &table->transform.enrichment_by_rate_amount);
+  enrichment_by_filling_amount = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_by_filling_amount, &table->transform.enrichment_by_filling_amount);
 
   enrichment_load_values_divider = 1;
   enrichment_load_values_count = enrichment_detect_duration;
@@ -1966,16 +1977,21 @@ static void ecu_update(void)
     if(++enrichment_load_values_counter >= enrichment_load_values_divider) {
       for(int i = enrichment_load_values_count - 2; i >= 0; i--) {
         enrichmentLoadStates[i + 1] = enrichmentLoadStates[i];
+        enrichmentFillingStates[i + 1] = enrichmentFillingStates[i];
       }
       enrichmentLoadStates[0] = enrichment_load_value;
+      enrichmentFillingStates[0] = enrichment_filling_value;
       enrichment_load_values_counter = 0;
     }
 
     min = enrichmentLoadStates[enrichment_load_values_count - 1];
     max = enrichmentLoadStates[0];
-
     enrichment_load_value_start = min;
     enrichment_load_diff = max - min;
+
+    min = enrichmentFillingStates[enrichment_load_values_count - 1];
+    max = enrichmentFillingStates[0];
+    enrichment_filling_diff = max - min;
 
     enrichment_lpf = diff / enrichment_detect_duration;
     enrichment_load_derivative = enrichment_load_diff / enrichment_lpf;
@@ -1993,6 +2009,7 @@ static void ecu_update(void)
       enrichment_load_derivative_accept = enrichment_load_derivative;
       enrichment_load_derivative_final = enrichment_load_derivative;
       enrichment_load_value_start_accept = enrichment_load_value_start;
+      enrichment_filling_diff_accept = enrichment_filling_diff;
       enrichment_time_pass = 0;
       enrichment_halfturns = 0;
       enrichment_time_last = now;
@@ -2022,6 +2039,16 @@ static void ecu_update(void)
           enrichment_halfturns = 0;
         }
       }
+    }
+    if(enrichment_triggered) {
+      enrichment_blending = enrichment_load_derivative_final / enrichment_load_derivative_accept;
+      if(enrichment_blending == enrichment_blending) {
+        enrichment_blending = CLAMP(enrichment_blending, 0.0f, 1.0f);
+      } else {
+        enrichment_blending = 0.0f;
+      }
+    } else {
+      enrichment_blending = 0.0f;
     }
 
     enleanment_load_diff = min - max;
@@ -2062,14 +2089,19 @@ static void ecu_update(void)
       }
     }
 
+    enrichment_by_filling = enrichment_filling_diff_accept * enrichment_blending;
+
     ipEnrLoadStart = ecu_interpolate_input_u8(enrichment_load_value_start_accept, table->enrichment_rate_start_load, TABLE_ENRICHMENT_PERCENTS, &table->transform.enrichment_rate_start_load);
     ipEnrLoadDeriv = ecu_interpolate_input_u8(enrichment_load_derivative_final, table->enrichment_rate_load_derivative, TABLE_ENRICHMENT_PERCENTS, &table->transform.enrichment_rate_load_derivative);
 
     ipEnrLoadStart.mult = CLAMP(ipEnrLoadStart.mult, 0.0f, 1.0f);
     ipEnrLoadDeriv.mult = CLAMP(ipEnrLoadDeriv.mult, 0.0f, 1.0f);
 
-    enrichment_rate = ecu_interpolate_2d_limit_u8(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS, table->enrichment_rate, &table->transform.enrichment_rate);
+    enrichment_by_rate = ecu_interpolate_2d_limit_u8(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS, table->enrichment_rate, &table->transform.enrichment_rate);
     enrichment_tps_selection = ecu_interpolate_2d_limit_u8(ipEnrLoadDeriv, ipEnrLoadStart, TABLE_ENRICHMENT_PERCENTS, table->enrichment_tps_selection, &table->transform.enrichment_tps_selection);
+
+    enrichment_rate = enrichment_by_rate * enrichment_by_rate_amount;
+    enrichment_rate += enrichment_by_filling * enrichment_by_filling_amount;
     enrichment_rate *= enrichment_temp_mult;
 
     if(!running) {
@@ -2087,6 +2119,8 @@ static void ecu_update(void)
       enrichment_amount_async = ecu_interpolate_1d_u8(ipRpm16, table->enrichment_async_amount, &table->transform.enrichment_async_amount);
       enrichment_amount_async *= enrichment_rate;
     }
+
+
   } else {
     enleanment_load_derivative_final = 0;
     enrichment_amount_sync = 0;
@@ -2097,6 +2131,8 @@ static void ecu_update(void)
     enrichment_triggered_async = 0;
     enrichment_async_last = now;
     enleanment_triggered = 0;
+    enrichment_by_rate_amount = 0;
+    enrichment_by_filling_amount = 0;
   }
 
   enrichment_result = enrichment_amount_sync + enrichment_amount_async;
