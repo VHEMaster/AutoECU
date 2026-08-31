@@ -443,6 +443,10 @@ int main(void)
 
   SystemClock_Config();
 
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_BKPSRAM_CLK_ENABLE();
+  HAL_PWREx_EnableBkUpReg();
+
   MX_GPIO_Init();
 
   MX_DMA_Init();
@@ -480,10 +484,6 @@ int main(void)
 #ifndef SIMULATION
   __HAL_DBGMCU_UNFREEZE_TIM9();
 #endif
-
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_BKPSRAM_CLK_ENABLE();
-  HAL_PWREx_EnableBkUpReg();
 
   MX_IWDG_Init();
 
@@ -605,10 +605,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
    * in the RCC_OscInitTypeDef structure.
    */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI |
-      RCC_OSCILLATORTYPE_LSE | RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -1580,7 +1578,7 @@ static void MX_RTC_Init(void)
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = { 0 };
 
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-  PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+  PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -1591,7 +1589,7 @@ static void MX_RTC_Init(void)
   hrtc.Instance = RTC;
   hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
   hrtc.Init.AsynchPrediv = 127;
-  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.SynchPrediv = 249;
   hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
   hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
   hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
