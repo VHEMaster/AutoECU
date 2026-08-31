@@ -446,7 +446,7 @@ int main(void)
   MX_GPIO_Init();
 
   MX_DMA_Init();
-  MX_RTC_Init();
+  //MX_RTC_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
@@ -526,14 +526,14 @@ int main(void)
           PK_ECU_TxQueueBuffers[i], ITEMSOF(PK_ECU_TxQueueBuffers[i]),
           PK_ECU_TxSendingBuffers[i], ITEMSOF(PK_ECU_TxSendingBuffers[i]));
 
-  adc_register(AdcChKnock,                    ADC_RANGE_0P1250, 1.0f, ADC_FILTER_DISABLE);
-  adc_register(AdcChAirTemperature,           ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
-  adc_register(AdcChEngineTemperature,        ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
-  adc_register(AdcChManifoldAbsolutePressure, ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
-  adc_register(AdcChThrottlePosition,         ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChKnock,                    ADC_RANGE_0P2500, 1.0f, ADC_FILTER_DISABLE);
+  adc_register(AdcChAirTemperature,           ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChEngineTemperature,        ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChManifoldAbsolutePressure, ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChThrottlePosition,         ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
   adc_register(AdcChPowerVoltage,             ADC_RANGE_0P2500, 2.0f, ADC_FILTER_ENABLE);
-  adc_register(AdcChO2UR,                     ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
-  adc_register(AdcChO2UA,                     ADC_RANGE_0P1250, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChO2UR,                     ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
+  adc_register(AdcChO2UA,                     ADC_RANGE_0P2500, 1.0f, ADC_FILTER_ENABLE);
   adc_register(AdcMcuChReferenceVoltage,      MCU_RANGE_DIRECT, 2.0f, ADC_FILTER_ENABLE);
 
   adc_init(&hspi1, &hadc1);

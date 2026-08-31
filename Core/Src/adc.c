@@ -13,7 +13,8 @@
 #define SPI_NSS_ON() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_RESET)
 #define SPI_NSS_OFF() HAL_GPIO_WritePin(SPI1_NSS_ADC_GPIO_Port, SPI1_NSS_ADC_Pin, GPIO_PIN_SET)
 
-#define ADC_VREF          4.096f
+//IMPORTANT! Original ADC VREF is 4.096V but on current HW it was damaged somehow so reference voltage is shifted
+#define ADC_VREF          3.78f
 #define MCU_VREF          3.30f
 
 #define ADC_CHANNELS      8
