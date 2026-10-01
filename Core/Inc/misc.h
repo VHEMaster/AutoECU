@@ -20,8 +20,16 @@ typedef enum {
 typedef enum {
   O2AmplificationFactor8 = 0,
   O2AmplificationFactor17 = 1,
-  O2AmplificationFactorCount,
+  O2AmplificationFactorCount
 }eO2AmplificationFactor;
+
+typedef enum {
+  O2PumpReferenceCurrentNone = 0x00,
+  O2PumpReferenceCurrent10uA = 0x01,
+  O2PumpReferenceCurrent20uA = 0x02,
+  O2PumpReferenceCurrent40uA = 0x04,
+  O2PumpReferenceCurrent80uA = 0x08
+}eO2PumpReferenceCurrent;
 
 typedef enum {
   LambdaStateInitial = 0,
@@ -29,7 +37,7 @@ typedef enum {
   LambdaStateDiagCheck,
   LambdaStatePollCalibrate,
   LambdaStateSetCalibrate,
-  LambdaStatePollEnable,
+  LambdaStatePollHold,
   LambdaStatePollPumpReset,
   LambdaStateWaitToHeat,
   LambdaStateHeating,
@@ -49,6 +57,7 @@ typedef struct {
     float LambdaAdcLpf;
     volatile uint8_t Valid;
     eO2AmplificationFactor AmplificationFactor;
+    uint8_t Enscun;
     uint8_t PumpReferenceCurrent;
     uint8_t Available;
     uint8_t Working;
