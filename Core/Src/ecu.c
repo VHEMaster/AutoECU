@@ -5033,32 +5033,38 @@ static void ecu_mem_process(void)
 
 static void ecu_mem_loop(void)
 {
-  int8_t flashstatus = 0;
+  static int8_t flashstatus = 0;
 
   if(Mem.issaving)
   {
-    flashstatus = config_save_all(&gEcuParams, &gEcuCorrections, gEcuTable, TABLE_SETUPS);
+    if(!flashstatus)
+      flashstatus = config_save_all(&gEcuParams, &gEcuCorrections, gEcuTable, TABLE_SETUPS);
     if(flashstatus)
     {
       PK_SaveConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
-      PK_SendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge));
+      if(PK_TrySendCommand(Mem.savereqsrc, &PK_SaveConfigAcknowledge, sizeof(PK_SaveConfigAcknowledge)) == 0)
+        return;
       gStatus.Flash.Struct.Save = flashstatus > 0 ? HAL_OK : HAL_ERROR;
       Mem.issaving = 0;
       Mem.savereq = 0;
       Mem.lock = 0;
+      flashstatus = 0;
     }
   }
   else if(Mem.isloading)
   {
-    flashstatus = config_load_all(&gEcuParams, gEcuTable, TABLE_SETUPS);
+    if(!flashstatus)
+      flashstatus = config_load_all(&gEcuParams, gEcuTable, TABLE_SETUPS);
     if(flashstatus)
     {
       PK_RestoreConfigAcknowledge.ErrorCode = flashstatus > 0 ? 0 : 1;
-      PK_SendCommand(Mem.loadreqsrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge));
+      if(PK_TrySendCommand(Mem.loadreqsrc, &PK_RestoreConfigAcknowledge, sizeof(PK_RestoreConfigAcknowledge)) == 0)
+        return;
       gStatus.Flash.Struct.Load = flashstatus > 0 ? HAL_OK : HAL_ERROR;
       Mem.isloading = 0;
       Mem.loadreq = 0;
       Mem.lock = 0;
+      flashstatus = 0;
     }
   }
 }
