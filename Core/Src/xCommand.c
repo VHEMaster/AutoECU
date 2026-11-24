@@ -410,7 +410,7 @@ STATIC_INLINE void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 protPull(xFifo, &header[aCount]);
 
               taskENTER_CRITICAL();
-              if(hDest->NeedAckPacket && hDest->NeededAckPacketId != 0 && hDest->NeededAckPacketId == xPacketId && !hDest->ReceivedAckPacket)
+              if(hDest->NeedAckPacket && hDest->TxDest == xChaSrc && hDest->NeededAckPacketId != 0 && hDest->NeededAckPacketId == xPacketId && !hDest->ReceivedAckPacket)
               {
                 hDest->ReceivedAckPacket = 1;
               }
@@ -729,9 +729,9 @@ void xGetterLoop(void)
           if(length > 0)
           {
             CacheInvalidate(handle->BufRx, UART_DMA_BUFFER);
-            for(i=0;i<length;i++)
+            for(uint32_t j=0;j<length;j++)
             {
-              tempbuffer[i] = handle->BufRx[dmasize-handle->RxPointer];
+              tempbuffer[j] = handle->BufRx[dmasize-handle->RxPointer];
               if(handle->RxPointer == 1) handle->RxPointer = dmasize;
               else handle->RxPointer--;
             }

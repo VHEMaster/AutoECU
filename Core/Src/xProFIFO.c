@@ -14,7 +14,7 @@ STATIC_INLINE int infoGetSize(sProInfo* info) {
     else return (info->capacity - info->read + info->write);
 }
 
-STATIC_INLINE uint32_t infoGetAvail(sProInfo* info) { return info->capacity-infoGetSize(info); }
+STATIC_INLINE uint32_t infoGetAvail(sProInfo* info) { return info->capacity-infoGetSize(info)-1u; }
 STATIC_INLINE uint32_t infoCorrect(sProInfo* info, uint32_t* param, uint32_t move) { return ((*param + move) % info->capacity); }
 STATIC_INLINE void infoMovePar(sProInfo* info, uint32_t* param, uint32_t move) { *param = (uint32_t)infoCorrect(info,param,move); }
 STATIC_INLINE uint8_t infoIsSome(sProInfo* info) { return info->read != info->write; }
@@ -83,6 +83,10 @@ STATIC_INLINE uint32_t interPull(sProFIFO* fifo, void* xDest) {
 
 STATIC_INLINE uint32_t interPushSequence(sProFIFO* fifo, const void* xData, uint32_t xCount) {
     uint32_t retval = 0; uint32_t i;
+    if(xCount > infoGetAvail(&fifo->info)) {
+        fifo->info.overflow = 1;
+        return 0;
+    }
     for (i=0; i<xCount; i++) {
         if (!(retval = interPush(fifo, (void*)((uint32_t)xData + i * fifo->info.elemsize)))) { break; }
     }
